@@ -7,4 +7,10 @@
     <string name="cd_secure_connection">Secure connection</string>
     <string name="page_crashed_title">This page crashed</string>
     <string name="page_crashed_reload">Reload page</string>
+    <string name="action_back">Back</string>
+    <string name="action_forward">Forward</string>
+    <string name="action_more">More options</string>
+    <string name="action_expand_bar">Show address bar</string>
+    <string name="menu_use_classic_bar">Use classic address bar</string>
+    <string name="menu_use_compact_bar">Use compact address bar</string>
 </resources>

@@ -22,3 +22,10 @@ android {
 kotlin {
     jvmToolchain(21)
 }
+
+dependencies {
+    api(libs.kotlinx.coroutines.core)
+    implementation(libs.datastore.preferences)
+
+    testImplementation(libs.kotlin.test.junit)
+}

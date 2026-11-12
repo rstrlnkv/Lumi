@@ -24,8 +24,10 @@ internal class PageStateStore {
 
     fun canGoBackChanged(value: Boolean) = mutable.update { if (it.isCrashed) it else it.copy(canGoBack = value) }
 
+    fun canGoForwardChanged(value: Boolean) = mutable.update { if (it.isCrashed) it else it.copy(canGoForward = value) }
+
     fun crashed() = mutable.update {
-        it.copy(isCrashed = true, isLoading = false, progress = 0, canGoBack = false)
+        it.copy(isCrashed = true, isLoading = false, progress = 0, canGoBack = false, canGoForward = false)
     }
 
     fun recovering() = mutable.update { it.copy(isCrashed = false) }

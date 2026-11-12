@@ -6,5 +6,6 @@ data class PageState(
     val isLoading: Boolean = false,
     val progress: Int = 0, // 0..100
     val canGoBack: Boolean = false,
+    val canGoForward: Boolean = false,
     val isCrashed: Boolean = false,
 )

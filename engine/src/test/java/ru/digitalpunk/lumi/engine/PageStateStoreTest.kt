@@ -80,4 +80,21 @@ class PageStateStoreTest {
         store.pageStarted("https://a.com")
         assertFalse(state.isCrashed)
     }
+
+    @Test fun canGoForwardIsSetFromDelegate() {
+        store.canGoForwardChanged(true)
+        assertTrue(state.canGoForward)
+    }
+
+    @Test fun canGoForwardIsIgnoredWhileCrashed() {
+        store.crashed()
+        store.canGoForwardChanged(true)
+        assertFalse(state.canGoForward)
+    }
+
+    @Test fun crashResetsCanGoForward() {
+        store.canGoForwardChanged(true)
+        store.crashed()
+        assertFalse(state.canGoForward)
+    }
 }

@@ -5,45 +5,149 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.only
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import ru.digitalpunk.lumi.R
+import ru.digitalpunk.lumi.data.AddressBarStyle
+import ru.digitalpunk.lumi.data.SettingsStore
 import ru.digitalpunk.lumi.engine.BrowserEngine
+import ru.digitalpunk.lumi.engine.PageTouchInfo
+import ru.digitalpunk.lumi.engine.PageTouchListener
+import ru.digitalpunk.lumi.gesture.BarGeometry
+import ru.digitalpunk.lumi.gesture.PageGestureTracker
+import ru.digitalpunk.lumi.gesture.pullFraction
+import kotlin.math.roundToInt
 
+private val TouchSlop = 8.dp
+private const val MIN_REFRESH_MILLIS = 600L
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrowserScreen(engine: BrowserEngine) {
+fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore) {
     val state by engine.state.collectAsStateWithLifecycle()
-    BackHandler(enabled = state.canGoBack) { engine.goBack() }
+    val style by settings.addressBarStyle.collectAsStateWithLifecycle<AddressBarStyle?>(null)
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    var editing by remember { mutableStateOf(false) }
+    BackHandler(enabled = state.canGoBack && !editing) { engine.goBack() }
 
-    Column(Modifier.fillMaxSize().imePadding()) {
-        Box(Modifier.weight(1f).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top))) {
+    // The bar slides off by `bar.hidden`; Gecko is told how much of the page bottom the bar covers.
+    val bar = remember(style) { BarController(scope) }
+    var expandedPx by remember(style) { mutableIntStateOf(0) }
+    val navInsetPx = WindowInsets.navigationBars.getBottom(density)
+    val collapsedPx = with(density) {
+        CollapsedStripHeight.toPx()
+    } + navInsetPx
+    LaunchedEffect(bar, expandedPx, collapsedPx) {
+        if (expandedPx == 0) return@LaunchedEffect
+        bar.setMax(BarGeometry.maxHidden(expandedPx.toFloat(), collapsedPx))
+        engine.setBarMaxHeight(expandedPx)
+        snapshotFlow { BarGeometry.clipping(expandedPx.toFloat(), bar.hidden).roundToInt() }
+            .distinctUntilChanged()
+            .collect(engine::setBarVisibleHeight)
+    }
+    val fullyCollapsed by remember(bar) { derivedStateOf { bar.isCollapsed } }
+    // A bar that is slid away comes back when typing starts, the page crashes or another page loads.
+    LaunchedEffect(editing, state.isCrashed, state.url) { bar.expand() }
+
+    // Pull to refresh: the engine reports the finger, the tracker decides, nothing here scrolls.
+    val pullState = rememberPullToRefreshState()
+    var refreshing by remember { mutableStateOf(false) }
+    val current by rememberUpdatedState(state)
+    LaunchedEffect(refreshing) {
+        if (!refreshing) return@LaunchedEffect
+        delay(MIN_REFRESH_MILLIS)
+        snapshotFlow { current }.first { !it.isLoading || it.isCrashed }
+        refreshing = false
+        pullState.animateToHidden()
+    }
+    val thresholdPx = with(density) { PullToRefreshDefaults.PositionalThreshold.toPx() }
+    val tracker = remember(bar, thresholdPx) {
+        PageGestureTracker(
+            slopPx = with(density) { TouchSlop.toPx() },
+            pullThresholdPx = thresholdPx,
+            isBarExpanded = { bar.isExpanded },
+            sink = object : PageGestureTracker.Sink {
+                override fun barDrag(dy: Float) = bar.drag(dy)
+                override fun barRelease() = bar.settle()
+                override fun pull(distancePx: Float) {
+                    scope.launch { pullState.snapTo(pullFraction(distancePx, thresholdPx)) }
+                }
+
+                override fun pullRelease(refresh: Boolean) {
+                    scope.launch {
+                        if (refresh) {
+                            refreshing = true
+                            engine.reload()
+                            pullState.animateToThreshold()
+                        } else {
+                            pullState.animateToHidden()
+                        }
+                    }
+                }
+            },
+        )
+    }
+    DisposableEffect(tracker) {
+        engine.pageTouchListener = object : PageTouchListener {
+            override fun onTouchDown() = tracker.down()
+            override fun onTouchDownResolved(info: PageTouchInfo) = tracker.resolved(info)
+            override fun onTouchMove(dyPx: Float) = tracker.move(dyPx)
+            override fun onTouchEnd(cancelled: Boolean) = tracker.end(cancelled)
+        }
+        onDispose { engine.pageTouchListener = null }
+    }
+
+    // The page fills the screen under the bar; only the keyboard shrinks it.
+    Box(Modifier.fillMaxSize().imePadding()) {
+        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top))) {
             AndroidView(
                 factory = { engine.createView(it) },
                 onRelease = { engine.releaseView(it) },
@@ -73,13 +177,31 @@ fun BrowserScreen(engine: BrowserEngine) {
                     Button(onClick = engine::reload) { Text(stringResource(R.string.page_crashed_reload)) }
                 }
             }
+            PullToRefreshDefaults.Indicator(state = pullState, isRefreshing = refreshing, modifier = Modifier.align(Alignment.TopCenter))
         }
-        AddressBar(
-            state = state,
-            onSubmit = engine::load,
-            onReload = engine::reload,
-            onStop = engine::stop,
-            modifier = Modifier.navigationBarsPadding(),
-        )
+
+        val barModifier = Modifier
+            .align(Alignment.BottomCenter)
+            .onSizeChanged { expandedPx = it.height }
+            .graphicsLayer { translationY = bar.hidden }
+        // Nothing to hide (not measured yet, or the keyboard is up): the bar stays fully shown.
+        val progress = { if (bar.maxHidden <= 0f) 0f else BarGeometry.progress(bar.hidden, bar.maxHidden) }
+        val switchStyle: () -> Unit = {
+            scope.launch {
+                settings.setAddressBarStyle(
+                    if (style == AddressBarStyle.Compact) AddressBarStyle.Classic else AddressBarStyle.Compact,
+                )
+            }
+        }
+        // Draw no bar until the stored style is known, so a Classic user never sees Compact first.
+        when (style) {
+            null -> Unit
+            AddressBarStyle.Compact -> CompactBar(
+                state, engine, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
+            )
+            AddressBarStyle.Classic -> ClassicBar(
+                state, engine, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
+            )
+        }
     }
 }

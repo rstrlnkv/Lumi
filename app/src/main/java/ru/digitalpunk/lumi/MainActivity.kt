@@ -25,7 +25,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             LumiTheme {
                 Surface(Modifier.fillMaxSize()) {
-                    BrowserScreen((application as LumiApplication).engine)
+                    val app = application as LumiApplication
+                    BrowserScreen(app.engine, app.settings)
                 }
             }
         }

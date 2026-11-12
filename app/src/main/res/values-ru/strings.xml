@@ -6,4 +6,10 @@
     <string name="cd_secure_connection">Защищённое соединение</string>
     <string name="page_crashed_title">Сбой страницы</string>
     <string name="page_crashed_reload">Обновить страницу</string>
+    <string name="action_back">Назад</string>
+    <string name="action_forward">Вперёд</string>
+    <string name="action_more">Ещё</string>
+    <string name="action_expand_bar">Показать адресную строку</string>
+    <string name="menu_use_classic_bar">Классическая адресная строка</string>
+    <string name="menu_use_compact_bar">Компактная адресная строка</string>
 </resources>
