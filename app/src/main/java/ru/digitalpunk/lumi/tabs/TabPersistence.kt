@@ -4,10 +4,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
+import ru.digitalpunk.lumi.data.tabs.StoredGroup
 import ru.digitalpunk.lumi.data.tabs.StoredTab
 import ru.digitalpunk.lumi.data.tabs.TabRepository
 import ru.digitalpunk.lumi.engine.BrowserEngine
+import ru.digitalpunk.lumi.engine.GroupId
 import ru.digitalpunk.lumi.engine.SavedTab
+import ru.digitalpunk.lumi.engine.TabGroup
 import ru.digitalpunk.lumi.engine.TabId
 
 private const val SAVE_DELAY_MILLIS = 2000L
@@ -30,8 +33,10 @@ class TabPersistence(
             val stored = repository.load()
             if (stored != null) {
                 engine.restoreTabs(
-                    stored.tabs.map { SavedTab(TabId(it.id), it.url, it.title, it.sessionState) },
+                    stored.tabs.map { SavedTab(TabId(it.id), it.url, it.title, it.sessionState, it.groupId?.let(::GroupId)) },
                     stored.selectedId?.let(::TabId),
+                    stored.groups.map { TabGroup(GroupId(it.id), it.name) },
+                    stored.currentGroupId?.let(::GroupId),
                 )
             }
             if (engine.tabs.value.tabs.isEmpty()) engine.newTab()
@@ -49,9 +54,11 @@ class TabPersistence(
         val snapshot = engine.saveSnapshot()
         val ok = repository.save(
             snapshot.tabs.map {
-                StoredTab(it.id.value, it.url, it.title, it.sessionState, stateChanged = snapshot.stateVersions[it.id] != savedVersions[it.id])
+                StoredTab(it.id.value, it.url, it.title, it.sessionState, stateChanged = snapshot.stateVersions[it.id] != savedVersions[it.id], groupId = it.groupId?.value)
             },
             snapshot.selected?.value,
+            snapshot.groups.map { StoredGroup(it.id.value, it.name) },
+            snapshot.currentGroup?.value,
         )
         if (ok) {
             savedVersions.clear()

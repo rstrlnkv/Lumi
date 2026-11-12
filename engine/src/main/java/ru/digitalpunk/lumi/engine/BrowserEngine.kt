@@ -55,11 +55,15 @@ class BrowserEngine(appContext: Context) {
     /** A fresh picture of a tab's page, after a load or on request ([captureSelected]). */
     val snapshots: SharedFlow<TabSnapshot> = mutableSnapshots
 
-    /** While the tab grid covers the page, no automatic snapshot is taken (the page is not on screen) and the page is hidden from accessibility services. */
+    /**
+     * While the tab grid covers the page, no automatic snapshot is taken (the page is not on screen) and the page is hidden from accessibility services.
+     * Closing the grid makes the group of the tab on screen the current group again, so a new tab opens next to it.
+     */
     var gridOpen = false
         set(value) {
             field = value
             view?.hideFromAccessibility(value)
+            if (!value) tabsStore.showSelectedGroup()
         }
 
     /** Bumped on every tab switch; a picture that was asked for under an older value is dropped. */
@@ -184,7 +188,7 @@ class BrowserEngine(appContext: Context) {
         enforceCap(tab)
     }
 
-    /** Opens a blank tab right after the selected one and selects it. */
+    /** Opens a blank tab in the current group and selects it: right after the selected tab if that is in the group, else after the group's last tab. */
     fun newTab(): TabId {
         val tab = Tab(TabId.random(), PageStateStore())
         records[tab.id] = tab
@@ -206,7 +210,7 @@ class BrowserEngine(appContext: Context) {
         mutableChanges.tryEmit(Unit)
     }
 
-    /** Selects the tab [offset] places away; false (nothing happens) at either end. */
+    /** Selects the tab [offset] places away inside the selected tab's group; false (nothing happens) at either end. */
     fun switchBy(offset: Int): Boolean {
         val next = tabsStore.neighbour(offset) ?: return false
         selectTab(next)
@@ -221,13 +225,47 @@ class BrowserEngine(appContext: Context) {
         tab.session?.close()
         live.remove(id)
         val wasLast = tabsStore.close(id)
+        if (!gridOpen) tabsStore.showSelectedGroup()
         if (wasLast) newTab() else selected?.takeIf { wasSelected }?.let(::show)
         mutableChanges.tryEmit(Unit)
         return wasLast
     }
 
+    /** Shows [group] in the tab grid (null is the shared list). Selects no tab; an unknown group is ignored. */
+    fun setCurrentGroup(group: GroupId?) {
+        tabsStore.setCurrentGroup(group)
+    }
+
+    /** The new group's id; null when the name is empty (after trimming) or taken, ignoring case. The current group does not change. */
+    fun createGroup(name: String): GroupId? = tabsStore.createGroup(name)?.also { mutableChanges.tryEmit(Unit) }
+
+    /** False for an unknown group, an empty name, or a name another group has. */
+    fun renameGroup(id: GroupId, name: String): Boolean = tabsStore.renameGroup(id, name).also { if (it) mutableChanges.tryEmit(Unit) }
+
+    /** Closes the group's tabs and removes it. True if a blank tab replaced everything, as for [closeTab]. */
+    fun deleteGroup(id: GroupId): Boolean {
+        if (tabs.value.groups.none { it.id == id }) return false
+        val wasSelected = tabs.value.tabs.any { it.id == tabs.value.selectedId && it.groupId == id }
+        if (wasSelected) view?.releaseSession()
+        tabsStore.idsIn(id).forEach { tabId ->
+            records.remove(tabId)?.session?.close()
+            live.remove(tabId)
+        }
+        val wasLast = tabsStore.deleteGroup(id)
+        if (!gridOpen) tabsStore.showSelectedGroup()
+        if (wasLast) newTab() else selected?.takeIf { wasSelected }?.let(::show)
+        mutableChanges.tryEmit(Unit)
+        return wasLast
+    }
+
+    /**
+     * Puts the tab in [group] (null is the shared list). False for an unknown tab or group, or when it is already there.
+     * Sessions are untouched, and if the selected tab moves the current group stays until the grid closes.
+     */
+    fun moveTab(id: TabId, group: GroupId?): Boolean = tabsStore.moveTab(id, group).also { if (it) mutableChanges.tryEmit(Unit) }
+
     /** Fills an engine that has no tabs yet. Only the selected tab gets a session now. */
-    fun restoreTabs(saved: List<SavedTab>, selected: TabId?) {
+    fun restoreTabs(saved: List<SavedTab>, selected: TabId?, groups: List<TabGroup> = emptyList(), currentGroup: GroupId? = null) {
         if (saved.isEmpty() || tabs.value.tabs.isNotEmpty()) return
         val safe = saved.map { it.sanitized() }
         safe.forEach {
@@ -236,7 +274,8 @@ class BrowserEngine(appContext: Context) {
                 serialized = stateVersion to it.sessionState
             }
         }
-        tabsStore.restore(safe.map { RestoredTab(it.id, it.url, it.title) }, selected)
+        tabsStore.restore(safe.map { RestoredTab(it.id, it.url, it.title, it.groupId) }, selected, groups, currentGroup)
+        tabsStore.showSelectedGroup()
         this.selected?.let(::show)
     }
 
@@ -251,9 +290,9 @@ class BrowserEngine(appContext: Context) {
             } else {
                 tab.sessionState?.toString().also { tab.serialized = tab.stateVersion to it }
             }
-            SavedTab(info.id, info.url, info.title, state)
+            SavedTab(info.id, info.url, info.title, state, info.groupId)
         }
-        return TabsSave(saved, list.selectedId, list.tabs.associate { it.id to records.getValue(it.id).stateVersion })
+        return TabsSave(saved, list.selectedId, list.tabs.associate { it.id to records.getValue(it.id).stateVersion }, list.groups, list.currentGroup)
     }
 
     /** Whether the page on screen is worth a picture: a live, loaded, uncrashed page, and the grid is not covering it. */

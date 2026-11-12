@@ -16,7 +16,7 @@
     <string name="menu_new_tab">New tab</string>
     <string name="action_switch_to_tab">Switch to %1$s</string>
     <string name="tab_untitled">New tab</string>
-    <string name="menu_all_tabs">All tabs · %1$d</string>
+    <string name="menu_all_tabs">Show tabs · %1$d</string>
     <string name="action_new_tab">New tab</string>
     <string name="action_done">Done</string>
     <string name="cd_tab_card">%1$s, tab %2$d of %3$d</string>
@@ -30,5 +30,33 @@
     <plurals name="tabs_button_cd">
         <item quantity="one">Tabs, %d open</item>
         <item quantity="other">Tabs, %d open</item>
+    </plurals>
+    <string name="group_tabs">Tabs</string>
+    <string name="group_chip_label" translatable="false">%1$s · %2$d</string>
+    <string name="action_new_group">New group</string>
+    <string name="action_rename_group">Rename group</string>
+    <string name="action_delete_group">Delete group</string>
+    <string name="action_rename">Rename</string>
+    <string name="group_create_title">New group</string>
+    <string name="group_rename_title">Rename group</string>
+    <string name="group_name_label">Group name</string>
+    <string name="group_name_error_duplicate">A group with this name already exists</string>
+    <string name="group_name_counter" translatable="false">%1$d/%2$d</string>
+    <string name="action_create">Create</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="group_delete_body">“%1$s” and its tabs will close. This can’t be undone.</string>
+    <string name="action_move_to_group">Move to group</string>
+    <string name="action_remove_from_group">Remove from group</string>
+    <string name="state_current_group">Current group</string>
+    <string name="snackbar_moved_to_group">Moved to “%1$s”</string>
+    <string name="snackbar_moved_to_tabs">Moved to Tabs</string>
+    <plurals name="cd_group_chip">
+        <item quantity="one">%1$s, %2$d tab</item>
+        <item quantity="other">%1$s, %2$d tabs</item>
+    </plurals>
+    <plurals name="group_delete_title">
+        <item quantity="one">Delete group and %d tab?</item>
+        <item quantity="other">Delete group and %d tabs?</item>
     </plurals>
 </resources>

@@ -11,4 +11,6 @@ data class TabEntity(
     val url: String,
     val title: String,
     val lastActiveAt: Long,
+    /** Null is the shared list. */
+    val groupId: String? = null,
 )

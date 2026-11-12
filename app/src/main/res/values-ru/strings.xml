@@ -15,7 +15,7 @@
     <string name="menu_new_tab">Новая вкладка</string>
     <string name="action_switch_to_tab">Перейти на вкладку: %1$s</string>
     <string name="tab_untitled">Новая вкладка</string>
-    <string name="menu_all_tabs">Все вкладки · %1$d</string>
+    <string name="menu_all_tabs">Показать вкладки · %1$d</string>
     <string name="action_new_tab">Новая вкладка</string>
     <string name="action_done">Готово</string>
     <string name="cd_tab_card">%1$s, вкладка %2$d из %3$d</string>
@@ -33,5 +33,35 @@
         <item quantity="few">Вкладки: %d открыты</item>
         <item quantity="many">Вкладки: %d открыто</item>
         <item quantity="other">Вкладки: %d открыто</item>
+    </plurals>
+    <string name="group_tabs">Вкладки</string>
+    <string name="action_new_group">Новая группа</string>
+    <string name="action_rename_group">Переименовать группу</string>
+    <string name="action_delete_group">Удалить группу</string>
+    <string name="action_rename">Переименовать</string>
+    <string name="group_create_title">Новая группа</string>
+    <string name="group_rename_title">Переименовать группу</string>
+    <string name="group_name_label">Название группы</string>
+    <string name="group_name_error_duplicate">Группа с таким названием уже есть</string>
+    <string name="action_create">Создать</string>
+    <string name="action_delete">Удалить</string>
+    <string name="action_cancel">Отмена</string>
+    <string name="group_delete_body">Группа «%1$s» и её вкладки закроются. Это нельзя отменить.</string>
+    <string name="action_move_to_group">Переместить в группу</string>
+    <string name="action_remove_from_group">Убрать из группы</string>
+    <string name="state_current_group">Текущая группа</string>
+    <string name="snackbar_moved_to_group">Перемещено в «%1$s»</string>
+    <string name="snackbar_moved_to_tabs">Перемещено во «Вкладки»</string>
+    <plurals name="cd_group_chip">
+        <item quantity="one">%1$s, %2$d вкладка</item>
+        <item quantity="few">%1$s, %2$d вкладки</item>
+        <item quantity="many">%1$s, %2$d вкладок</item>
+        <item quantity="other">%1$s, %2$d вкладки</item>
+    </plurals>
+    <plurals name="group_delete_title">
+        <item quantity="one">Удалить группу и %d вкладку?</item>
+        <item quantity="few">Удалить группу и %d вкладки?</item>
+        <item quantity="many">Удалить группу и %d вкладок?</item>
+        <item quantity="other">Удалить группу и %d вкладки?</item>
     </plurals>
 </resources>

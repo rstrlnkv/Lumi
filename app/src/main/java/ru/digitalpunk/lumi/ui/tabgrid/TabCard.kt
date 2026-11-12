@@ -3,7 +3,7 @@ package ru.digitalpunk.lumi.ui.tabgrid
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,12 +29,17 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -47,12 +52,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ru.digitalpunk.lumi.R
+import ru.digitalpunk.lumi.engine.GroupId
+import ru.digitalpunk.lumi.engine.TabGroup
 import ru.digitalpunk.lumi.engine.TabInfo
 import ru.digitalpunk.lumi.tabs.TabSnapshots
 
 private const val MIN_ALPHA = 0.4f
 
-/** One tab in the grid: swipe it sideways (or use the close button) to close it. */
+/** One tab in the grid: swipe it sideways (or use the close button) to close it; a long press opens the group menu. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TabCard(
@@ -61,8 +68,11 @@ fun TabCard(
     total: Int,
     selected: Boolean,
     snapshots: TabSnapshots,
+    groups: List<TabGroup>,
     onSelect: () -> Unit,
     onClose: () -> Unit,
+    onMove: (GroupId?) -> Unit,
+    onNewGroup: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val title = cardTitle(tab.title, tab.url, stringResource(R.string.tab_untitled))
@@ -74,6 +84,11 @@ fun TabCard(
     val description = stringResource(R.string.cd_tab_card, title, position, total)
     val current = stringResource(R.string.state_current_tab)
     val closeAction = stringResource(R.string.action_close_tab_custom)
+    val moveAction = stringResource(R.string.action_move_to_group)
+    val removeAction = stringResource(R.string.action_remove_from_group)
+    val haptic = LocalHapticFeedback.current
+    // 0: closed, 1: the menu, 2: the menu at its group list (opened from a TalkBack action).
+    var menu by remember { mutableIntStateOf(0) }
     SwipeToDismissBox(
         state = dismiss,
         backgroundContent = {},
@@ -88,14 +103,33 @@ fun TabCard(
                 }
                 .clip(shape)
                 .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                .clickable(onClick = onSelect)
+                .combinedClickable(
+                    onClick = onSelect,
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        menu = 1
+                    },
+                )
                 .semantics(mergeDescendants = true) {
                     contentDescription = description
                     if (selected) stateDescription = current
-                    customActions = listOf(CustomAccessibilityAction(closeAction) { onClose(); true })
+                    customActions = buildList {
+                        add(CustomAccessibilityAction(closeAction) { onClose(); true })
+                        add(CustomAccessibilityAction(moveAction) { menu = 2; true })
+                        if (showsRemoveFromGroup(tab.groupId)) add(CustomAccessibilityAction(removeAction) { onMove(null); true })
+                    }
                 },
         ) {
             CardContent(title, tab, snapshots, onClose)
+            CardMenu(
+                expanded = menu != 0,
+                startAtGroups = menu == 2,
+                tabGroup = tab.groupId,
+                groups = groups,
+                onDismiss = { menu = 0 },
+                onMove = onMove,
+                onNewGroup = onNewGroup,
+            )
             if (selected) {
                 Box(Modifier.matchParentSize().border(3.dp, MaterialTheme.colorScheme.primary, shape))
             }

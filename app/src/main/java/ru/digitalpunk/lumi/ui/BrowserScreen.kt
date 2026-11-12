@@ -70,6 +70,8 @@ import ru.digitalpunk.lumi.data.SettingsStore
 import ru.digitalpunk.lumi.engine.BrowserEngine
 import ru.digitalpunk.lumi.engine.PageTouchInfo
 import ru.digitalpunk.lumi.engine.PageTouchListener
+import ru.digitalpunk.lumi.engine.TabInfo
+import ru.digitalpunk.lumi.engine.neighbour
 import ru.digitalpunk.lumi.gesture.BarGeometry
 import ru.digitalpunk.lumi.gesture.PageGestureTracker
 import ru.digitalpunk.lumi.gesture.pullFraction
@@ -77,6 +79,7 @@ import ru.digitalpunk.lumi.tabs.TabSnapshots
 import ru.digitalpunk.lumi.ui.tabgrid.CloseEffect
 import ru.digitalpunk.lumi.ui.tabgrid.TabGrid
 import ru.digitalpunk.lumi.ui.tabgrid.closeEffect
+import ru.digitalpunk.lumi.ui.tabgrid.currentGroupTabCount
 import kotlin.math.roundToInt
 
 private val TouchSlop = 8.dp
@@ -172,13 +175,12 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
     }
 
     val untitled = stringResource(R.string.tab_untitled)
-    val selectedAt = tabsState.tabs.indexOfFirst { it.id == tabsState.selectedId }
-    fun hostAt(i: Int) = tabsState.tabs.getOrNull(i)?.let { displayUrl(it.url).text.ifEmpty { untitled } }
+    fun hostOf(tab: TabInfo?) = tab?.let { displayUrl(it.url).text.ifEmpty { untitled } }
     val tabActions = TabActions(
         selectedId = tabsState.selectedId,
-        count = tabsState.tabs.size,
-        prevHost = hostAt(selectedAt - 1),
-        nextHost = hostAt(selectedAt + 1),
+        count = currentGroupTabCount(tabsState),
+        prevHost = hostOf(tabsState.neighbour(-1)),
+        nextHost = hostOf(tabsState.neighbour(1)),
         newTab = {
             engine.newTab()
             editing = true
@@ -272,8 +274,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
             exit = fadeOut(tween(GRID_FADE_MILLIS)) + scaleOut(tween(GRID_FADE_MILLIS), targetScale = 0.96f),
         ) {
             TabGrid(
-                tabs = tabsState.tabs,
-                selectedId = tabsState.selectedId,
+                state = tabsState,
                 snapshots = snapshots,
                 onSelect = {
                     engine.selectTab(it)
@@ -291,6 +292,18 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
                     editing = true
                 },
                 onDone = { gridOpen = false },
+                onSelectGroup = engine::setCurrentGroup,
+                onCreateGroup = engine::createGroup,
+                onRenameGroup = engine::renameGroup,
+                onDeleteGroup = { id ->
+                    val replaced = engine.deleteGroup(id)
+                    if (closeEffect(replaced) == CloseEffect.LeaveGridForNewTab) {
+                        gridOpen = false
+                        editing = true
+                    }
+                    replaced
+                },
+                onMoveTab = engine::moveTab,
             )
         }
     }

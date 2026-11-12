@@ -17,9 +17,17 @@ data class StoredTab(
     val title: String,
     val sessionState: String?,
     val stateChanged: Boolean = true,
+    val groupId: String? = null,
 )
 
-data class StoredTabs(val tabs: List<StoredTab>, val selectedId: String?)
+data class StoredGroup(val id: String, val name: String)
+
+data class StoredTabs(
+    val tabs: List<StoredTab>,
+    val selectedId: String?,
+    val groups: List<StoredGroup> = emptyList(),
+    val currentGroupId: String? = null,
+)
 
 /** Tab rows in Room, session states as files (they are too big for a cursor window). */
 class TabRepository(
@@ -37,8 +45,10 @@ class TabRepository(
                 val rows = dao.tabs()
                 if (rows.isEmpty()) return@withLock null
                 StoredTabs(
-                    rows.map { StoredTab(it.id, it.url, it.title, stateFiles.read(it.id)?.decodeToString(), stateChanged = false) },
+                    rows.map { StoredTab(it.id, it.url, it.title, stateFiles.read(it.id)?.decodeToString(), stateChanged = false, groupId = it.groupId) },
                     dao.selectedTabId(),
+                    dao.groups().map { StoredGroup(it.id, it.name) },
+                    dao.currentGroupId(),
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Loading tabs failed", e)
@@ -48,16 +58,23 @@ class TabRepository(
     }
 
     /** Returns false when saving failed (the rows, or a state file that fits the limit); the caller tries again on the next change. */
-    suspend fun save(tabs: List<StoredTab>, selectedId: String?): Boolean = withContext(io) {
+    suspend fun save(
+        tabs: List<StoredTab>,
+        selectedId: String?,
+        groups: List<StoredGroup> = emptyList(),
+        currentGroupId: String? = null,
+    ): Boolean = withContext(io) {
         mutex.withLock {
             try {
                 val stamps = dao.tabs().associate { it.id to it.lastActiveAt }
                 dao.replaceAll(
                     tabs.mapIndexed { i, t ->
                         val stamp = if (t.id == selectedId) now() else stamps[t.id] ?: 0L
-                        TabEntity(t.id, i, t.url, t.title, stamp)
+                        TabEntity(t.id, i, t.url, t.title, stamp, t.groupId)
                     },
+                    groups.mapIndexed { i, g -> TabGroupEntity(g.id, g.name, i) },
                     selectedId,
+                    currentGroupId,
                 )
                 var allWritten = true
                 tabs.filter { it.stateChanged }.forEach { t ->
