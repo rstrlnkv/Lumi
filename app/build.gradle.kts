@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.compose.material.icons.core)
+    implementation(libs.biometric)
 
     testImplementation(libs.kotlin.test.junit)
 }

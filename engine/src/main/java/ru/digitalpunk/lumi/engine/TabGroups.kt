@@ -2,7 +2,7 @@ package ru.digitalpunk.lumi.engine
 
 /** The named groups in creation order and the group the tab grid shows (null is the shared list). Immutable. */
 internal data class TabGroups(val groups: List<TabGroup> = emptyList(), val current: GroupId? = null) {
-    private fun has(id: GroupId?) = id == null || groups.any { it.id == id }
+    private fun has(id: GroupId?) = id == null || id == PRIVATE_GROUP || groups.any { it.id == id }
 
     fun contains(id: GroupId) = groups.any { it.id == id }
 
@@ -27,10 +27,10 @@ internal data class TabGroups(val groups: List<TabGroup> = emptyList(), val curr
     fun setCurrent(id: GroupId?): TabGroups = if (has(id)) copy(current = id) else this
 
     companion object {
-        /** Drops groups with a blank name or a repeated id. */
+        /** Drops groups with a blank name, a repeated id or the private group's id. */
         fun restore(stored: List<TabGroup>): List<TabGroup> {
             val seen = HashSet<GroupId>()
-            return stored.filter { it.name.isNotBlank() && seen.add(it.id) }
+            return stored.filter { it.name.isNotBlank() && it.id != PRIVATE_GROUP && seen.add(it.id) }
         }
     }
 }

@@ -29,21 +29,23 @@ import androidx.compose.ui.unit.sp
 import ru.digitalpunk.lumi.R
 import ru.digitalpunk.lumi.address.SiteStatus
 import ru.digitalpunk.lumi.address.countLabel
+import ru.digitalpunk.lumi.privacy.LocalPrivateTab
 
-/** The icon for [site]; null for [SiteStatus.None], which shows nothing. */
+/** The icon for [site]; null for [SiteStatus.None], which shows nothing. A private tab shows the mask, but an http warning beats it. */
 @DrawableRes
-fun siteIcon(site: SiteStatus): Int? = when (site) {
+fun siteIcon(site: SiteStatus, isPrivate: Boolean = false): Int? = when (site) {
     SiteStatus.None -> null
-    is SiteStatus.Protected -> R.drawable.ic_shield
+    is SiteStatus.Protected -> if (isPrivate) R.drawable.ic_domino_mask else R.drawable.ic_shield
     SiteStatus.ProtectionOff -> R.drawable.ic_remove_moderator
     SiteStatus.Insecure -> R.drawable.ic_no_encryption
 }
 
 /** What TalkBack reads for [site]: on https the protection, then "Secure connection"; on http only that the connection is not secure. */
 @Composable
-fun siteDescription(site: SiteStatus): String {
+fun siteDescription(site: SiteStatus, isPrivate: Boolean = false): String {
     val secure = ". " + stringResource(R.string.cd_secure_connection)
-    return when (site) {
+    val prefix = if (isPrivate && site != SiteStatus.None) stringResource(R.string.cd_private_tab_prefix) else ""
+    return prefix + when (site) {
         SiteStatus.None -> ""
         is SiteStatus.Protected ->
             if (site.count > 0) pluralStringResource(R.plurals.cd_site_protection_blocked, site.count, site.count) + secure
@@ -56,8 +58,9 @@ fun siteDescription(site: SiteStatus): String {
 /** Shield and blocked count at the start of the address; a tap opens the protection sheet. [gap] is the space before the domain, inside the target. */
 @Composable
 fun SiteStatusButton(site: SiteStatus, gap: Dp, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val icon = siteIcon(site) ?: return
-    val description = siteDescription(site)
+    val isPrivate = LocalPrivateTab.current
+    val icon = siteIcon(site, isPrivate) ?: return
+    val description = siteDescription(site, isPrivate)
     val color = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         modifier

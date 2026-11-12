@@ -1,5 +1,7 @@
 package ru.digitalpunk.lumi.tabs
 
+import ru.digitalpunk.lumi.engine.isPrivate
+import ru.digitalpunk.lumi.engine.TabsState
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build
@@ -60,7 +62,7 @@ class TabSnapshots(
             engine.tabs.collect { state ->
                 // Empty means "not restored yet", not "everything closed".
                 if (state.tabs.isEmpty()) return@collect
-                val ids = state.tabs.mapTo(HashSet()) { it.id }
+                val ids = snapshotIds(state)
                 (live - ids).forEach {
                     cache.remove(it)
                     versions.remove(it)
@@ -114,3 +116,6 @@ class TabSnapshots(
         null
     }
 }
+
+/** The tabs that may have a snapshot: never a private one. */
+fun snapshotIds(state: TabsState): Set<TabId> = state.tabs.filterNot { it.isPrivate }.mapTo(HashSet()) { it.id }

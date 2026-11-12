@@ -21,10 +21,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -70,7 +73,17 @@ import ru.digitalpunk.lumi.address.siteStatus
 import ru.digitalpunk.lumi.data.AddressBarStyle
 import ru.digitalpunk.lumi.data.SettingsStore
 import ru.digitalpunk.lumi.engine.BrowserEngine
+import ru.digitalpunk.lumi.engine.PRIVATE_GROUP
 import ru.digitalpunk.lumi.engine.PageTouchInfo
+import ru.digitalpunk.lumi.engine.isPrivate
+import ru.digitalpunk.lumi.privacy.LocalPrivateTab
+import ru.digitalpunk.lumi.privacy.PrivateGate
+import ru.digitalpunk.lumi.privacy.PrivateLockScreen
+import ru.digitalpunk.lumi.privacy.SecureWindow
+import ru.digitalpunk.lumi.privacy.barScheme
+import ru.digitalpunk.lumi.privacy.needsSecureWindow
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import ru.digitalpunk.lumi.engine.PageTouchListener
 import ru.digitalpunk.lumi.engine.TabInfo
 import ru.digitalpunk.lumi.engine.neighbour
@@ -90,7 +103,7 @@ private const val MIN_REFRESH_MILLIS = 600L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: TabSnapshots) {
+fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: TabSnapshots, gate: PrivateGate) {
     val state by engine.state.collectAsStateWithLifecycle()
     val tabsState by engine.tabs.collectAsStateWithLifecycle()
     val style by settings.addressBarStyle.collectAsStateWithLifecycle<AddressBarStyle?>(null)
@@ -105,10 +118,37 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
     BackHandler(enabled = gridOpen) { gridOpen = false }
     LaunchedEffect(gridOpen) { engine.gridOpen = gridOpen }
 
+    // Private tabs: the bar turns dark, recents and screenshots go blank, and a private tab that was in front when
+    // Lumi locked waits behind the lock screen. Back there gives it up and opens the grid.
+    val selectedPrivate = tabsState.tabs.any { it.id == tabsState.selectedId && it.isPrivate }
+    val lockShown = tabsState.privateResume && !gridOpen
+    SecureWindow(needsSecureWindow(tabsState, gridOpen), darkBar = selectedPrivate && !gridOpen && !lockShown)
+    BackHandler(enabled = lockShown) {
+        engine.leavePrivate()
+        gridOpen = true
+    }
+    LaunchedEffect(lockShown) { if (lockShown) editing = false }
+    // One prompt per lock, on return to a private tab.
+    LaunchedEffect(tabsState.privateResume, gate.autoPromptPending) {
+        if (tabsState.privateResume && gate.autoPromptPending) {
+            gate.autoPromptPending = false
+            gate.requestUnlock()
+        }
+    }
+    val context = LocalContext.current
+    val noScreenLock = { Toast.makeText(context, R.string.private_needs_screen_lock, Toast.LENGTH_LONG).show() }
+    val newPrivateTab = {
+        gate.enter({
+            engine.newTab(private = true)
+            gridOpen = false
+            editing = true
+        }, noScreenLock)
+    }
+
     // The protection sheet is about the page on screen: it is kept for the tab it was opened on and goes when
     // another tab is selected, the grid opens or the page stops being a web site.
     // A crashed page shows no shield: nothing on screen is protected.
-    val site = if (state.isCrashed) SiteStatus.None else siteStatus(state.url, state.blockedTrackers, offHosts)
+    val site = if (state.isCrashed) SiteStatus.None else siteStatus(state.url, state.blockedTrackers, offHosts, selectedPrivate)
     val siteHost = siteKey(state.url)
     var protectionTab by rememberSaveable { mutableStateOf<String?>(null) }
     val showProtection = protectionTab != null && protectionTab == tabsState.selectedId?.value && !gridOpen && siteHost != null
@@ -199,6 +239,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
             engine.newTab()
             editing = true
         },
+        newPrivateTab = newPrivateTab,
         openGrid = {
             // A second request while the picture is being taken (or the grid is open) changes nothing.
             if (!capturing && !gridOpen) {
@@ -216,9 +257,18 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
         switchBy = { engine.switchBy(it) },
     )
 
+    // Private tabs that could not come back are told once, above the bar.
+    val snackbar = remember { SnackbarHostState() }
+    val droppedText = stringResource(R.string.private_tabs_dropped)
+    LaunchedEffect(gate) {
+        snapshotFlow { gate.dropNoticePending }.first { it }
+        gate.dropNoticePending = false
+        snackbar.showSnackbar(droppedText)
+    }
+
     // The page fills the screen under the bar; only the keyboard shrinks it.
     // While the grid covers them, the page and the bar are out of TalkBack and keyboard focus.
-    val hiddenBehindGrid = if (gridOpen) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false } else Modifier
+    val hiddenBehindGrid = if (gridOpen || lockShown) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false } else Modifier
     Box(Modifier.fillMaxSize().imePadding()) {
         Box(
             Modifier.fillMaxSize()
@@ -272,23 +322,31 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
             }
         }
         // Draw no bar until the stored style is known, so a Classic user never sees Compact first.
-        when (style) {
-            null -> Unit
-            AddressBarStyle.Compact -> CompactBar(
-                state, site, openProtection, engine, tabActions, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
-            )
-            AddressBarStyle.Classic -> ClassicBar(
-                state, site, openProtection, engine, tabActions, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
-            )
+        // A private tab's bar uses the fixed dark private scheme.
+        MaterialTheme(colorScheme = barScheme(MaterialTheme.colorScheme, selectedPrivate)) {
+            CompositionLocalProvider(LocalPrivateTab provides selectedPrivate) {
+                when (style) {
+                    null -> Unit
+                    AddressBarStyle.Compact -> CompactBar(
+                        state, site, openProtection, engine, tabActions, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
+                    )
+                    AddressBarStyle.Classic -> ClassicBar(
+                        state, site, openProtection, engine, tabActions, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
+                    )
+                }
+            }
         }
+
+        if (lockShown) PrivateLockScreen(tabsState.privateCount, onUnlock = { gate.requestUnlock() })
 
         if (showProtection) {
             val display = displayUrl(state.url)
             ProtectionSheet(
                 host = display.text,
-                site = site,
-                off = siteHost in offHosts,
+                trackers = state.blockedTrackers,
+                off = !selectedPrivate && siteHost in offHosts,
                 secure = display.isSecure,
+                private = selectedPrivate,
                 onToggle = { off ->
                     // The tab and site of the tap: the write can end after the user switched tab or page.
                     tabsState.selectedId?.let { tab ->
@@ -321,12 +379,19 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
                     }
                 },
                 onNewTab = {
-                    engine.newTab()
-                    gridOpen = false
-                    editing = true
+                    if (tabsState.currentGroup == PRIVATE_GROUP) {
+                        newPrivateTab()
+                    } else {
+                        engine.newTab()
+                        gridOpen = false
+                        editing = true
+                    }
                 },
                 onDone = { gridOpen = false },
-                onSelectGroup = engine::setCurrentGroup,
+                onSelectGroup = { group ->
+                    engine.setCurrentGroup(group)
+                    if (group == PRIVATE_GROUP && engine.tabs.value.privateLocked) gate.requestUnlock()
+                },
                 onCreateGroup = engine::createGroup,
                 onRenameGroup = engine::renameGroup,
                 onDeleteGroup = { id ->
@@ -338,8 +403,11 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
                     replaced
                 },
                 onMoveTab = engine::moveTab,
+                onUnlock = { gate.requestUnlock() },
             )
         }
+
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = with(density) { expandedPx.toDp() }))
     }
 }
 

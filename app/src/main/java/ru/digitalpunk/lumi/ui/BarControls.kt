@@ -99,7 +99,7 @@ fun FloatingCircle(modifier: Modifier = Modifier, content: @Composable () -> Uni
     ) { Box(contentAlignment = Alignment.Center) { content() } }
 }
 
-/** The More button and its menu: a new tab, all tabs (Compact only: Classic has the Tabs button), and switch the address-bar style. */
+/** The More button and its menu: a new tab, a new private tab, all tabs (Compact only: Classic has the Tabs button), and switch the address-bar style. */
 @Composable
 fun MoreMenu(style: AddressBarStyle, tabs: TabActions, onSwitchStyle: () -> Unit, modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
@@ -118,6 +118,13 @@ fun MoreMenu(style: AddressBarStyle, tabs: TabActions, onSwitchStyle: () -> Unit
                 onClick = {
                     open = false
                     tabs.newTab()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.menu_new_private_tab)) },
+                onClick = {
+                    open = false
+                    tabs.newPrivateTab()
                 },
             )
             if (style == AddressBarStyle.Compact) {

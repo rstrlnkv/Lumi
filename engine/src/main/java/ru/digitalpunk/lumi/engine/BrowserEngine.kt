@@ -18,6 +18,7 @@ import org.mozilla.geckoview.ContentBlocking
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
+import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoSession.PermissionDelegate.ContentPermission
 
 /**
@@ -26,7 +27,7 @@ import org.mozilla.geckoview.GeckoSession.PermissionDelegate.ContentPermission
  * session (see [liveSessionCap]); the others keep their last session state and wake up when selected.
  */
 class BrowserEngine(appContext: Context) {
-    private class Tab(val id: TabId, val page: PageStateStore) {
+    private class Tab(val id: TabId, val page: PageStateStore, val isPrivate: Boolean = false) {
         var session: GeckoSession? = null
 
         /** Last state from Gecko; null until the page reports one. */
@@ -196,6 +197,8 @@ class BrowserEngine(appContext: Context) {
      * already belong to the next page: allowed means protection off. True if it wrote the permission.
      */
     private fun Tab.applyProtection(onlyIfChanged: Boolean): Boolean {
+        // A private tab always runs strict, with no exceptions: nothing it does reaches the stored set or Gecko's permissions.
+        if (isPrivate) return false
         val permission = trackingPermission ?: return false
         val host = siteKey(permission.uri) ?: return false
         val value = if (host in offHosts) ContentPermission.VALUE_ALLOW else ContentPermission.VALUE_DENY
@@ -207,7 +210,7 @@ class BrowserEngine(appContext: Context) {
     /** Gives [tab] a session if it has none: its saved page, scroll and history, else its URL, else a blank page. */
     private fun ensureLive(tab: Tab): GeckoSession {
         tab.session?.let { return it }
-        val session = GeckoSession()
+        val session = if (tab.isPrivate) GeckoSession(GeckoSessionSettings.Builder().usePrivateMode(true).build()) else GeckoSession()
         attach(tab, session)
         session.open(runtime)
         tab.session = session
@@ -250,25 +253,64 @@ class BrowserEngine(appContext: Context) {
         enforceCap(tab)
     }
 
-    /** Opens a blank tab in the current group and selects it: right after the selected tab if that is in the group, else after the group's last tab. */
-    fun newTab(): TabId {
-        val tab = Tab(TabId.random(), PageStateStore())
+    /**
+     * Opens a blank tab and selects it: right after the selected tab if that is in the group, else after the group's last tab.
+     * A [private] tab goes to the private set; a normal one to the current group, or the shared list when that is the private set.
+     */
+    fun newTab(private: Boolean = false): TabId {
+        val tab = Tab(TabId.random(), PageStateStore(), private)
         records[tab.id] = tab
         cap = baseCap
         selected?.session?.setActive(false)
-        tabsStore.add(tab.id)
+        tabsStore.add(tab.id, private)
         show(tab)
         mutableChanges.tryEmit(Unit)
         return tab.id
     }
 
+    /** A private tab is not selected while the private tabs are locked. */
     fun selectTab(id: TabId) {
         val tab = records[id] ?: return
-        if (tab === selected) return
+        if (tab === selected || (tab.isPrivate && tabs.value.privateLocked)) return
         cap = baseCap
         selected?.session?.setActive(false)
         tabsStore.select(id)
         show(tab)
+        mutableChanges.tryEmit(Unit)
+    }
+
+    /** Runs a store change and puts the newly selected tab on screen if the selection moved. */
+    private fun followSelection(change: () -> Unit) {
+        val before = selected
+        change()
+        val now = selected
+        if (now !== before) {
+            before?.session?.setActive(false)
+            now?.let(::show)
+        }
+    }
+
+    /** Hides the private tabs (on leaving the app). A private tab in front gives way to the last normal tab. */
+    fun lockPrivate() = followSelection(tabsStore::lock)
+
+    /** Shows the private tabs again, after the person unlocked; the private tab that was in front comes back. */
+    fun unlockPrivate() = followSelection(tabsStore::unlock)
+
+    /** Gives up returning to the private tab that was in front; the current group becomes the selected tab's. */
+    fun leavePrivate() = tabsStore.leavePrivate()
+
+    /** Closes every private tab and its session without saving anything. */
+    fun dropPrivateTabs() {
+        val ids = tabsStore.privateIds()
+        if (ids.isEmpty()) return
+        if (selected?.isPrivate == true) view?.releaseSession()
+        ids.forEach { id ->
+            records.remove(id)?.session?.close()
+            live.remove(id)
+        }
+        val before = selected
+        tabsStore.dropPrivate()
+        if (selected !== before || before == null) selected?.let(::show)
         mutableChanges.tryEmit(Unit)
     }
 
@@ -341,26 +383,45 @@ class BrowserEngine(appContext: Context) {
         this.selected?.let(::show)
     }
 
-    /** Plain data for storage. Only tabs whose session state changed are serialized again. */
-    fun saveSnapshot(): TabsSave {
-        val list = tabs.value
-        val saved = list.tabs.map { info ->
-            val tab = records.getValue(info.id)
-            val cached = tab.serialized
-            val state = if (cached != null && cached.first == tab.stateVersion) {
-                cached.second
-            } else {
-                tab.sessionState?.toString().also { tab.serialized = tab.stateVersion to it }
+    /** Appends stored private tabs, locked and without sessions, after [restoreTabs]. Ids already in use are dropped. */
+    fun restorePrivateTabs(saved: List<SavedTab>) {
+        val safe = privateRestoreItems(saved, records.keys)
+        safe.forEach {
+            records[it.id] = Tab(it.id, PageStateStore(PageState(url = it.url)), isPrivate = true).apply {
+                storedState = it.sessionState
+                serialized = stateVersion to it.sessionState
             }
-            SavedTab(info.id, info.url, info.title, state, info.groupId)
         }
-        return TabsSave(saved, list.selectedId, list.tabs.associate { it.id to records.getValue(it.id).stateVersion }, list.groups, list.currentGroup)
+        followSelection { tabsStore.restorePrivate(safe.map { RestoredTab(it.id, it.url, it.title, PRIVATE_GROUP) }) }
     }
 
-    /** Whether the page on screen is worth a picture: a live, loaded, uncrashed page, and the grid is not covering it. */
+    /** The session state as text; only a state that changed since the last call is serialized again. */
+    private fun Tab.stateText(): String? {
+        val cached = serialized
+        return if (cached != null && cached.first == stateVersion) {
+            cached.second
+        } else {
+            sessionState?.toString().also { serialized = stateVersion to it }
+        }
+    }
+
+    private fun TabInfo.saved() = SavedTab(id, url, title, records.getValue(id).stateText(), groupId)
+
+    /** Plain data for storage: normal tabs only (see [plainSave]). Only tabs whose session state changed are serialized again. */
+    fun saveSnapshot(): TabsSave {
+        val list = tabs.value
+        val plain = plainSave(list.copy(tabs = tabsStore.allTabs()), tabsStore.lastNormal)
+        val saved = plain.tabs.map { it.saved() }
+        return TabsSave(saved, plain.selected, plain.tabs.associate { it.id to records.getValue(it.id).stateVersion }, list.groups, plain.currentGroup)
+    }
+
+    /** The private tabs, in order, for the encrypted store only; also while they are locked. */
+    fun savePrivateSnapshot(): PrivateSave = PrivateSave(privateTabsOf(tabsStore.allTabs()).map { it.saved() })
+
+    /** Whether the page on screen is worth a picture: a live, loaded, uncrashed normal page, and the grid is not covering it. A private tab never gets one. */
     private fun canCapture(tab: Tab): Boolean {
         val page = tab.page.state.value
-        return tab === selected && tab.session != null && !gridOpen && !page.isCrashed && !page.url.equals("about:blank", ignoreCase = true)
+        return tab === selected && !tab.isPrivate && tab.session != null && !gridOpen && !page.isCrashed && !page.url.equals("about:blank", ignoreCase = true)
     }
 
     /** Takes a picture of [tab] and publishes it on [snapshots]; [done] gets true if one was published. */
@@ -413,9 +474,10 @@ class BrowserEngine(appContext: Context) {
     /**
      * Turns protection for [host] off or back on. If [tab] still shows that site, Gecko is told through it and, if it is
      * still selected, the page loads again; a tab without the permission yet is corrected on its next location change.
-     * For normal tabs only; a private tab must not use it.
+     * A private tab is ignored: it always runs strict and writes nothing.
      */
     fun setProtectionOff(tab: TabId, host: String, off: Boolean) {
+        if (records[tab]?.isPrivate == true) return
         val key = siteKey("https://$host") ?: return
         if (off) offHosts.add(key) else offHosts.remove(key)
         val record = records[tab]?.takeIf { siteKey(it.page.state.value.url) == key } ?: return

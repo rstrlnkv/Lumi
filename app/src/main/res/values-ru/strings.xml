@@ -90,4 +90,30 @@
     <string name="protection_for_site">Защита на этом сайте</string>
     <string name="protection_on_body">Строгая: трекеры и реклама заблокированы</string>
     <string name="protection_off_body">Выключена: сайт может следить за вами</string>
+    <!-- Private tabs -->
+    <string name="group_private">Приватные</string>
+    <string name="cd_private_chip">Приватные вкладки</string>
+    <string name="menu_new_private_tab">Новая приватная вкладка</string>
+    <string name="action_new_private_tab">Новая приватная вкладка</string>
+    <plurals name="private_tab_count">
+        <item quantity="one">%d приватная вкладка</item>
+        <item quantity="few">%d приватные вкладки</item>
+        <item quantity="many">%d приватных вкладок</item>
+        <item quantity="other">%d приватной вкладки</item>
+    </plurals>
+    <string name="private_locked_title">Приватные вкладки заблокированы</string>
+    <plurals name="private_locked_body">
+        <item quantity="one">Разблокируйте, чтобы увидеть %d приватную вкладку.</item>
+        <item quantity="few">Разблокируйте, чтобы увидеть %d приватные вкладки.</item>
+        <item quantity="many">Разблокируйте, чтобы увидеть %d приватных вкладок.</item>
+        <item quantity="other">Разблокируйте, чтобы увидеть %d приватной вкладки.</item>
+    </plurals>
+    <string name="private_unlock">Разблокировать</string>
+    <string name="private_prompt_title">Разблокировать приватные вкладки</string>
+    <string name="private_prompt_use_pin">Ввести код блокировки</string>
+    <string name="private_tabs_dropped">Приватные вкладки закрыты: их не удалось восстановить</string>
+    <string name="private_empty_title">Нет приватных вкладок</string>
+    <string name="private_empty_body">Lumi не сохраняет cookie приватных вкладок, а сами вкладки хранит зашифрованными. Они блокируются, когда вы уходите из приложения.</string>
+    <string name="cd_private_tab_prefix">"Приватная вкладка. "</string>
+    <string name="private_needs_screen_lock">Чтобы использовать приватные вкладки, задайте блокировку экрана в настройках Android.</string>
 </resources>

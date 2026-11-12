@@ -27,13 +27,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import ru.digitalpunk.lumi.R
-import ru.digitalpunk.lumi.address.SiteStatus
+import ru.digitalpunk.lumi.address.TrackersRow
+import ru.digitalpunk.lumi.address.trackersRow
 
-/** Site protection for the page on screen: blocked trackers, the connection, and the per-site switch. [off] is the stored choice, also on http pages. */
+/**
+ * Site protection for the page on screen: blocked trackers, the connection, and the per-site switch. [off] is the stored
+ * choice, also on http pages; [trackers] is the real count on https and http alike. A [private] tab has no switch: it always runs strict.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProtectionSheet(host: String, site: SiteStatus, off: Boolean, secure: Boolean, onToggle: (off: Boolean) -> Unit, onDismiss: () -> Unit) {
-    val count = (site as? SiteStatus.Protected)?.count ?: 0
+fun ProtectionSheet(host: String, trackers: Int, off: Boolean, secure: Boolean, private: Boolean, onToggle: (off: Boolean) -> Unit, onDismiss: () -> Unit) {
+    val row = trackersRow(off, trackers)
     val colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp)) {
@@ -54,10 +58,10 @@ fun ProtectionSheet(host: String, site: SiteStatus, off: Boolean, secure: Boolea
                 },
                 headlineContent = {
                     Text(
-                        when {
-                            off -> stringResource(R.string.trackers_off)
-                            count == 0 -> stringResource(R.string.trackers_none)
-                            else -> pluralStringResource(R.plurals.trackers_blocked, count, count)
+                        when (row) {
+                            TrackersRow.Off -> stringResource(R.string.trackers_off)
+                            TrackersRow.None -> stringResource(R.string.trackers_none)
+                            is TrackersRow.Count -> pluralStringResource(R.plurals.trackers_blocked, row.count, row.count)
                         },
                     )
                 },
@@ -76,6 +80,7 @@ fun ProtectionSheet(host: String, site: SiteStatus, off: Boolean, secure: Boolea
                 supportingContent = { Text(stringResource(if (secure) R.string.connection_secure_body else R.string.connection_insecure_body)) },
                 colors = colors,
             )
+            if (private) return@Column
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             ListItem(
                 headlineContent = { Text(stringResource(R.string.protection_for_site)) },

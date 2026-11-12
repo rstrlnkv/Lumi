@@ -1,5 +1,6 @@
 package ru.digitalpunk.lumi.ui
 
+import android.view.inputmethod.EditorInfo
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,8 +32,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
@@ -41,7 +44,9 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.InterceptPlatformTextInput
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.PlatformTextInputMethodRequest
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -61,6 +66,7 @@ import ru.digitalpunk.lumi.address.editableUrl
 import ru.digitalpunk.lumi.address.resolveInput
 import ru.digitalpunk.lumi.data.AddressBarStyle
 import ru.digitalpunk.lumi.engine.PageState
+import ru.digitalpunk.lumi.privacy.LocalPrivateTab
 
 /** The address pill both bar styles share. Sizes and colours follow the design for [style]. */
 @Composable
@@ -106,33 +112,35 @@ fun AddressField(
                     }
                     BackHandler { focusManager.clearFocus() }
                     val hint = stringResource(R.string.address_hint)
-                    BasicTextField(
-                        state = text,
-                        textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        lineLimits = TextFieldLineLimits.SingleLine,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go, keyboardType = KeyboardType.Uri),
-                        onKeyboardAction = {
-                            resolveInput(text.text.toString(), debugPages = BuildConfig.DEBUG)?.let(onSubmit)
-                            focusManager.clearFocus()
-                        },
-                        decorator = { inner ->
-                            Box(Modifier.heightIn(min = 48.dp), contentAlignment = Alignment.CenterStart) {
-                                if (text.text.isEmpty()) {
-                                    Text(hint, style = textStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                inner()
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = startPadding)
-                            .semantics { contentDescription = hint }
-                            .focusRequester(focusRequester)
-                            .onFocusChanged {
-                                if (it.isFocused) hadFocus = true else if (hadFocus) onEditingChange(false)
+                    NoLearningInPrivateTab {
+                        BasicTextField(
+                            state = text,
+                            textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            lineLimits = TextFieldLineLimits.SingleLine,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go, keyboardType = KeyboardType.Uri),
+                            onKeyboardAction = {
+                                resolveInput(text.text.toString(), debugPages = BuildConfig.DEBUG)?.let(onSubmit)
+                                focusManager.clearFocus()
                             },
-                    )
+                            decorator = { inner ->
+                                Box(Modifier.heightIn(min = 48.dp), contentAlignment = Alignment.CenterStart) {
+                                    if (text.text.isEmpty()) {
+                                        Text(hint, style = textStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    inner()
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = startPadding)
+                                .semantics { contentDescription = hint }
+                                .focusRequester(focusRequester)
+                                .onFocusChanged {
+                                    if (it.isFocused) hadFocus = true else if (hadFocus) onEditingChange(false)
+                                },
+                        )
+                    }
                 } else {
                     val display = displayUrl(state.url)
                     val switchActions = listOfNotNull(
@@ -216,4 +224,23 @@ fun AddressField(
             }
         }
     }
+}
+
+/** In a private tab, asks the keyboard not to learn from what is typed (`IME_FLAG_NO_PERSONALIZED_LEARNING`). */
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun NoLearningInPrivateTab(content: @Composable () -> Unit) {
+    val isPrivate by rememberUpdatedState(LocalPrivateTab.current)
+    InterceptPlatformTextInput(
+        interceptor = { request, next ->
+            next.startInputMethod(
+                PlatformTextInputMethodRequest { info ->
+                    request.createInputConnection(info).also {
+                        if (isPrivate) info.imeOptions = info.imeOptions or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+                    }
+                },
+            )
+        },
+        content = content,
+    )
 }

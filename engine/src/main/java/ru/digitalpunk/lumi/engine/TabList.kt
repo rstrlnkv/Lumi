@@ -25,21 +25,22 @@ internal data class TabList(
 
     /**
      * Closing the selected tab selects the one that takes its place in its group, else the previous one there;
-     * if the group is now empty, the nearest shared tab, then any tab.
+     * if the group is now empty, the nearest shared tab, then any normal tab. [CloseResult.wasLast] is true when no
+     * normal tab is left: a private tab is never chosen for a closed normal one.
      */
     fun close(id: TabId): CloseResult {
         val at = ids.indexOf(id)
         if (at < 0) return CloseResult(this, wasLast = false)
         val rest = ids - id
+        val normalRest = rest.filter { groupOf[it] != PRIVATE_GROUP }
         val inGroup = idsIn(groupOf[id])
         val groupRest = inGroup - id
         val next = when {
             id != selected -> selected
-            rest.isEmpty() -> null
             groupRest.isNotEmpty() -> groupRest[inGroup.indexOf(id).coerceAtMost(groupRest.lastIndex)]
-            else -> nearest(rest.toSet(), at)
+            else -> nearest(normalRest.toSet(), at)
         }
-        return CloseResult(TabList(rest, next, groupOf - id), wasLast = rest.isEmpty())
+        return CloseResult(TabList(rest, next, groupOf - id), wasLast = normalRest.isEmpty())
     }
 
     /** The closest of [keep] to the place [at]: a shared tab before it, else a shared one after it, else any tab. */
@@ -49,17 +50,14 @@ internal data class TabList(
         return before.lastOrNull { it !in groupOf } ?: after.firstOrNull { it !in groupOf } ?: before.lastOrNull() ?: after.firstOrNull()
     }
 
-    /** Closes every tab of [group]. [CloseResult.wasLast] is true when nothing is left. */
+    /** Closes every tab of [group]. [CloseResult.wasLast] is true when no normal tab is left. */
     fun removeGroup(group: GroupId): CloseResult {
         val doomed = idsIn(group).toSet()
         if (doomed.isEmpty()) return CloseResult(this, wasLast = false)
         val rest = ids.filter { it !in doomed }
-        val next = when {
-            selected !in doomed -> selected
-            rest.isEmpty() -> null
-            else -> nearest(rest.toSet(), ids.indexOf(selected))
-        }
-        return CloseResult(TabList(rest, next, groupOf - doomed), wasLast = rest.isEmpty())
+        val normalRest = rest.filter { groupOf[it] != PRIVATE_GROUP }
+        val next = if (selected !in doomed) selected else nearest(normalRest.toSet(), ids.indexOf(selected))
+        return CloseResult(TabList(rest, next, groupOf - doomed), wasLast = normalRest.isEmpty())
     }
 
     /** Puts the tab in [group] (null is the shared list), after that group's last tab; into an empty group it keeps its place. */

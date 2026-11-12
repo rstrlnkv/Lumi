@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import ru.digitalpunk.lumi.R
 import ru.digitalpunk.lumi.address.SiteStatus
 import ru.digitalpunk.lumi.address.displayUrl
+import ru.digitalpunk.lumi.privacy.LocalPrivateTab
 
 /** Height of the visible strip or pill. */
 private val StripHeight: Dp = 32.dp
@@ -62,7 +63,7 @@ fun CollapsedStrip(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            siteIcon(site)?.let { icon ->
+            siteIcon(site, LocalPrivateTab.current)?.let { icon ->
                 Icon(
                     painterResource(icon),
                     // The strip is one "expand" target: the shield's long phrase is read on the expanded bar's button.

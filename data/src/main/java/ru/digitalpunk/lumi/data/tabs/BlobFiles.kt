@@ -34,9 +34,8 @@ class BlobFiles(private val dir: File, private val extension: String, val maxByt
         return file(id).takeIf { it.isFile && it.length() <= maxBytes }?.readBytes()
     }
 
-    fun delete(id: String) {
-        if (isSafe(id)) file(id).delete()
-    }
+    /** True when a file was there and is gone. */
+    fun delete(id: String): Boolean = isSafe(id) && file(id).delete()
 
     /** Deletes every `.<extension>` file whose key is not in [keep], and every `.<extension>.tmp` file. Other files stay. */
     fun sweep(keep: Set<String>) {

@@ -16,13 +16,18 @@ data class TabInfo(
 
 /**
  * An empty list means the tabs are not restored yet. [groups] are in creation order; [currentGroup] is the group the
- * tab grid shows (null is the shared list). Outside the grid it is the group of the selected tab.
+ * tab grid shows (null is the shared list, [PRIVATE_GROUP] the private tabs). Outside the grid it is the group of the selected tab.
+ * [privateCount] counts the private tabs even while [privateLocked] keeps them out of [tabs]; then [selectedId] is a
+ * normal tab, and [privateResume] says a private tab was in front when they locked and comes back on unlock.
  */
 data class TabsState(
     val tabs: List<TabInfo> = emptyList(),
     val selectedId: TabId? = null,
     val groups: List<TabGroup> = emptyList(),
     val currentGroup: GroupId? = null,
+    val privateCount: Int = 0,
+    val privateLocked: Boolean = false,
+    val privateResume: Boolean = false,
 )
 
 /** The tabs of [group] (null is the shared list), in order. */
@@ -44,6 +49,15 @@ internal class TabsStore {
     private val pages = HashMap<TabId, PageState>()
     private val titles = HashMap<TabId, String>()
 
+    /** A cold start is locked; the first private tab with none hidden unlocks without a prompt. */
+    private var locked = true
+    private var resume: TabId? = null
+    private var all: List<TabInfo> = emptyList()
+
+    /** The last normal tab that was selected; where a locked or saved private selection falls back to. */
+    var lastNormal: TabId? = null
+        private set
+
     private val mutableTabs = MutableStateFlow(TabsState())
     val tabs: StateFlow<TabsState> = mutableTabs.asStateFlow()
     private val mutableSelected = MutableStateFlow(PageState())
@@ -52,8 +66,22 @@ internal class TabsStore {
 
     private fun pageOf(id: TabId): PageState = pages[id] ?: PageState()
 
-    fun add(id: TabId) {
-        list = list.add(id, groups.current)
+    private fun isPrivate(id: TabId) = list.groupOf[id] == PRIVATE_GROUP
+
+    /** Every tab, private ones too even while locked. For the engine's save paths only. */
+    fun allTabs(): List<TabInfo> = all
+
+    fun privateIds(): List<TabId> = list.idsIn(PRIVATE_GROUP)
+
+    /** A private tab goes to the private set; a normal one to the current group, or the shared list from the private set. */
+    fun add(id: TabId, private: Boolean = false) {
+        if (private) {
+            if (privateIds().isEmpty()) locked = false
+        } else {
+            resume = null
+        }
+        list = list.add(id, if (private) PRIVATE_GROUP else groups.current.takeIf { it != PRIVATE_GROUP })
+        groups = groups.setCurrent(list.groupOf[list.selected])
         pages[id] = PageState()
         titles[id] = ""
         publish()
@@ -77,10 +105,70 @@ internal class TabsStore {
         publish()
     }
 
+    /** A private tab cannot be selected while locked; a normal one drops the pending private resume. */
     fun select(id: TabId) {
+        if (id in pages && isPrivate(id)) {
+            if (locked) return
+        } else {
+            resume = null
+        }
         list = list.select(id)
         groups = groups.setCurrent(list.groupOf[list.selected])
         publish()
+    }
+
+    /** Appends stored private tabs, locked, without selecting one; a private tab opened before them is locked too. */
+    fun restorePrivate(items: List<RestoredTab>) {
+        val fresh = items.filter { it.id !in pages }
+        fresh.forEach {
+            list = list.copy(ids = list.ids + it.id, groupOf = list.groupOf + (it.id to PRIVATE_GROUP))
+            pages[it.id] = PageState(url = it.url)
+            titles[it.id] = it.title
+        }
+        if (fresh.isNotEmpty()) lock() else publish()
+    }
+
+    /** Hides the private tabs; a private tab in front gives way to the last normal tab and comes back on [unlock]. */
+    fun lock() {
+        locked = true
+        val selected = list.selected
+        if (selected != null && isPrivate(selected)) {
+            resume = selected
+            val normal = lastNormal?.takeIf { it in pages && !isPrivate(it) } ?: list.ids.firstOrNull { !isPrivate(it) }
+            if (normal != null) list = list.select(normal)
+        }
+        publish()
+    }
+
+    fun unlock() {
+        locked = false
+        resume?.takeIf { it in pages }?.let {
+            list = list.select(it)
+            groups = groups.setCurrent(PRIVATE_GROUP)
+        }
+        resume = null
+        publish()
+    }
+
+    /** Gives up the pending private resume; the current group becomes the selected tab's. */
+    fun leavePrivate() {
+        resume = null
+        groups = groups.setCurrent(list.groupOf[list.selected])
+        publish()
+    }
+
+    /** Closes every private tab; their ids. */
+    fun dropPrivate(): List<TabId> {
+        val doomed = privateIds()
+        doomed.forEach { list = list.close(it).list }
+        doomed.forEach {
+            pages.remove(it)
+            titles.remove(it)
+        }
+        resume = null
+        if (groups.current == PRIVATE_GROUP) groups = groups.setCurrent(list.groupOf[list.selected])
+        publish()
+        return doomed
     }
 
     /** Makes the group of the selected tab the current one. */
@@ -124,9 +212,9 @@ internal class TabsStore {
         return result.wasLast
     }
 
-    /** False for an unknown tab or group, or when the tab is already there. */
+    /** False for an unknown tab or group, a private tab, or when the tab is already there. */
     fun moveTab(id: TabId, group: GroupId?): Boolean {
-        if (id !in pages || (group != null && !groups.contains(group))) return false
+        if (id !in pages || isPrivate(id) || (group != null && !groups.contains(group))) return false
         val moved = list.move(id, group)
         if (moved == list) return false
         list = moved
@@ -158,14 +246,21 @@ internal class TabsStore {
     }
 
     private fun publish() {
+        all = list.ids.map {
+            val page = pageOf(it)
+            TabInfo(it, titles[it].orEmpty(), page.url, page.isLoading, page.isCrashed, list.groupOf[it])
+        }
+        list.selected?.takeUnless(::isPrivate)?.let { lastNormal = it }
+        val count = all.count { it.isPrivate }
+        val hidden = locked && count > 0
         mutableTabs.value = TabsState(
-            list.ids.map {
-                val page = pageOf(it)
-                TabInfo(it, titles[it].orEmpty(), page.url, page.isLoading, page.isCrashed, list.groupOf[it])
-            },
+            if (hidden) all.filterNot { it.isPrivate } else all,
             list.selected,
             groups.groups,
             groups.current,
+            count,
+            hidden,
+            resume != null,
         )
         mutableSelected.value = list.selected?.let(::pageOf) ?: PageState()
     }

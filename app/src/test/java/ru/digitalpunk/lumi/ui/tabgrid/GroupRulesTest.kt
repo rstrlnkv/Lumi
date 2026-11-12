@@ -71,13 +71,14 @@ class GroupRulesTest {
         assertTrue(deleteNeedsConfirmation(1))
     }
 
-    @Test fun chipsListTheSharedListFirstThenGroupsEachWithItsCount() {
+    @Test fun chipsListTheSharedListAfterThePrivateChipThenGroupsEachWithItsCount() {
         fun info(id: String, g: GroupId?) = TabInfo(TabId(id), "", "", false, false, g)
         val state = TabsState(listOf(info("a", null), info("b", w.id), info("c", w.id)), TabId("a"), listOf(w, r), null)
         assertEquals(
             listOf(ChipModel(null, null, 1), ChipModel(w.id, "Work", 2), ChipModel(r.id, "Reading", 0)),
-            chips(state),
+            chips(state).drop(1),
         )
+        assertEquals(ChipKind.Private, chips(state).first().kind)
     }
 
     @Test fun chipFullyInsideTheViewportNeedsNoScroll() {

@@ -1,5 +1,6 @@
 package ru.digitalpunk.lumi.ui.tabgrid
 
+import ru.digitalpunk.lumi.engine.isPrivate
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -81,7 +82,7 @@ fun TabCard(
     LaunchedEffect(dismiss.currentValue) {
         if (dismiss.currentValue != SwipeToDismissBoxValue.Settled) onClose()
     }
-    val description = stringResource(R.string.cd_tab_card, title, position, total)
+    val description = (if (tab.isPrivate) stringResource(R.string.cd_private_tab_prefix) else "") + stringResource(R.string.cd_tab_card, title, position, total)
     val current = stringResource(R.string.state_current_tab)
     val closeAction = stringResource(R.string.action_close_tab_custom)
     val moveAction = stringResource(R.string.action_move_to_group)
@@ -105,9 +106,12 @@ fun TabCard(
                 .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                 .combinedClickable(
                     onClick = onSelect,
-                    onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        menu = 1
+                    // A private card has no menu: it can only be closed.
+                    onLongClick = if (tab.isPrivate) null else {
+                        {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            menu = 1
+                        }
                     },
                 )
                 .semantics(mergeDescendants = true) {

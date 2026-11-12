@@ -130,8 +130,9 @@ fun GroupChipsRow(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GroupChip(chip: ChipModel, selected: Boolean, onClick: () -> Unit, onRename: () -> Unit, onDelete: () -> Unit) {
-    val name = chip.name ?: stringResource(R.string.group_tabs)
-    val named = chip.group != null
+    val private = chip.kind == ChipKind.Private
+    val name = chip.name ?: stringResource(if (private) R.string.group_private else R.string.group_tabs)
+    val named = chip.kind == ChipKind.Named
     var menu by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     val timeout = LocalViewConfiguration.current.longPressTimeoutMillis
@@ -151,7 +152,12 @@ private fun GroupChip(chip: ChipModel, selected: Boolean, onClick: () -> Unit, o
             }
         }
     }
-    val description = pluralStringResource(R.plurals.cd_group_chip, chip.count, name, chip.count)
+    // The private count is read only while unlocked (it is 0 while locked), and never shown on the chip.
+    val description = if (private && chip.count == 0) {
+        stringResource(R.string.cd_private_chip)
+    } else {
+        pluralStringResource(R.plurals.cd_group_chip, chip.count, name, chip.count)
+    }
     val renameLabel = stringResource(R.string.action_rename_group)
     val deleteLabel = stringResource(R.string.action_delete_group)
     Box {
@@ -161,7 +167,7 @@ private fun GroupChip(chip: ChipModel, selected: Boolean, onClick: () -> Unit, o
                 if (longPressed) longPressed = false else onClick()
             },
             interactionSource = interactions,
-            label = { Text(stringResource(R.string.group_chip_label, name, chip.count), modifier = Modifier.clearAndSetSemantics {}) },
+            label = { Text(if (private) name else stringResource(R.string.group_chip_label, name, chip.count), modifier = Modifier.clearAndSetSemantics {}) },
             leadingIcon = if (selected) {
                 { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
             } else {

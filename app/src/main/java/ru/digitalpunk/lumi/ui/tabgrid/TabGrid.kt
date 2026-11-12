@@ -48,6 +48,11 @@ import androidx.compose.ui.unit.dp
 import ru.digitalpunk.lumi.R
 import kotlinx.coroutines.launch
 import ru.digitalpunk.lumi.engine.GroupId
+import ru.digitalpunk.lumi.engine.PRIVATE_GROUP
+import ru.digitalpunk.lumi.engine.isPrivate
+import ru.digitalpunk.lumi.privacy.PrivateEmptyColumn
+import ru.digitalpunk.lumi.privacy.PrivateLockColumn
+import ru.digitalpunk.lumi.privacy.barScheme
 import ru.digitalpunk.lumi.engine.TabGroup
 import ru.digitalpunk.lumi.engine.TabId
 import ru.digitalpunk.lumi.engine.TabsState
@@ -79,9 +84,13 @@ fun TabGrid(
     /** True if a blank tab replaced everything. */
     onDeleteGroup: (GroupId) -> Boolean,
     onMoveTab: (TabId, GroupId?) -> Boolean,
+    /** Asks for the system prompt; the Private chip shows the lock until it succeeds. */
+    onUnlock: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val tabs = state.tabsIn(state.currentGroup)
+    val privateChip = state.currentGroup == PRIVATE_GROUP
+    val locked = privateChip && state.privateLocked
     val count = currentGroupTabCount(state)
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -116,8 +125,12 @@ fun TabGrid(
             },
         )
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            // A new chip starts at the selected card (or the top) again.
-            key(state.currentGroup) {
+            if (locked) {
+                PrivateLockColumn(state.privateCount, onUnlock)
+            } else if (privateChip && tabs.isEmpty()) {
+                PrivateEmptyColumn(onNewTab)
+            } else key(state.currentGroup) {
+                // A new chip starts at the selected card (or the top) again.
                 val grid = rememberLazyGridState(initialFirstVisibleItemIndex = tabs.indexOfFirst { it.id == state.selectedId }.coerceAtLeast(0))
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 140.dp),
@@ -130,6 +143,8 @@ fun TabGrid(
                         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
                 ) {
                     itemsIndexed(tabs, key = { _, tab -> tab.id.value }) { index, tab ->
+                        // A private card is drawn in the fixed dark private scheme, in light and dark theme alike.
+                        MaterialTheme(colorScheme = barScheme(MaterialTheme.colorScheme, tab.isPrivate)) {
                         TabCard(
                             tab = tab,
                             position = index + 1,
@@ -143,6 +158,7 @@ fun TabGrid(
                             onNewGroup = { dialog = GroupDialog.Create(forTab = tab.id) },
                             modifier = Modifier.animateItem(),
                         )
+                        }
                     }
                 }
             }
@@ -159,13 +175,19 @@ fun TabGrid(
             ) {
                 IconButton(
                     onClick = onNewTab,
+                    enabled = !locked,
                     colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
                     modifier = Modifier.size(48.dp).align(Alignment.CenterStart),
                 ) {
-                    Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.action_new_tab))
+                    Icon(Icons.Filled.Add, contentDescription = stringResource(if (privateChip) R.string.action_new_private_tab else R.string.action_new_tab))
                 }
+                // While locked the toolbar shows no count.
                 Text(
-                    pluralStringResource(R.plurals.tab_count, count, count),
+                    when {
+                        locked -> ""
+                        privateChip -> pluralStringResource(R.plurals.private_tab_count, count, count)
+                        else -> pluralStringResource(R.plurals.tab_count, count, count)
+                    },
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.align(Alignment.Center),
