@@ -1,3 +1,9 @@
 <resources>
-    <string name="placeholder">Lumi в разработке.</string>
+    <string name="address_hint">Поиск или адрес</string>
+    <string name="action_edit_address">Изменить адрес</string>
+    <string name="action_reload">Обновить</string>
+    <string name="action_stop">Остановить загрузку</string>
+    <string name="cd_secure_connection">Защищённое соединение</string>
+    <string name="page_crashed_title">Сбой страницы</string>
+    <string name="page_crashed_reload">Обновить страницу</string>
 </resources>

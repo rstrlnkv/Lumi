@@ -1,4 +1,10 @@
 <resources>
     <string name="app_name" translatable="false">Lumi</string>
-    <string name="placeholder">Lumi is under construction.</string>
+    <string name="address_hint">Search or enter address</string>
+    <string name="action_edit_address">Edit address</string>
+    <string name="action_reload">Reload</string>
+    <string name="action_stop">Stop loading</string>
+    <string name="cd_secure_connection">Secure connection</string>
+    <string name="page_crashed_title">This page crashed</string>
+    <string name="page_crashed_reload">Reload page</string>
 </resources>

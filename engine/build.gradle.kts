@@ -25,5 +25,8 @@ kotlin {
 }
 
 dependencies {
-    api(libs.geckoview)
+    implementation(libs.geckoview)
+    api(libs.kotlinx.coroutines.core)
+
+    testImplementation(libs.kotlin.test.junit)
 }

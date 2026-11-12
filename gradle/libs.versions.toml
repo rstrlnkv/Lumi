@@ -4,6 +4,7 @@ agp = "9.5.1"
 composeBom = "2026.09.00"
 activityCompose = "1.13.0"
 lifecycle = "2.11.0"
+coroutines = "1.11.0"
 # Stable channel, updated about every 4 weeks for security fixes:
 # https://maven.mozilla.org/maven2/org/mozilla/geckoview/geckoview/maven-metadata.xml
 geckoview = "160.0.20261104181552"
@@ -14,6 +15,9 @@ compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-ui = { module = "androidx.compose.ui:ui" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
+compose-material-icons-core = { module = "androidx.compose.material:material-icons-core" }
 geckoview = { module = "org.mozilla.geckoview:geckoview", version.ref = "geckoview" }
 
 [plugins]

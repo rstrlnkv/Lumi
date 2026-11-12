@@ -20,6 +20,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     compileOptions {
@@ -53,4 +54,7 @@ dependencies {
     implementation(libs.compose.ui)
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.compose.material.icons.core)
+
+    testImplementation(libs.kotlin.test.junit)
 }
