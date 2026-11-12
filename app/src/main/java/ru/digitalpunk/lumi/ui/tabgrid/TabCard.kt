@@ -85,7 +85,7 @@ fun TabCard(
     val current = stringResource(R.string.state_current_tab)
     val closeAction = stringResource(R.string.action_close_tab_custom)
     val moveAction = stringResource(R.string.action_move_to_group)
-    val removeAction = stringResource(R.string.action_remove_from_group)
+    val moveToSharedAction = stringResource(R.string.action_move_to_tabs)
     val haptic = LocalHapticFeedback.current
     // 0: closed, 1: the menu, 2: the menu at its group list (opened from a TalkBack action).
     var menu by remember { mutableIntStateOf(0) }
@@ -113,10 +113,12 @@ fun TabCard(
                 .semantics(mergeDescendants = true) {
                     contentDescription = description
                     if (selected) stateDescription = current
-                    customActions = buildList {
-                        add(CustomAccessibilityAction(closeAction) { onClose(); true })
-                        add(CustomAccessibilityAction(moveAction) { menu = 2; true })
-                        if (showsRemoveFromGroup(tab.groupId)) add(CustomAccessibilityAction(removeAction) { onMove(null); true })
+                    customActions = cardActions(tab.groupId).map {
+                        when (it) {
+                            CardAction.Close -> CustomAccessibilityAction(closeAction) { onClose(); true }
+                            CardAction.MoveToGroup -> CustomAccessibilityAction(moveAction) { menu = 2; true }
+                            CardAction.MoveToShared -> CustomAccessibilityAction(moveToSharedAction) { onMove(null); true }
+                        }
                     }
                 },
         ) {

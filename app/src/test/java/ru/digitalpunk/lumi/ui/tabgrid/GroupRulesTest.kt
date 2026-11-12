@@ -31,19 +31,39 @@ class GroupRulesTest {
         assertNull(groupNameProblem("My Work", listOf("Work"), "Tabs"))
     }
 
-    @Test fun moveRowsListEveryGroupAndDisableTheTabsOwn() {
+    @Test fun moveRowsStartWithTheSharedListThenEveryGroupAndMarkTheTabsOwn() {
         val rows = moveRows(listOf(w, r), w.id)
-        assertEquals(listOf(w, r), rows.map { it.group })
-        assertEquals(listOf(true, false), rows.map { it.isCurrent })
+        assertEquals(listOf(null, w, r), rows.map { it.group })
+        assertEquals(listOf(false, true, false), rows.map { it.isCurrent })
     }
 
-    @Test fun moveRowsOfASharedTabDisableNone() {
-        assertTrue(moveRows(listOf(w, r), null).none { it.isCurrent })
+    @Test fun moveRowsOfASharedTabMarkOnlyTheSharedList() {
+        val rows = moveRows(listOf(w, r), null)
+        assertEquals(listOf(true, false, false), rows.map { it.isCurrent })
     }
 
-    @Test fun removeFromGroupIsOfferedOnlyForGroupedTabs() {
-        assertTrue(showsRemoveFromGroup(w.id))
-        assertFalse(showsRemoveFromGroup(null))
+    @Test fun cardActionsOfAGroupedTabMoveToTheSharedListAndHaveNoRemove() {
+        assertEquals(listOf(CardAction.Close, CardAction.MoveToGroup, CardAction.MoveToShared), cardActions(w.id))
+    }
+
+    @Test fun cardActionsOfASharedTabOfferNoMoveToTheSharedList() {
+        assertEquals(listOf(CardAction.Close, CardAction.MoveToGroup), cardActions(null))
+    }
+
+    @Test fun moveRowsWithNoNamedGroupsAreOnlyTheSharedListMarkedCurrentForASharedTab() {
+        val rows = moveRows(emptyList(), null)
+        assertEquals(listOf(null), rows.map { it.group })
+        assertEquals(listOf(true), rows.map { it.isCurrent })
+    }
+
+    @Test fun moveRowsOfATabInTheOnlyNamedGroupOfferTheSharedListUnmarkedAndMarkTheGroup() {
+        val rows = moveRows(listOf(w), w.id)
+        assertEquals(listOf(null, w), rows.map { it.group })
+        assertEquals(listOf(false, true), rows.map { it.isCurrent })
+    }
+
+    @Test fun moveRowsOfATabWhoseGroupIsGoneMarkNoRow() {
+        assertEquals(listOf(false, false), moveRows(listOf(r), w.id).map { it.isCurrent })
     }
 
     @Test fun deletingAnEmptyGroupAsksNothing() {

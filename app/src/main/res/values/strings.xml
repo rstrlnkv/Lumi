@@ -47,7 +47,8 @@
     <string name="action_cancel">Cancel</string>
     <string name="group_delete_body">“%1$s” and its tabs will close. This can’t be undone.</string>
     <string name="action_move_to_group">Move to group</string>
-    <string name="action_remove_from_group">Remove from group</string>
+    <string name="action_move_to_named">Move to “%1$s”</string>
+    <string name="action_move_to_tabs">Move to Tabs</string>
     <string name="state_current_group">Current group</string>
     <string name="snackbar_moved_to_group">Moved to “%1$s”</string>
     <string name="snackbar_moved_to_tabs">Moved to Tabs</string>

@@ -19,12 +19,22 @@ fun groupNameProblem(raw: String, otherNames: List<String>, reserved: String): N
     }
 }
 
-/** A row of the "Move to group" list; the tab's own group is shown but cannot be picked. */
-data class MoveRow(val group: TabGroup, val isCurrent: Boolean)
+/** A row of the "Move to group" list; [group] is null for the shared list. The tab's own group is shown but cannot be picked. */
+data class MoveRow(val group: TabGroup?, val isCurrent: Boolean)
 
-fun moveRows(groups: List<TabGroup>, tabGroup: GroupId?): List<MoveRow> = groups.map { MoveRow(it, it.id == tabGroup) }
+/** The shared list first, then the named groups. */
+fun moveRows(groups: List<TabGroup>, tabGroup: GroupId?): List<MoveRow> =
+    (listOf<TabGroup?>(null) + groups).map { MoveRow(it, it?.id == tabGroup) }
 
-fun showsRemoveFromGroup(tabGroup: GroupId?): Boolean = tabGroup != null
+/** The TalkBack custom actions of a card; moving to the shared list is offered only from a named group. */
+enum class CardAction { Close, MoveToGroup, MoveToShared }
+
+fun cardActions(tabGroup: GroupId?): List<CardAction> =
+    buildList {
+        add(CardAction.Close)
+        add(CardAction.MoveToGroup)
+        if (tabGroup != null) add(CardAction.MoveToShared)
+    }
 
 /** A group with no tabs is deleted at once. */
 fun deleteNeedsConfirmation(count: Int): Boolean = count > 0

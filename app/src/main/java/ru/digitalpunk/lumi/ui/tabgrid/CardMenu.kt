@@ -24,7 +24,7 @@ import ru.digitalpunk.lumi.R
 import ru.digitalpunk.lumi.engine.GroupId
 import ru.digitalpunk.lumi.engine.TabGroup
 
-/** The menu of a card. Level 1 has Move to group (and Remove from group); level 2 lists the groups. [startAtGroups] opens level 2 straight away. */
+/** The menu of a card. Level 1 has Move to group; level 2 lists the shared list and the groups. [startAtGroups] opens level 2 straight away. */
 @Composable
 fun CardMenu(
     expanded: Boolean,
@@ -45,18 +45,9 @@ fun CardMenu(
                 trailingIcon = { Icon(painterResource(R.drawable.ic_arrow_right), contentDescription = null) },
                 onClick = { level = 2 },
             )
-            if (showsRemoveFromGroup(tabGroup)) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.action_remove_from_group)) },
-                    leadingIcon = { Icon(painterResource(R.drawable.ic_remove_circle_outline), contentDescription = null) },
-                    onClick = {
-                        onDismiss()
-                        onMove(null)
-                    },
-                )
-            }
         } else {
             val moveLabel = stringResource(R.string.action_move_to_group)
+            val sharedName = stringResource(R.string.group_tabs)
             DropdownMenuItem(
                 text = { Text(moveLabel) },
                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) },
@@ -64,7 +55,7 @@ fun CardMenu(
             )
             moveRows(groups, tabGroup).forEach { row ->
                 DropdownMenuItem(
-                    text = { Text(row.group.name) },
+                    text = { Text(row.group?.name ?: sharedName) },
                     leadingIcon = { Icon(painterResource(R.drawable.ic_folder), contentDescription = null) },
                     trailingIcon = if (row.isCurrent) {
                         { Icon(Icons.Filled.Check, contentDescription = null) }
@@ -74,7 +65,7 @@ fun CardMenu(
                     enabled = !row.isCurrent,
                     onClick = {
                         onDismiss()
-                        onMove(row.group.id)
+                        onMove(row.group?.id)
                     },
                     modifier = if (row.isCurrent) Modifier.semantics { stateDescription = current } else Modifier,
                 )
