@@ -1,0 +1,22 @@
+[versions]
+kotlin = "2.4.21"
+agp = "9.5.1"
+composeBom = "2026.09.00"
+activityCompose = "1.13.0"
+lifecycle = "2.11.0"
+# Stable channel, updated about every 4 weeks for security fixes:
+# https://maven.mozilla.org/maven2/org/mozilla/geckoview/geckoview/maven-metadata.xml
+geckoview = "160.0.20261104181552"
+
+[libraries]
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+geckoview = { module = "org.mozilla.geckoview:geckoview", version.ref = "geckoview" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

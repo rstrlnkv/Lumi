@@ -17,3 +17,18 @@ docs/superpowers/
 # OS
 .DS_Store
 Thumbs.db
+
+# From the stack generator
+.gradle/
+build/
+local.properties
+.kotlin/
+*.apk
+*.aab
+*.jks
+*.keystore
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/

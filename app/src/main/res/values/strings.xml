@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name" translatable="false">Lumi</string>
+    <string name="placeholder">Lumi is under construction.</string>
+</resources>
