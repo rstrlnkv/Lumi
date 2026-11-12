@@ -335,10 +335,11 @@ class BrowserEngine(appContext: Context) {
         return wasLast
     }
 
-    /** Shows [group] in the tab grid (null is the shared list). Selects no tab; an unknown group is ignored. */
-    fun setCurrentGroup(group: GroupId?) {
-        tabsStore.setCurrentGroup(group)
-    }
+    /**
+     * Shows [group] in the tab grid (null is the shared list); an unknown group is ignored. Selects no tab, except that
+     * leaving the Private chip locks the private tabs and a private tab in front gives way to the last normal tab.
+     */
+    fun setCurrentGroup(group: GroupId?) = followSelection { tabsStore.setCurrentGroup(group) }
 
     /** The new group's id; null when the name is empty (after trimming) or taken, ignoring case. The current group does not change. */
     fun createGroup(name: String): GroupId? = tabsStore.createGroup(name)?.also { mutableChanges.tryEmit(Unit) }

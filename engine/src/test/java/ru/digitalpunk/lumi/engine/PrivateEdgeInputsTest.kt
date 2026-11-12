@@ -73,13 +73,15 @@ class PrivateEdgeInputsTest {
         assertEquals(p, store.tabs.value.selectedId)
     }
 
-    @Test fun unlockBringsThePrivateGroupBackEvenIfTheGridMovedAwayWhileLocked() {
+    @Test fun gridMovedAwayFromPrivateWhileLockedDropsTheResumeAndUnlockKeepsTheNormalTab() {
         val store = store()
         store.lock()
+        assertTrue(store.tabs.value.privateResume)
         store.setCurrentGroup(null)
+        assertFalse(store.tabs.value.privateResume)
         store.unlock()
-        assertEquals(p, store.tabs.value.selectedId)
-        assertEquals(PRIVATE_GROUP, store.tabs.value.currentGroup)
+        assertEquals(a, store.tabs.value.selectedId)
+        assertNull(store.tabs.value.currentGroup)
     }
 
     @Test fun cancelledUnlockLeavesTheTabsHiddenAndTheResumePending() {

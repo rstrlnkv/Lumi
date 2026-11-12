@@ -47,8 +47,8 @@ class GroupRulesPrivateTest {
         assertEquals(1, privateChipCount(state))
     }
 
-    @Test fun currentGroupTabCountIsZeroForLockedPrivate() {
-        assertEquals(0, currentGroupTabCount(locked))
+    @Test fun currentGroupTabCountForLockedPrivateIsTheSelectedTabsGroup() {
+        assertEquals(1, currentGroupTabCount(locked))
     }
 
     @Test fun snapshotLiveSetExcludesPrivateTabs() {

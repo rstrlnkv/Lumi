@@ -88,7 +88,7 @@
     <string name="connection_insecure">Соединение не защищено</string>
     <string name="connection_insecure_body">Не вводите пароли и данные карт на этом сайте</string>
     <string name="protection_for_site">Защита на этом сайте</string>
-    <string name="protection_on_body">Строгая: трекеры и реклама заблокированы</string>
+    <string name="protection_on_body">Строгая: трекеры заблокированы</string>
     <string name="protection_off_body">Выключена: сайт может следить за вами</string>
     <!-- Private tabs -->
     <string name="group_private">Приватные</string>
@@ -102,12 +102,7 @@
         <item quantity="other">%d приватной вкладки</item>
     </plurals>
     <string name="private_locked_title">Приватные вкладки заблокированы</string>
-    <plurals name="private_locked_body">
-        <item quantity="one">Разблокируйте, чтобы увидеть %d приватную вкладку.</item>
-        <item quantity="few">Разблокируйте, чтобы увидеть %d приватные вкладки.</item>
-        <item quantity="many">Разблокируйте, чтобы увидеть %d приватных вкладок.</item>
-        <item quantity="other">Разблокируйте, чтобы увидеть %d приватной вкладки.</item>
-    </plurals>
+    <string name="private_locked_body">Разблокируйте, чтобы увидеть приватные вкладки.</string>
     <string name="private_unlock">Разблокировать</string>
     <string name="private_prompt_title">Разблокировать приватные вкладки</string>
     <string name="private_prompt_use_pin">Ввести код блокировки</string>

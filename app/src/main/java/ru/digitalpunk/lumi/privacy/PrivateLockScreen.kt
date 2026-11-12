@@ -22,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -30,12 +29,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ru.digitalpunk.lumi.R
 
-/** The locked private tabs: no title, only how many there are and the Unlock button. */
+/** The locked private tabs: no title and no count, only the Unlock button. */
 @Composable
-fun PrivateLockColumn(count: Int, onUnlock: () -> Unit, modifier: Modifier = Modifier) = PrivateMessage(
+fun PrivateLockColumn(onUnlock: () -> Unit, modifier: Modifier = Modifier) = PrivateMessage(
     icon = { Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(48.dp)) },
     title = stringResource(R.string.private_locked_title),
-    body = pluralStringResource(R.plurals.private_locked_body, count, count),
+    body = stringResource(R.string.private_locked_body),
     action = stringResource(R.string.private_unlock),
     onAction = onUnlock,
     modifier = modifier,
@@ -56,8 +55,8 @@ fun PrivateEmptyColumn(onNewPrivateTab: () -> Unit, modifier: Modifier = Modifie
 
 /** Covers the page while a private tab waits for unlock; nothing under it can be touched. */
 @Composable
-fun PrivateLockScreen(count: Int, onUnlock: () -> Unit, modifier: Modifier = Modifier) =
-    PrivateLockColumn(count, onUnlock, modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).pointerInput(Unit) {})
+fun PrivateLockScreen(onUnlock: () -> Unit, modifier: Modifier = Modifier) =
+    PrivateLockColumn(onUnlock, modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).pointerInput(Unit) {})
 
 @Composable
 private fun PrivateMessage(icon: @Composable () -> Unit, title: String, body: String, action: String, onAction: () -> Unit, modifier: Modifier) {

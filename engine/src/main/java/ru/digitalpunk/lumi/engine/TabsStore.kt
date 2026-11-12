@@ -52,6 +52,8 @@ internal class TabsStore {
     /** A cold start is locked; the first private tab with none hidden unlocks without a prompt. */
     private var locked = true
     private var resume: TabId? = null
+    /** The private set is in view: the current group is the private one (in front, or the Private chip of the grid). */
+    private var privateInView = false
     private var all: List<TabInfo> = emptyList()
 
     /** The last normal tab that was selected; where a locked or saved private selection falls back to. */
@@ -130,14 +132,20 @@ internal class TabsStore {
 
     /** Hides the private tabs; a private tab in front gives way to the last normal tab and comes back on [unlock]. */
     fun lock() {
+        hide(resumable = true)
+        publish()
+    }
+
+    /** Locks; a private tab in front gives way to the last normal tab, and comes back on [unlock] only when [resumable]. Not resumable drops a pending resume. */
+    private fun hide(resumable: Boolean) {
         locked = true
+        if (!resumable) resume = null
         val selected = list.selected
         if (selected != null && isPrivate(selected)) {
-            resume = selected
+            if (resumable) resume = selected
             val normal = lastNormal?.takeIf { it in pages && !isPrivate(it) } ?: list.ids.firstOrNull { !isPrivate(it) }
             if (normal != null) list = list.select(normal)
         }
-        publish()
     }
 
     fun unlock() {
@@ -245,7 +253,11 @@ internal class TabsStore {
         publish()
     }
 
+    /** Leaving the private set inside the app locks it, as going to the background does, but with nothing to resume. */
     private fun publish() {
+        val inView = groups.current == PRIVATE_GROUP
+        if (privateInView && !inView) hide(resumable = false)
+        privateInView = inView
         all = list.ids.map {
             val page = pageOf(it)
             TabInfo(it, titles[it].orEmpty(), page.url, page.isLoading, page.isCrashed, list.groupOf[it])

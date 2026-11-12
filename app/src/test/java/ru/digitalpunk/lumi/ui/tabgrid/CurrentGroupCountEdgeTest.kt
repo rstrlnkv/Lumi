@@ -1,6 +1,7 @@
 package ru.digitalpunk.lumi.ui.tabgrid
 
 import ru.digitalpunk.lumi.engine.GroupId
+import ru.digitalpunk.lumi.engine.PRIVATE_GROUP
 import ru.digitalpunk.lumi.engine.TabGroup
 import ru.digitalpunk.lumi.engine.TabId
 import ru.digitalpunk.lumi.engine.TabInfo
@@ -39,5 +40,15 @@ class CurrentGroupCountEdgeTest {
         val tabs = (1..99).map { info("w$it", w.id) } + (1..5).map { info("s$it", null) }
         val s = TabsState(tabs, TabId("w1"), listOf(w), w.id)
         assertEquals("99", tabCountGlyph(currentGroupTabCount(s)))
+    }
+
+    @Test fun lockedPrivateGroupCountsTheSelectedTabsGroupNotZero() {
+        val s = TabsState(listOf(info("a", w.id), info("b", w.id), info("c", null)), TabId("a"), listOf(w), PRIVATE_GROUP, privateCount = 3, privateLocked = true)
+        assertEquals(2, currentGroupTabCount(s))
+    }
+
+    @Test fun unlockedPrivateChipCountsThePrivateTabsEvenWhileANormalTabIsSelected() {
+        val s = TabsState(listOf(info("a", w.id), info("p1", PRIVATE_GROUP), info("p2", PRIVATE_GROUP)), TabId("a"), listOf(w), PRIVATE_GROUP, privateCount = 2, privateLocked = false)
+        assertEquals(2, currentGroupTabCount(s))
     }
 }

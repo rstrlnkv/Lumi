@@ -126,7 +126,7 @@ fun TabGrid(
         )
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (locked) {
-                PrivateLockColumn(state.privateCount, onUnlock)
+                PrivateLockColumn(onUnlock)
             } else if (privateChip && tabs.isEmpty()) {
                 PrivateEmptyColumn(onNewTab)
             } else key(state.currentGroup) {

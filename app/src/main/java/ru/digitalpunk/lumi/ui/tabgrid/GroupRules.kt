@@ -40,8 +40,15 @@ fun cardActions(tabGroup: GroupId?): List<CardAction> =
 /** A group with no tabs is deleted at once. */
 fun deleteNeedsConfirmation(count: Int): Boolean = count > 0
 
-/** The count the toolbar, the Tabs button and the More menu show: the tabs of the current group, not of all groups. */
-fun currentGroupTabCount(state: TabsState): Int = state.tabsIn(state.currentGroup).size
+/**
+ * The count the toolbar, the Tabs button and the More menu show: the tabs of the current group, not of all groups.
+ * While the private set is locked and current, the selected (normal) tab's group, so the hidden private tabs never show as 0.
+ */
+fun currentGroupTabCount(state: TabsState): Int {
+    val lockedPrivate = state.privateLocked && state.currentGroup == PRIVATE_GROUP
+    val group = if (lockedPrivate) state.tabs.firstOrNull { it.id == state.selectedId }?.groupId else state.currentGroup
+    return state.tabsIn(group).size
+}
 
 enum class ChipKind { Private, Shared, Named }
 

@@ -337,7 +337,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
             }
         }
 
-        if (lockShown) PrivateLockScreen(tabsState.privateCount, onUnlock = { gate.requestUnlock() })
+        if (lockShown) PrivateLockScreen(onUnlock = { gate.requestUnlock() })
 
         if (showProtection) {
             val display = displayUrl(state.url)

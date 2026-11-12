@@ -79,7 +79,7 @@
     <string name="connection_insecure">Connection is not secure</string>
     <string name="connection_insecure_body">Don\'t enter passwords or card details on this site.</string>
     <string name="protection_for_site">Protection for this site</string>
-    <string name="protection_on_body">Strict: trackers and ads are blocked</string>
+    <string name="protection_on_body">Strict: trackers are blocked</string>
     <string name="protection_off_body">Off: this site can track you</string>
     <!-- Private tabs -->
     <string name="group_private">Private</string>
@@ -91,10 +91,7 @@
         <item quantity="other">%d private tabs</item>
     </plurals>
     <string name="private_locked_title">Private tabs are locked</string>
-    <plurals name="private_locked_body">
-        <item quantity="one">Unlock to see your %d private tab.</item>
-        <item quantity="other">Unlock to see your %d private tabs.</item>
-    </plurals>
+    <string name="private_locked_body">Unlock to see your private tabs.</string>
     <string name="private_unlock">Unlock</string>
     <string name="private_prompt_title">Unlock private tabs</string>
     <string name="private_prompt_use_pin">Use screen lock</string>
