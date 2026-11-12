@@ -8,14 +8,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -23,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ru.digitalpunk.lumi.R
+import ru.digitalpunk.lumi.address.SiteStatus
 import ru.digitalpunk.lumi.address.displayUrl
 
 /** Height of the visible strip or pill. */
@@ -36,10 +36,11 @@ fun controlsAlpha(progress: Float) = (1f - 2f * progress).coerceIn(0f, 1f)
 
 fun stripAlpha(progress: Float) = (2f * progress - 1f).coerceIn(0f, 1f)
 
-/** Lock and domain of the page; a tap shows the whole bar again once it is fully collapsed. */
+/** Site status icon (no count) and domain of the page; a tap shows the whole bar again once it is fully collapsed. */
 @Composable
 fun CollapsedStrip(
     url: String,
+    site: SiteStatus,
     tappable: Boolean,
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
@@ -61,10 +62,11 @@ fun CollapsedStrip(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (display.isSecure) {
+            siteIcon(site)?.let { icon ->
                 Icon(
-                    Icons.Filled.Lock,
-                    contentDescription = stringResource(R.string.cd_secure_connection),
+                    painterResource(icon),
+                    // The strip is one "expand" target: the shield's long phrase is read on the expanded bar's button.
+                    contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(14.dp),
                 )

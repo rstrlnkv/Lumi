@@ -64,7 +64,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ru.digitalpunk.lumi.R
+import ru.digitalpunk.lumi.address.SiteStatus
 import ru.digitalpunk.lumi.address.displayUrl
+import ru.digitalpunk.lumi.address.siteStatus
 import ru.digitalpunk.lumi.data.AddressBarStyle
 import ru.digitalpunk.lumi.data.SettingsStore
 import ru.digitalpunk.lumi.engine.BrowserEngine
@@ -72,6 +74,7 @@ import ru.digitalpunk.lumi.engine.PageTouchInfo
 import ru.digitalpunk.lumi.engine.PageTouchListener
 import ru.digitalpunk.lumi.engine.TabInfo
 import ru.digitalpunk.lumi.engine.neighbour
+import ru.digitalpunk.lumi.engine.siteKey
 import ru.digitalpunk.lumi.gesture.BarGeometry
 import ru.digitalpunk.lumi.gesture.PageGestureTracker
 import ru.digitalpunk.lumi.gesture.pullFraction
@@ -91,6 +94,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
     val state by engine.state.collectAsStateWithLifecycle()
     val tabsState by engine.tabs.collectAsStateWithLifecycle()
     val style by settings.addressBarStyle.collectAsStateWithLifecycle<AddressBarStyle?>(null)
+    val offHosts by settings.protectionOffHosts.collectAsStateWithLifecycle(emptySet())
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     var editing by remember { mutableStateOf(false) }
@@ -100,6 +104,16 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
     // After the page-history handler, so it comes first: Back closes the grid before anything else.
     BackHandler(enabled = gridOpen) { gridOpen = false }
     LaunchedEffect(gridOpen) { engine.gridOpen = gridOpen }
+
+    // The protection sheet is about the page on screen: it is kept for the tab it was opened on and goes when
+    // another tab is selected, the grid opens or the page stops being a web site.
+    // A crashed page shows no shield: nothing on screen is protected.
+    val site = if (state.isCrashed) SiteStatus.None else siteStatus(state.url, state.blockedTrackers, offHosts)
+    val siteHost = siteKey(state.url)
+    var protectionTab by rememberSaveable { mutableStateOf<String?>(null) }
+    val showProtection = protectionTab != null && protectionTab == tabsState.selectedId?.value && !gridOpen && siteHost != null
+    LaunchedEffect(showProtection) { if (!showProtection) protectionTab = null }
+    val openProtection = { protectionTab = tabsState.selectedId?.value }
 
     // The bar slides off by `bar.hidden`; Gecko is told how much of the page bottom the bar covers.
     val bar = remember(style) { BarController(scope) }
@@ -261,10 +275,30 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
         when (style) {
             null -> Unit
             AddressBarStyle.Compact -> CompactBar(
-                state, engine, tabActions, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
+                state, site, openProtection, engine, tabActions, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
             )
             AddressBarStyle.Classic -> ClassicBar(
-                state, engine, tabActions, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
+                state, site, openProtection, engine, tabActions, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
+            )
+        }
+
+        if (showProtection) {
+            val display = displayUrl(state.url)
+            ProtectionSheet(
+                host = display.text,
+                site = site,
+                off = siteHost in offHosts,
+                secure = display.isSecure,
+                onToggle = { off ->
+                    // The tab and site of the tap: the write can end after the user switched tab or page.
+                    tabsState.selectedId?.let { tab ->
+                        scope.launch {
+                            settings.setProtectionOff(siteHost, off)
+                            engine.setProtectionOff(tab, siteHost, off)
+                        }
+                    }
+                },
+                onDismiss = { protectionTab = null },
             )
         }
 

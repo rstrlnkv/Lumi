@@ -14,8 +14,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import org.mozilla.geckoview.ContentBlocking
 import org.mozilla.geckoview.GeckoRuntime
+import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
+import org.mozilla.geckoview.GeckoSession.PermissionDelegate.ContentPermission
 
 /**
  * One GeckoView runtime and a Gecko session per tab. Create it once per process (the runtime refuses a second
@@ -33,6 +36,13 @@ class BrowserEngine(appContext: Context) {
         var storedState: String? = null
         var stateVersion = 0L
         var serialized: Pair<Long, String?>? = null
+        val blocked = BlockedCounter()
+
+        /** Gecko's tracking-protection permission from the last location change of this session; its `uri` names the site. */
+        var trackingPermission: ContentPermission? = null
+
+        /** The site whose permission was last corrected on a location change and reloaded; one reload per site. */
+        var correctedSite: String? = null
     }
 
     private val tabsStore = TabsStore()
@@ -72,7 +82,22 @@ class BrowserEngine(appContext: Context) {
     private val handler = Handler(Looper.getMainLooper())
     private val captureAfterLoad = Runnable { selected?.let { tab -> capture(tab) {} } }
 
-    private val runtime = GeckoRuntime.create(appContext)
+    // Strict Enhanced Tracking Protection for every session; the cookie behaviour stays Gecko's default.
+    private val runtime = GeckoRuntime.create(
+        appContext,
+        GeckoRuntimeSettings.Builder()
+            .contentBlocking(
+                ContentBlocking.Settings.Builder()
+                    .enhancedTrackingProtectionLevel(ContentBlocking.EtpLevel.STRICT)
+                    .antiTracking(ContentBlocking.AntiTracking.STRICT)
+                    .strictSocialTrackingProtection(true)
+                    .build(),
+            )
+            .build(),
+    )
+
+    /** Sites (see [siteKey]) where the user turned protection off. The app's stored set is the source; Gecko follows it. */
+    private val offHosts = HashSet<String>()
     private var view: LumiGeckoView? = null
     private var barMaxHeight = 0
     private var barVisibleHeight = 0
@@ -113,7 +138,10 @@ class BrowserEngine(appContext: Context) {
             }
         }
         session.progressDelegate = object : GeckoSession.ProgressDelegate {
-            override fun onPageStart(session: GeckoSession, url: String) = tab.pageChanged { pageStarted(url) }
+            override fun onPageStart(session: GeckoSession, url: String) {
+                tab.blocked.reset()
+                tab.pageChanged { pageStarted(url) }
+            }
             override fun onPageStop(session: GeckoSession, success: Boolean) {
                 tab.pageChanged { pageStopped() }
                 if (tab === selected) {
@@ -135,12 +163,45 @@ class BrowserEngine(appContext: Context) {
                 url: String?,
                 perms: List<GeckoSession.PermissionDelegate.ContentPermission>,
                 hasUserGesture: Boolean,
-            ) = tab.pageChanged(notify = true) { locationChanged(url) }
+            ) {
+                tab.pageChanged(notify = true) { locationChanged(url) }
+                // The store resets the count when the site changes without a page start; the counter follows it.
+                if (tab.page.state.value.blockedTrackers == 0) tab.blocked.reset()
+                tab.trackingPermission = perms.firstOrNull { it.permission == GeckoSession.PermissionDelegate.PERMISSION_TRACKING }
+                // Gecko keeps the permission in its profile; if it disagrees with the stored set, this load did not follow
+                // the set: correct it and load the page again, once per site so a permission Gecko does not keep cannot loop.
+                val site = tab.trackingPermission?.let { siteKey(it.uri) }
+                if (!tab.applyProtection(onlyIfChanged = true)) {
+                    tab.correctedSite = null
+                } else if (tab.correctedSite != site) {
+                    tab.correctedSite = site
+                    session.reload()
+                }
+            }
 
             override fun onCanGoBack(session: GeckoSession, canGoBack: Boolean) = tab.pageChanged { canGoBackChanged(canGoBack) }
 
             override fun onCanGoForward(session: GeckoSession, canGoForward: Boolean) = tab.pageChanged { canGoForwardChanged(canGoForward) }
         }
+        session.contentBlockingDelegate = object : ContentBlocking.Delegate {
+            override fun onContentBlocked(session: GeckoSession, event: ContentBlocking.BlockEvent) {
+                val tracker = countsAsTracker(event.antiTrackingCategory, event.cookieBehaviorCategory, event.isBlocking)
+                if (tracker && tab.blocked.add(event.uri)) tab.pageChanged { trackerBlocked(tab.blocked.count) }
+            }
+        }
+    }
+
+    /**
+     * Sets Gecko's tracking permission to match [offHosts] for the permission's own site, not the page's URL, which can
+     * already belong to the next page: allowed means protection off. True if it wrote the permission.
+     */
+    private fun Tab.applyProtection(onlyIfChanged: Boolean): Boolean {
+        val permission = trackingPermission ?: return false
+        val host = siteKey(permission.uri) ?: return false
+        val value = if (host in offHosts) ContentPermission.VALUE_ALLOW else ContentPermission.VALUE_DENY
+        if (onlyIfChanged && permission.value == value) return false
+        runtime.storageController.setPermission(permission, value)
+        return true
     }
 
     /** Gives [tab] a session if it has none: its saved page, scroll and history, else its URL, else a blank page. */
@@ -164,6 +225,7 @@ class BrowserEngine(appContext: Context) {
     private fun evict(tab: Tab) {
         tab.session?.close()
         tab.session = null
+        tab.trackingPermission = null
         live.remove(tab.id)
         tab.pageChanged { pageStopped() }
     }
@@ -342,6 +404,25 @@ class BrowserEngine(appContext: Context) {
         selected?.let(::enforceCap)
     }
 
+    /** The stored sites with protection off. Call it before [restoreTabs], so the first page already follows them. */
+    fun setProtectionOffHosts(hosts: Set<String>) {
+        offHosts.clear()
+        hosts.mapNotNullTo(offHosts) { siteKey("https://$it") }
+    }
+
+    /**
+     * Turns protection for [host] off or back on. If [tab] still shows that site, Gecko is told through it and, if it is
+     * still selected, the page loads again; a tab without the permission yet is corrected on its next location change.
+     * For normal tabs only; a private tab must not use it.
+     */
+    fun setProtectionOff(tab: TabId, host: String, off: Boolean) {
+        val key = siteKey("https://$host") ?: return
+        if (off) offHosts.add(key) else offHosts.remove(key)
+        val record = records[tab]?.takeIf { siteKey(it.page.state.value.url) == key } ?: return
+        record.applyProtection(onlyIfChanged = false)
+        if (record === selected) reload()
+    }
+
     /** Loads web pages and the allowed `about:` pages; anything else (`javascript:`, `file:`, `about:config`) is refused. */
     fun load(url: String) {
         if (isLoadableUrl(url)) selected?.session?.loadUri(url)
@@ -354,6 +435,7 @@ class BrowserEngine(appContext: Context) {
         if (!state.value.isCrashed) return session.reload()
         val lastUrl = state.value.url
         tab.pageChanged { recovering() }
+        tab.trackingPermission = null
         session.open(runtime)
         view?.let {
             it.releaseSession()

@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import ru.digitalpunk.lumi.address.SiteStatus
 import ru.digitalpunk.lumi.data.AddressBarStyle
 import ru.digitalpunk.lumi.engine.BrowserEngine
 import ru.digitalpunk.lumi.engine.PageState
@@ -27,6 +28,8 @@ import ru.digitalpunk.lumi.engine.PageState
 @Composable
 fun ClassicBar(
     state: PageState,
+    site: SiteStatus,
+    onShowProtection: () -> Unit,
     engine: BrowserEngine,
     tabs: TabActions,
     editing: Boolean,
@@ -50,12 +53,14 @@ fun ClassicBar(
         ) {
             AddressField(
                 state = state,
+                site = site,
                 style = AddressBarStyle.Classic,
                 editing = editing,
                 onEditingChange = onEditingChange,
                 onSubmit = engine::load,
                 onReload = engine::reload,
                 onStop = engine::stop,
+                onShowProtection = onShowProtection,
                 tabs = tabs,
             )
             if (!editing) {
@@ -69,6 +74,7 @@ fun ClassicBar(
         }
         CollapsedStrip(
             state.url,
+            site,
             tappable = collapsed,
             onExpand = onExpand,
             modifier = Modifier

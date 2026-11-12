@@ -3,7 +3,9 @@ package ru.digitalpunk.lumi.tabs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import ru.digitalpunk.lumi.data.SettingsStore
 import ru.digitalpunk.lumi.data.tabs.StoredGroup
 import ru.digitalpunk.lumi.data.tabs.StoredTab
 import ru.digitalpunk.lumi.data.tabs.TabRepository
@@ -19,6 +21,7 @@ private const val SAVE_DELAY_MILLIS = 2000L
 class TabPersistence(
     private val engine: BrowserEngine,
     private val repository: TabRepository,
+    private val settings: SettingsStore,
     private val scope: CoroutineScope,
 ) {
     private var started = false
@@ -30,6 +33,8 @@ class TabPersistence(
         if (started) return
         started = true
         scope.launch {
+            // Before any page loads, so the first page of the selected tab already follows the stored exceptions.
+            engine.setProtectionOffHosts(settings.protectionOffHosts.first())
             val stored = repository.load()
             if (stored != null) {
                 engine.restoreTabs(

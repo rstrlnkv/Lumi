@@ -12,7 +12,7 @@ internal class PageStateStore(initial: PageState = PageState()) {
 
     // While crashed only recovering() and locationChanged() change the state: late events from the dead page are ignored.
     fun pageStarted(url: String) = mutable.update {
-        if (it.isCrashed) it else it.copy(url = url, isLoading = true, progress = 0)
+        if (it.isCrashed) it else it.copy(url = url, isLoading = true, progress = 0, blockedTrackers = 0)
     }
 
     fun progressChanged(percent: Int) =
@@ -20,11 +20,20 @@ internal class PageStateStore(initial: PageState = PageState()) {
 
     fun pageStopped() = mutable.update { if (it.isCrashed) it else it.copy(isLoading = false) }
 
-    fun locationChanged(url: String?) = mutable.update { if (url == null) it else it.copy(url = url) }
+    // A same-document or history change to another site gets no pageStarted(), so the count resets here too.
+    fun locationChanged(url: String?) = mutable.update {
+        when {
+            url == null -> it
+            siteKey(url) != siteKey(it.url) -> it.copy(url = url, blockedTrackers = 0)
+            else -> it.copy(url = url)
+        }
+    }
 
     fun canGoBackChanged(value: Boolean) = mutable.update { if (it.isCrashed) it else it.copy(canGoBack = value) }
 
     fun canGoForwardChanged(value: Boolean) = mutable.update { if (it.isCrashed) it else it.copy(canGoForward = value) }
+
+    fun trackerBlocked(count: Int) = mutable.update { if (it.isCrashed) it else it.copy(blockedTrackers = count) }
 
     fun crashed() = mutable.update {
         it.copy(isCrashed = true, isLoading = false, progress = 0, canGoBack = false, canGoForward = false)

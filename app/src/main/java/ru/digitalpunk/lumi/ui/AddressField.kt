@@ -18,7 +18,6 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndSelectAll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.digitalpunk.lumi.BuildConfig
 import ru.digitalpunk.lumi.R
+import ru.digitalpunk.lumi.address.SiteStatus
 import ru.digitalpunk.lumi.address.displayUrl
 import ru.digitalpunk.lumi.address.editableUrl
 import ru.digitalpunk.lumi.address.resolveInput
@@ -66,12 +66,14 @@ import ru.digitalpunk.lumi.engine.PageState
 @Composable
 fun AddressField(
     state: PageState,
+    site: SiteStatus,
     style: AddressBarStyle,
     editing: Boolean,
     onEditingChange: (Boolean) -> Unit,
     onSubmit: (String) -> Unit,
     onReload: () -> Unit,
     onStop: () -> Unit,
+    onShowProtection: () -> Unit,
     modifier: Modifier = Modifier,
     tabs: TabActions? = null,
 ) {
@@ -151,18 +153,12 @@ fun AddressField(
                                     onEditingChange(true)
                                 }
                                 .heightIn(min = 48.dp)
-                                .padding(start = startPadding),
+                                // The shield's 8 dp tap padding sits inside its target, so it keeps the same place.
+                                .padding(start = if (site == SiteStatus.None) startPadding else startPadding - 8.dp),
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            if (display.isSecure) {
-                                Icon(
-                                    Icons.Filled.Lock,
-                                    contentDescription = stringResource(R.string.cd_secure_connection),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                            }
+                            SiteStatusButton(site, gap = lockGap, onClick = onShowProtection)
                             val empty = display.text.isEmpty()
                             Text(
                                 text = if (empty) stringResource(R.string.address_hint) else display.text,
@@ -170,7 +166,7 @@ fun AddressField(
                                 color = if (empty) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false).padding(start = if (display.isSecure) lockGap else 0.dp),
+                                modifier = Modifier.weight(1f, fill = false),
                             )
                         }
                         // The neighbour's host comes in from the edge the finger moves towards.

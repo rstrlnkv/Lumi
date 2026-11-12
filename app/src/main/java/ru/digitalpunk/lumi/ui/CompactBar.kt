@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import ru.digitalpunk.lumi.address.SiteStatus
 import ru.digitalpunk.lumi.data.AddressBarStyle
 import ru.digitalpunk.lumi.engine.BrowserEngine
 import ru.digitalpunk.lumi.engine.PageState
@@ -28,6 +29,8 @@ import ru.digitalpunk.lumi.engine.PageState
 @Composable
 fun CompactBar(
     state: PageState,
+    site: SiteStatus,
+    onShowProtection: () -> Unit,
     engine: BrowserEngine,
     tabs: TabActions,
     editing: Boolean,
@@ -52,12 +55,14 @@ fun CompactBar(
             if (!editing) FloatingCircle { BackButton(state.canGoBack, engine::goBack) }
             AddressField(
                 state = state,
+                site = site,
                 style = AddressBarStyle.Compact,
                 editing = editing,
                 onEditingChange = onEditingChange,
                 onSubmit = engine::load,
                 onReload = engine::reload,
                 onStop = engine::stop,
+                onShowProtection = onShowProtection,
                 modifier = Modifier.weight(1f),
                 tabs = tabs,
             )
@@ -65,6 +70,7 @@ fun CompactBar(
         }
         CollapsedStrip(
             state.url,
+            site,
             tappable = collapsed,
             onExpand = onExpand,
             modifier = Modifier.align(Alignment.TopCenter).graphicsLayer { alpha = stripAlpha(progress()) },

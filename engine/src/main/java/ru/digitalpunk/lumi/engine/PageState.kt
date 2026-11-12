@@ -8,4 +8,6 @@ data class PageState(
     val canGoBack: Boolean = false,
     val canGoForward: Boolean = false,
     val isCrashed: Boolean = false,
+    /** Distinct trackers blocked on this page load; 0 again when a new load starts. */
+    val blockedTrackers: Int = 0,
 )

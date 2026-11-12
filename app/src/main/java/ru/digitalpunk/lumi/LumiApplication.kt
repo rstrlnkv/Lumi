@@ -21,7 +21,7 @@ class LumiApplication : Application() {
     val settings by lazy { SettingsStore(this) }
 
     val tabPersistence by lazy {
-        TabPersistence(engine, TabRepository.create(this), appScope)
+        TabPersistence(engine, TabRepository.create(this), settings, appScope)
     }
 
     val tabSnapshots by lazy { TabSnapshots(engine, SnapshotStore.create(this), appScope) }

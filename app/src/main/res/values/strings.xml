@@ -47,7 +47,6 @@
     <string name="action_cancel">Cancel</string>
     <string name="group_delete_body">“%1$s” and its tabs will close. This can’t be undone.</string>
     <string name="action_move_to_group">Move to group</string>
-    <string name="action_move_to_named">Move to “%1$s”</string>
     <string name="action_move_to_tabs">Move to Tabs</string>
     <string name="state_current_group">Current group</string>
     <string name="snackbar_moved_to_group">Moved to “%1$s”</string>
@@ -60,4 +59,26 @@
         <item quantity="one">Delete group and %d tab?</item>
         <item quantity="other">Delete group and %d tabs?</item>
     </plurals>
+    <plurals name="cd_site_protection_blocked">
+        <item quantity="one">Site protection: %d tracker blocked</item>
+        <item quantity="other">Site protection: %d trackers blocked</item>
+    </plurals>
+    <string name="cd_site_protection_none">Site protection: no trackers blocked</string>
+    <string name="cd_site_protection_off">Site protection off</string>
+    <string name="cd_site_insecure">Connection not secure. Site protection</string>
+    <string name="action_show_protection">Show site protection</string>
+    <plurals name="trackers_blocked">
+        <item quantity="one">%d tracker blocked</item>
+        <item quantity="other">%d trackers blocked</item>
+    </plurals>
+    <string name="trackers_none">No trackers found</string>
+    <string name="trackers_off">Protection is off</string>
+    <string name="trackers_scope">On this page</string>
+    <string name="connection_secure">Connection is secure</string>
+    <string name="connection_secure_body">The page uses HTTPS. Others can\'t read what you send.</string>
+    <string name="connection_insecure">Connection is not secure</string>
+    <string name="connection_insecure_body">Don\'t enter passwords or card details on this site.</string>
+    <string name="protection_for_site">Protection for this site</string>
+    <string name="protection_on_body">Strict: trackers and ads are blocked</string>
+    <string name="protection_off_body">Off: this site can track you</string>
 </resources>

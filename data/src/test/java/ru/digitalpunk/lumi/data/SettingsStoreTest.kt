@@ -48,4 +48,17 @@ class SettingsStoreTest {
         withStore { store, _ -> store.setAddressBarStyle(AddressBarStyle.Classic) }
         withStore { store, _ -> assertEquals(AddressBarStyle.Classic, store.addressBarStyle.first()) }
     }
+
+    @Test fun protectionOffHostsAreEmptyByDefault() = withStore { store, _ ->
+        assertEquals(emptySet(), store.protectionOffHosts.first())
+    }
+
+    @Test fun protectionOffHostsSurviveANewStoreOverTheSameFile() {
+        withStore { store, _ ->
+            store.setProtectionOff("a.com", off = true)
+            store.setProtectionOff("b.com", off = true)
+            store.setProtectionOff("a.com", off = false)
+        }
+        withStore { store, _ -> assertEquals(setOf("b.com"), store.protectionOffHosts.first()) }
+    }
 }

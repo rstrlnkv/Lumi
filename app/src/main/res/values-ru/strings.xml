@@ -48,7 +48,6 @@
     <string name="action_cancel">Отмена</string>
     <string name="group_delete_body">Группа «%1$s» и её вкладки закроются. Это нельзя отменить.</string>
     <string name="action_move_to_group">Переместить в группу</string>
-    <string name="action_move_to_named">Переместить в «%1$s»</string>
     <string name="action_move_to_tabs">Переместить во «Вкладки»</string>
     <string name="state_current_group">Текущая группа</string>
     <string name="snackbar_moved_to_group">Перемещено в «%1$s»</string>
@@ -65,4 +64,30 @@
         <item quantity="many">Удалить группу и %d вкладок?</item>
         <item quantity="other">Удалить группу и %d вкладки?</item>
     </plurals>
+    <plurals name="cd_site_protection_blocked">
+        <item quantity="one">Защита сайта: заблокирован %d трекер</item>
+        <item quantity="few">Защита сайта: заблокировано %d трекера</item>
+        <item quantity="many">Защита сайта: заблокировано %d трекеров</item>
+        <item quantity="other">Защита сайта: заблокировано %d трекера</item>
+    </plurals>
+    <string name="cd_site_protection_none">Защита сайта: трекеры не найдены</string>
+    <string name="cd_site_protection_off">Защита сайта выключена</string>
+    <string name="cd_site_insecure">Соединение не защищено. Защита сайта</string>
+    <string name="action_show_protection">Показать защиту сайта</string>
+    <plurals name="trackers_blocked">
+        <item quantity="one">Заблокирован %d трекер</item>
+        <item quantity="few">Заблокировано %d трекера</item>
+        <item quantity="many">Заблокировано %d трекеров</item>
+        <item quantity="other">Заблокировано %d трекера</item>
+    </plurals>
+    <string name="trackers_none">Трекеры не найдены</string>
+    <string name="trackers_off">Защита выключена</string>
+    <string name="trackers_scope">На этой странице</string>
+    <string name="connection_secure">Соединение защищено</string>
+    <string name="connection_secure_body">Страница использует HTTPS. Посторонние не прочитают, что вы отправляете</string>
+    <string name="connection_insecure">Соединение не защищено</string>
+    <string name="connection_insecure_body">Не вводите пароли и данные карт на этом сайте</string>
+    <string name="protection_for_site">Защита на этом сайте</string>
+    <string name="protection_on_body">Строгая: трекеры и реклама заблокированы</string>
+    <string name="protection_off_body">Выключена: сайт может следить за вами</string>
 </resources>
