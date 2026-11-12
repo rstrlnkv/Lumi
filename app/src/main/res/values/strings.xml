@@ -13,4 +13,7 @@
     <string name="action_expand_bar">Show address bar</string>
     <string name="menu_use_classic_bar">Use classic address bar</string>
     <string name="menu_use_compact_bar">Use compact address bar</string>
+    <string name="menu_new_tab">New tab</string>
+    <string name="action_switch_to_tab">Switch to %1$s</string>
+    <string name="tab_untitled">New tab</string>
 </resources>

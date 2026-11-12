@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.androidx.room)
 }
 
 android {
@@ -23,9 +25,15 @@ kotlin {
     jvmToolchain(21)
 }
 
+room {
+    schemaDirectory("$projectDir/schemas")
+}
+
 dependencies {
     api(libs.kotlinx.coroutines.core)
     implementation(libs.datastore.preferences)
+    implementation(libs.room.runtime)
+    ksp(libs.room.compiler)
 
     testImplementation(libs.kotlin.test.junit)
 }

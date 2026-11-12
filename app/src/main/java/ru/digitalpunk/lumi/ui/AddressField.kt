@@ -31,16 +31,23 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -66,7 +73,12 @@ fun AddressField(
     onReload: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
+    tabs: TabActions? = null,
 ) {
+    val swipe = remember { BarSwipeState() }
+    val scope = rememberCoroutineScope()
+    val swipeEnabled = tabs != null && !editing
+    LaunchedEffect(swipeEnabled) { if (!swipeEnabled) swipe.reset() }
     val compact = style == AddressBarStyle.Compact
     val focusManager = LocalFocusManager.current
     val textStyle = MaterialTheme.typography.bodyLarge
@@ -77,7 +89,7 @@ fun AddressField(
         shape = CircleShape,
         color = if (compact) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerHighest,
         shadowElevation = if (compact) 3.dp else 0.dp,
-        modifier = modifier.fillMaxWidth().height(48.dp),
+        modifier = modifier.fillMaxWidth().height(48.dp).then(if (tabs != null && swipeEnabled) Modifier.barSwipe(swipe, tabs, scope) else Modifier),
     ) {
         Box {
             Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -85,7 +97,8 @@ fun AddressField(
                     val text = rememberTextFieldState()
                     val focusRequester = remember { FocusRequester() }
                     var hadFocus by remember { mutableStateOf(false) }
-                    LaunchedEffect(Unit) {
+                    // Keyed on the tab so a tab that opens while editing starts empty, not with the old URL.
+                    LaunchedEffect(tabs?.selectedId) {
                         text.setTextAndSelectAll(editableUrl(state.url))
                         focusRequester.requestFocus()
                     }
@@ -120,33 +133,65 @@ fun AddressField(
                     )
                 } else {
                     val display = displayUrl(state.url)
-                    Row(
-                        Modifier.weight(1f)
-                            .clickable(onClickLabel = stringResource(R.string.action_edit_address), role = Role.Button) {
-                                onEditingChange(true)
+                    val switchActions = listOfNotNull(
+                        tabs?.prevHost?.let { it to -1 },
+                        tabs?.nextHost?.let { it to 1 },
+                    ).map { (host, by) ->
+                        CustomAccessibilityAction(stringResource(R.string.action_switch_to_tab, host)) {
+                            tabs?.switchBy?.invoke(by)
+                            true
+                        }
+                    }
+                    Box(Modifier.weight(1f).clipToBounds().onSizeChanged { swipe.width = it.width.toFloat() }) {
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .semantics { customActions = switchActions }
+                                .graphicsLayer { translationX = swipe.offset }
+                                .clickable(onClickLabel = stringResource(R.string.action_edit_address), role = Role.Button) {
+                                    onEditingChange(true)
+                                }
+                                .heightIn(min = 48.dp)
+                                .padding(start = startPadding),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (display.isSecure) {
+                                Icon(
+                                    Icons.Filled.Lock,
+                                    contentDescription = stringResource(R.string.cd_secure_connection),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp),
+                                )
                             }
-                            .heightIn(min = 48.dp)
-                            .padding(start = startPadding),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (display.isSecure) {
-                            Icon(
-                                Icons.Filled.Lock,
-                                contentDescription = stringResource(R.string.cd_secure_connection),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp),
+                            val empty = display.text.isEmpty()
+                            Text(
+                                text = if (empty) stringResource(R.string.address_hint) else display.text,
+                                style = textStyle,
+                                color = if (empty) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false).padding(start = if (display.isSecure) lockGap else 0.dp),
                             )
                         }
-                        val empty = display.text.isEmpty()
-                        Text(
-                            text = if (empty) stringResource(R.string.address_hint) else display.text,
-                            style = textStyle,
-                            color = if (empty) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false).padding(start = if (display.isSecure) lockGap else 0.dp),
-                        )
+                        // The neighbour's host comes in from the edge the finger moves towards.
+                        val peek = if (swipe.settling) null else if (swipe.offset < 0f) tabs?.nextHost else if (swipe.offset > 0f) tabs?.prevHost else null
+                        if (peek != null) {
+                            Box(
+                                Modifier.matchParentSize().graphicsLayer {
+                                    translationX = swipe.offset + (if (swipe.offset < 0f) size.width else -size.width)
+                                },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    peek,
+                                    style = textStyle,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.clearAndSetSemantics {},
+                                )
+                            }
+                        }
                     }
                 }
                 val trailing = if (compact) Modifier.size(48.dp) else Modifier.padding(end = 4.dp).size(48.dp)

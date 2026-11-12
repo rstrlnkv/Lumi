@@ -28,6 +28,7 @@ import ru.digitalpunk.lumi.engine.PageState
 fun ClassicBar(
     state: PageState,
     engine: BrowserEngine,
+    tabs: TabActions,
     editing: Boolean,
     onEditingChange: (Boolean) -> Unit,
     onSwitchStyle: () -> Unit,
@@ -55,12 +56,13 @@ fun ClassicBar(
                 onSubmit = engine::load,
                 onReload = engine::reload,
                 onStop = engine::stop,
+                tabs = tabs,
             )
             if (!editing) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     BackButton(state.canGoBack, engine::goBack)
                     ForwardButton(state.canGoForward, engine::goForward)
-                    MoreMenu(AddressBarStyle.Classic, onSwitchStyle)
+                    MoreMenu(AddressBarStyle.Classic, tabs, onSwitchStyle)
                 }
             }
         }

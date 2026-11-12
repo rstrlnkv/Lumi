@@ -12,4 +12,7 @@
     <string name="action_expand_bar">Показать адресную строку</string>
     <string name="menu_use_classic_bar">Классическая адресная строка</string>
     <string name="menu_use_compact_bar">Компактная адресная строка</string>
+    <string name="menu_new_tab">Новая вкладка</string>
+    <string name="action_switch_to_tab">Перейти на вкладку: %1$s</string>
+    <string name="tab_untitled">Новая вкладка</string>
 </resources>

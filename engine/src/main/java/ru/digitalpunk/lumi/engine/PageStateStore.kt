@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /** Folds engine callbacks into one [PageState]. No GeckoView types, so it runs on the JVM. */
-internal class PageStateStore {
-    private val mutable = MutableStateFlow(PageState())
+internal class PageStateStore(initial: PageState = PageState()) {
+    private val mutable = MutableStateFlow(initial)
     val state: StateFlow<PageState> = mutable.asStateFlow()
 
     // While crashed only recovering() and locationChanged() change the state: late events from the dead page are ignored.

@@ -55,6 +55,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ru.digitalpunk.lumi.R
+import ru.digitalpunk.lumi.address.displayUrl
 import ru.digitalpunk.lumi.data.AddressBarStyle
 import ru.digitalpunk.lumi.data.SettingsStore
 import ru.digitalpunk.lumi.engine.BrowserEngine
@@ -72,6 +73,7 @@ private const val MIN_REFRESH_MILLIS = 600L
 @Composable
 fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore) {
     val state by engine.state.collectAsStateWithLifecycle()
+    val tabsState by engine.tabs.collectAsStateWithLifecycle()
     val style by settings.addressBarStyle.collectAsStateWithLifecycle<AddressBarStyle?>(null)
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -145,6 +147,26 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore) {
         onDispose { engine.pageTouchListener = null }
     }
 
+    // Nothing to show until the stored tabs are back.
+    if (tabsState.tabs.isEmpty()) {
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface))
+        return
+    }
+
+    val untitled = stringResource(R.string.tab_untitled)
+    val selectedAt = tabsState.tabs.indexOfFirst { it.id == tabsState.selectedId }
+    fun hostAt(i: Int) = tabsState.tabs.getOrNull(i)?.let { displayUrl(it.url).text.ifEmpty { untitled } }
+    val tabActions = TabActions(
+        selectedId = tabsState.selectedId,
+        prevHost = hostAt(selectedAt - 1),
+        nextHost = hostAt(selectedAt + 1),
+        newTab = {
+            engine.newTab()
+            editing = true
+        },
+        switchBy = { engine.switchBy(it) },
+    )
+
     // The page fills the screen under the bar; only the keyboard shrinks it.
     Box(Modifier.fillMaxSize().imePadding()) {
         Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top))) {
@@ -197,10 +219,10 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore) {
         when (style) {
             null -> Unit
             AddressBarStyle.Compact -> CompactBar(
-                state, engine, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
+                state, engine, tabActions, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
             )
             AddressBarStyle.Classic -> ClassicBar(
-                state, engine, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
+                state, engine, tabActions, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
             )
         }
     }

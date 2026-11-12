@@ -29,6 +29,7 @@ import ru.digitalpunk.lumi.engine.PageState
 fun CompactBar(
     state: PageState,
     engine: BrowserEngine,
+    tabs: TabActions,
     editing: Boolean,
     onEditingChange: (Boolean) -> Unit,
     onSwitchStyle: () -> Unit,
@@ -58,8 +59,9 @@ fun CompactBar(
                 onReload = engine::reload,
                 onStop = engine::stop,
                 modifier = Modifier.weight(1f),
+                tabs = tabs,
             )
-            if (!editing) FloatingCircle { MoreMenu(AddressBarStyle.Compact, onSwitchStyle) }
+            if (!editing) FloatingCircle { MoreMenu(AddressBarStyle.Compact, tabs, onSwitchStyle) }
         }
         CollapsedStrip(
             state.url,

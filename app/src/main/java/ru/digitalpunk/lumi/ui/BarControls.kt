@@ -66,9 +66,9 @@ fun FloatingCircle(modifier: Modifier = Modifier, content: @Composable () -> Uni
     ) { Box(contentAlignment = Alignment.Center) { content() } }
 }
 
-/** The More button and its menu. For now the menu holds one item: switch the address-bar style. */
+/** The More button and its menu: a new tab, and switch the address-bar style. */
 @Composable
-fun MoreMenu(style: AddressBarStyle, onSwitchStyle: () -> Unit, modifier: Modifier = Modifier) {
+fun MoreMenu(style: AddressBarStyle, tabs: TabActions, onSwitchStyle: () -> Unit, modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
         IconButton(onClick = { open = true }, colors = barIconColors(), modifier = Modifier.size(48.dp)) {
@@ -80,6 +80,13 @@ fun MoreMenu(style: AddressBarStyle, onSwitchStyle: () -> Unit, modifier: Modifi
             )
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.menu_new_tab)) },
+                onClick = {
+                    open = false
+                    tabs.newTab()
+                },
+            )
             DropdownMenuItem(
                 text = {
                     Text(
