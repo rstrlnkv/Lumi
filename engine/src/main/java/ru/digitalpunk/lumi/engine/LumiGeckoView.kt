@@ -11,6 +11,12 @@ import org.mozilla.geckoview.GeckoView
 internal class LumiGeckoView(context: Context) : GeckoView(context) {
     var listener: PageTouchListener? = null
 
+    /** While a screen covers the page, TalkBack and keyboard focus skip it. */
+    fun hideFromAccessibility(hide: Boolean) {
+        importantForAccessibility = if (hide) IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS else IMPORTANT_FOR_ACCESSIBILITY_AUTO
+        descendantFocusability = if (hide) FOCUS_BLOCK_DESCENDANTS else FOCUS_BEFORE_DESCENDANTS
+    }
+
     private var gestureId = 0
     private var multiTouch = false
     private var lastY = 0f

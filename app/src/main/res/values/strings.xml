@@ -16,4 +16,19 @@
     <string name="menu_new_tab">New tab</string>
     <string name="action_switch_to_tab">Switch to %1$s</string>
     <string name="tab_untitled">New tab</string>
+    <string name="menu_all_tabs">All tabs · %1$d</string>
+    <string name="action_new_tab">New tab</string>
+    <string name="action_done">Done</string>
+    <string name="cd_tab_card">%1$s, tab %2$d of %3$d</string>
+    <string name="state_current_tab">Current tab</string>
+    <string name="action_close_tab">Close tab %1$s</string>
+    <string name="action_close_tab_custom">Close tab</string>
+    <plurals name="tab_count">
+        <item quantity="one">%d tab</item>
+        <item quantity="other">%d tabs</item>
+    </plurals>
+    <plurals name="tabs_button_cd">
+        <item quantity="one">Tabs, %d open</item>
+        <item quantity="other">Tabs, %d open</item>
+    </plurals>
 </resources>

@@ -1,8 +1,10 @@
 package ru.digitalpunk.lumi.ui
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -27,10 +29,16 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ru.digitalpunk.lumi.R
 import ru.digitalpunk.lumi.data.AddressBarStyle
+import ru.digitalpunk.lumi.ui.tabgrid.tabCountGlyph
 
 @Composable
 private fun barIconColors() = IconButtonDefaults.iconButtonColors(
@@ -55,6 +63,31 @@ private fun BarIconButton(icon: ImageVector, description: String, enabled: Boole
     }
 }
 
+/** The Classic bar's Tabs button: a rounded square with the tab count in it. */
+@Composable
+fun TabsButton(count: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val description = pluralStringResource(R.plurals.tabs_button_cd, count, count)
+    IconButton(
+        onClick = onClick,
+        colors = barIconColors(),
+        modifier = modifier.size(48.dp).semantics { contentDescription = description },
+    ) {
+        val color = MaterialTheme.colorScheme.onSurfaceVariant
+        Box(Modifier.size(24.dp).border(2.dp, color, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
+            Text(
+                tabCountGlyph(count),
+                style = MaterialTheme.typography.labelMedium,
+                // Fixed size: the digits sit in a 24 dp square and must not clip at large font scales.
+                fontSize = 12.sp,
+                color = color,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
+            )
+        }
+    }
+}
+
 /** A 48 dp round button over the page, as the Compact bar draws its controls. */
 @Composable
 fun FloatingCircle(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
@@ -66,7 +99,7 @@ fun FloatingCircle(modifier: Modifier = Modifier, content: @Composable () -> Uni
     ) { Box(contentAlignment = Alignment.Center) { content() } }
 }
 
-/** The More button and its menu: a new tab, and switch the address-bar style. */
+/** The More button and its menu: a new tab, all tabs (Compact only: Classic has the Tabs button), and switch the address-bar style. */
 @Composable
 fun MoreMenu(style: AddressBarStyle, tabs: TabActions, onSwitchStyle: () -> Unit, modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
@@ -87,6 +120,15 @@ fun MoreMenu(style: AddressBarStyle, tabs: TabActions, onSwitchStyle: () -> Unit
                     tabs.newTab()
                 },
             )
+            if (style == AddressBarStyle.Compact) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.menu_all_tabs, tabs.count)) },
+                    onClick = {
+                        open = false
+                        tabs.openGrid()
+                    },
+                )
+            }
             DropdownMenuItem(
                 text = {
                     Text(

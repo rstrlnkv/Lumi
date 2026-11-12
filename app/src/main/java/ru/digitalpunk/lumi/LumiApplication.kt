@@ -5,11 +5,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import ru.digitalpunk.lumi.data.SettingsStore
+import ru.digitalpunk.lumi.data.tabs.SnapshotStore
 import ru.digitalpunk.lumi.data.tabs.TabRepository
 import ru.digitalpunk.lumi.engine.BrowserEngine
 import ru.digitalpunk.lumi.tabs.TabPersistence
+import ru.digitalpunk.lumi.tabs.TabSnapshots
 
 class LumiApplication : Application() {
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val engineHolder = lazy { BrowserEngine(this) }
 
     /** Process scope: GeckoRuntime allows one instance, and rotation must not reload the page. */
@@ -18,8 +21,10 @@ class LumiApplication : Application() {
     val settings by lazy { SettingsStore(this) }
 
     val tabPersistence by lazy {
-        TabPersistence(engine, TabRepository.create(this), CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
+        TabPersistence(engine, TabRepository.create(this), appScope)
     }
+
+    val tabSnapshots by lazy { TabSnapshots(engine, SnapshotStore.create(this), appScope) }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)

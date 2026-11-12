@@ -15,4 +15,23 @@
     <string name="menu_new_tab">Новая вкладка</string>
     <string name="action_switch_to_tab">Перейти на вкладку: %1$s</string>
     <string name="tab_untitled">Новая вкладка</string>
+    <string name="menu_all_tabs">Все вкладки · %1$d</string>
+    <string name="action_new_tab">Новая вкладка</string>
+    <string name="action_done">Готово</string>
+    <string name="cd_tab_card">%1$s, вкладка %2$d из %3$d</string>
+    <string name="state_current_tab">Текущая вкладка</string>
+    <string name="action_close_tab">Закрыть вкладку %1$s</string>
+    <string name="action_close_tab_custom">Закрыть вкладку</string>
+    <plurals name="tab_count">
+        <item quantity="one">%d вкладка</item>
+        <item quantity="few">%d вкладки</item>
+        <item quantity="many">%d вкладок</item>
+        <item quantity="other">%d вкладки</item>
+    </plurals>
+    <plurals name="tabs_button_cd">
+        <item quantity="one">Вкладки: %d открыта</item>
+        <item quantity="few">Вкладки: %d открыты</item>
+        <item quantity="many">Вкладки: %d открыто</item>
+        <item quantity="other">Вкладки: %d открыто</item>
+    </plurals>
 </resources>

@@ -2,10 +2,17 @@ package ru.digitalpunk.lumi.engine
 
 import android.app.ActivityManager
 import android.content.Context
+import android.graphics.Bitmap
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
@@ -42,6 +49,24 @@ class BrowserEngine(appContext: Context) {
 
     /** Fires (conflated) when the tab list, a URL, a title or a session state changed: time to save. */
     val changes: Flow<Unit> = mutableChanges
+
+    private val mutableSnapshots = MutableSharedFlow<TabSnapshot>(extraBufferCapacity = 4, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    /** A fresh picture of a tab's page, after a load or on request ([captureSelected]). */
+    val snapshots: SharedFlow<TabSnapshot> = mutableSnapshots
+
+    /** While the tab grid covers the page, no automatic snapshot is taken (the page is not on screen) and the page is hidden from accessibility services. */
+    var gridOpen = false
+        set(value) {
+            field = value
+            view?.hideFromAccessibility(value)
+        }
+
+    /** Bumped on every tab switch; a picture that was asked for under an older value is dropped. */
+    private var captureEpoch = 0
+
+    private val handler = Handler(Looper.getMainLooper())
+    private val captureAfterLoad = Runnable { selected?.let { tab -> capture(tab) {} } }
 
     private val runtime = GeckoRuntime.create(appContext)
     private var view: LumiGeckoView? = null
@@ -85,7 +110,13 @@ class BrowserEngine(appContext: Context) {
         }
         session.progressDelegate = object : GeckoSession.ProgressDelegate {
             override fun onPageStart(session: GeckoSession, url: String) = tab.pageChanged { pageStarted(url) }
-            override fun onPageStop(session: GeckoSession, success: Boolean) = tab.pageChanged { pageStopped() }
+            override fun onPageStop(session: GeckoSession, success: Boolean) {
+                tab.pageChanged { pageStopped() }
+                if (tab === selected) {
+                    handler.removeCallbacks(captureAfterLoad)
+                    handler.postDelayed(captureAfterLoad, CAPTURE_DELAY_MILLIS)
+                }
+            }
             override fun onProgressChange(session: GeckoSession, progress: Int) = tab.pageChanged { progressChanged(progress) }
 
             override fun onSessionStateChange(session: GeckoSession, sessionState: GeckoSession.SessionState) {
@@ -139,6 +170,8 @@ class BrowserEngine(appContext: Context) {
 
     /** Puts [tab] on screen: the view lets go of the old session, takes the new one and the bar numbers again. */
     private fun show(tab: Tab) {
+        captureEpoch++
+        handler.removeCallbacks(captureAfterLoad)
         view?.releaseSession()
         val session = ensureLive(tab)
         view?.let {
@@ -223,6 +256,47 @@ class BrowserEngine(appContext: Context) {
         return TabsSave(saved, list.selectedId, list.tabs.associate { it.id to records.getValue(it.id).stateVersion })
     }
 
+    /** Whether the page on screen is worth a picture: a live, loaded, uncrashed page, and the grid is not covering it. */
+    private fun canCapture(tab: Tab): Boolean {
+        val page = tab.page.state.value
+        return tab === selected && tab.session != null && !gridOpen && !page.isCrashed && !page.url.equals("about:blank", ignoreCase = true)
+    }
+
+    /** Takes a picture of [tab] and publishes it on [snapshots]; [done] gets true if one was published. */
+    private fun capture(tab: Tab, done: (Boolean) -> Unit) {
+        val view = view
+        if (view == null || !canCapture(tab)) return done(false)
+        val epoch = captureEpoch
+        view.capturePixels().accept({ raw ->
+            if (raw == null) return@accept done(false)
+            if (tab !== selected || epoch != captureEpoch || raw.width <= 0 || raw.height <= 0) {
+                raw.recycle()
+                return@accept done(false)
+            }
+            try {
+                val crop = cropRect(raw.width, raw.height, CARD_ASPECT)
+                val size = scaledSize(crop.width, crop.height, SNAPSHOT_WIDTH)
+                val cropped = Bitmap.createBitmap(raw, crop.left, crop.top, crop.width, crop.height)
+                val scaled = if (size.width == crop.width) cropped else Bitmap.createScaledBitmap(cropped, size.width, size.height, true)
+                if (cropped !== raw && cropped !== scaled) cropped.recycle()
+                if (scaled !== raw) raw.recycle()
+                mutableSnapshots.tryEmit(TabSnapshot(tab.id, scaled))
+                done(true)
+            } catch (_: RuntimeException) {
+                raw.recycle()
+                done(false)
+            }
+        }, { done(false) })
+    }
+
+    /** A fresh snapshot of the selected tab, for the grid that is about to open. Gives up after 250 ms; the grid then shows the older one. */
+    suspend fun captureSelected() {
+        val tab = selected ?: return
+        withTimeoutOrNull(CAPTURE_TIMEOUT_MILLIS) {
+            suspendCancellableCoroutine { c -> capture(tab) { c.resume(it) } }
+        }
+    }
+
     /** [level] is a `ComponentCallbacks2.TRIM_MEMORY_*` value. The cap returns to normal on the next tab switch. */
     fun trimMemory(level: Int) {
         cap = capForTrim(baseCap, level)
@@ -287,6 +361,7 @@ class BrowserEngine(appContext: Context) {
         it.setDynamicToolbarMaxHeight(barMaxHeight)
         it.setVerticalClipping(barVisibleHeight)
         view = it
+        it.hideFromAccessibility(gridOpen)
     }
 
     fun releaseView(view: View) {
@@ -297,3 +372,10 @@ class BrowserEngine(appContext: Context) {
         if (this.view === view) this.view = null
     }
 }
+
+private const val CAPTURE_DELAY_MILLIS = 800L
+private const val CAPTURE_TIMEOUT_MILLIS = 250L
+
+/** The grid card's snapshot area: 182 x 220 dp. */
+private const val CARD_ASPECT = 182f / 220f
+private const val SNAPSHOT_WIDTH = 480

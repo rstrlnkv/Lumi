@@ -62,6 +62,7 @@ fun ClassicBar(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     BackButton(state.canGoBack, engine::goBack)
                     ForwardButton(state.canGoForward, engine::goForward)
+                    TabsButton(tabs.count, tabs.openGrid)
                     MoreMenu(AddressBarStyle.Classic, tabs, onSwitchStyle)
                 }
             }

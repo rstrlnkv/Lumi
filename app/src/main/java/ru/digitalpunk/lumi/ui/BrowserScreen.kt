@@ -34,6 +34,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -43,6 +44,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -64,6 +73,10 @@ import ru.digitalpunk.lumi.engine.PageTouchListener
 import ru.digitalpunk.lumi.gesture.BarGeometry
 import ru.digitalpunk.lumi.gesture.PageGestureTracker
 import ru.digitalpunk.lumi.gesture.pullFraction
+import ru.digitalpunk.lumi.tabs.TabSnapshots
+import ru.digitalpunk.lumi.ui.tabgrid.CloseEffect
+import ru.digitalpunk.lumi.ui.tabgrid.TabGrid
+import ru.digitalpunk.lumi.ui.tabgrid.closeEffect
 import kotlin.math.roundToInt
 
 private val TouchSlop = 8.dp
@@ -71,14 +84,19 @@ private const val MIN_REFRESH_MILLIS = 600L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore) {
+fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: TabSnapshots) {
     val state by engine.state.collectAsStateWithLifecycle()
     val tabsState by engine.tabs.collectAsStateWithLifecycle()
     val style by settings.addressBarStyle.collectAsStateWithLifecycle<AddressBarStyle?>(null)
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     var editing by remember { mutableStateOf(false) }
+    var gridOpen by rememberSaveable { mutableStateOf(false) }
+    var capturing by remember { mutableStateOf(false) }
     BackHandler(enabled = state.canGoBack && !editing) { engine.goBack() }
+    // After the page-history handler, so it comes first: Back closes the grid before anything else.
+    BackHandler(enabled = gridOpen) { gridOpen = false }
+    LaunchedEffect(gridOpen) { engine.gridOpen = gridOpen }
 
     // The bar slides off by `bar.hidden`; Gecko is told how much of the page bottom the bar covers.
     val bar = remember(style) { BarController(scope) }
@@ -158,18 +176,39 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore) {
     fun hostAt(i: Int) = tabsState.tabs.getOrNull(i)?.let { displayUrl(it.url).text.ifEmpty { untitled } }
     val tabActions = TabActions(
         selectedId = tabsState.selectedId,
+        count = tabsState.tabs.size,
         prevHost = hostAt(selectedAt - 1),
         nextHost = hostAt(selectedAt + 1),
         newTab = {
             engine.newTab()
             editing = true
         },
+        openGrid = {
+            // A second request while the picture is being taken (or the grid is open) changes nothing.
+            if (!capturing && !gridOpen) {
+                capturing = true
+                scope.launch {
+                    try {
+                        engine.captureSelected()
+                        gridOpen = true
+                    } finally {
+                        capturing = false
+                    }
+                }
+            }
+        },
         switchBy = { engine.switchBy(it) },
     )
 
     // The page fills the screen under the bar; only the keyboard shrinks it.
+    // While the grid covers them, the page and the bar are out of TalkBack and keyboard focus.
+    val hiddenBehindGrid = if (gridOpen) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false } else Modifier
     Box(Modifier.fillMaxSize().imePadding()) {
-        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top))) {
+        Box(
+            Modifier.fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top))
+                .then(hiddenBehindGrid),
+        ) {
             AndroidView(
                 factory = { engine.createView(it) },
                 onRelease = { engine.releaseView(it) },
@@ -206,6 +245,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore) {
             .align(Alignment.BottomCenter)
             .onSizeChanged { expandedPx = it.height }
             .graphicsLayer { translationY = bar.hidden }
+            .then(hiddenBehindGrid)
         // Nothing to hide (not measured yet, or the keyboard is up): the bar stays fully shown.
         val progress = { if (bar.maxHidden <= 0f) 0f else BarGeometry.progress(bar.hidden, bar.maxHidden) }
         val switchStyle: () -> Unit = {
@@ -225,5 +265,35 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore) {
                 state, engine, tabActions, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
             )
         }
+
+        AnimatedVisibility(
+            visible = gridOpen,
+            enter = fadeIn(tween(GRID_FADE_MILLIS)) + scaleIn(tween(GRID_FADE_MILLIS), initialScale = 0.96f),
+            exit = fadeOut(tween(GRID_FADE_MILLIS)) + scaleOut(tween(GRID_FADE_MILLIS), targetScale = 0.96f),
+        ) {
+            TabGrid(
+                tabs = tabsState.tabs,
+                selectedId = tabsState.selectedId,
+                snapshots = snapshots,
+                onSelect = {
+                    engine.selectTab(it)
+                    gridOpen = false
+                },
+                onClose = {
+                    if (closeEffect(engine.closeTab(it)) == CloseEffect.LeaveGridForNewTab) {
+                        gridOpen = false
+                        editing = true
+                    }
+                },
+                onNewTab = {
+                    engine.newTab()
+                    gridOpen = false
+                    editing = true
+                },
+                onDone = { gridOpen = false },
+            )
+        }
     }
 }
+
+private const val GRID_FADE_MILLIS = 200

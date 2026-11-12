@@ -26,13 +26,17 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val app = application as LumiApplication
         app.tabPersistence.start()
+        app.tabSnapshots.start()
         lifecycle.addObserver(object : DefaultLifecycleObserver {
-            override fun onStop(owner: LifecycleOwner) = app.tabPersistence.flushNow()
+            override fun onStop(owner: LifecycleOwner) {
+                app.tabSnapshots.captureNow()
+                app.tabPersistence.flushNow()
+            }
         })
         setContent {
             LumiTheme {
                 Surface(Modifier.fillMaxSize()) {
-                    BrowserScreen(app.engine, app.settings)
+                    BrowserScreen(app.engine, app.settings, app.tabSnapshots)
                 }
             }
         }

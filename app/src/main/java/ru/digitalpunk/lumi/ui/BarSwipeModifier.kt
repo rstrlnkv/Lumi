@@ -78,8 +78,8 @@ class BarSwipeState {
 }
 
 /**
- * Swipe sideways to switch tabs. It locks only when the first move is more sideways than up or down, so taps
- * and vertical touches reach the field untouched. [state] carries the shift for the field to draw.
+ * Swipe sideways to switch tabs, or up to open the tab grid. It locks only when the first move is sideways or up,
+ * so taps and downward touches reach the field untouched. [state] carries the shift for the field to draw.
  */
 @Composable
 fun Modifier.barSwipe(state: BarSwipeState, tabs: TabActions, scope: CoroutineScope): Modifier {
@@ -89,10 +89,12 @@ fun Modifier.barSwipe(state: BarSwipeState, tabs: TabActions, scope: CoroutineSc
     return this
         .pointerInput(state) {
             val flingPxPerSec = FLING_DP_PER_SEC.dp.toPx()
+            val gridPx = GRID_DP.dp.toPx()
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val velocity = VelocityTracker().also { it.addPointerInputChange(down) }
                 var total = Offset.Zero
+                var axis = BarSwipe.Axis.None
                 var locked = false
                 var pastThreshold = false
                 var finished = false
@@ -105,10 +107,21 @@ fun Modifier.barSwipe(state: BarSwipeState, tabs: TabActions, scope: CoroutineSc
                         if (!locked) {
                             if (!change.pressed) return@awaitEachGesture
                             if (total.getDistance() < viewConfiguration.touchSlop) continue
-                            if (!BarSwipe.isHorizontal(total.x, total.y)) return@awaitEachGesture
+                            axis = BarSwipe.lockAxis(total.x, total.y)
+                            if (axis == BarSwipe.Axis.None) return@awaitEachGesture
                             locked = true
                         }
-                        if (change.pressed) {
+                        if (axis == BarSwipe.Axis.Up) {
+                            change.consume()
+                            if (!change.pressed) {
+                                finished = true
+                                if (BarSwipe.opensGrid(total.y, velocity.calculateVelocity().y, gridPx, flingPxPerSec)) {
+                                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                                    currentTabs.openGrid()
+                                }
+                                return@awaitEachGesture
+                            }
+                        } else if (change.pressed) {
                             change.consume()
                             val hasPrev = currentTabs.prevHost != null
                             val hasNext = currentTabs.nextHost != null
@@ -133,11 +146,12 @@ fun Modifier.barSwipe(state: BarSwipeState, tabs: TabActions, scope: CoroutineSc
                     }
                 } finally {
                     // The gesture was cut off (for example the field started editing): do not leave the text shifted.
-                    if (locked && !finished) settle(BarSwipe.Outcome.SpringBack)
+                    if (locked && !finished && axis == BarSwipe.Axis.Horizontal) settle(BarSwipe.Outcome.SpringBack)
                 }
             }
         }
 }
 
 private const val FLING_DP_PER_SEC = 1000
+private const val GRID_DP = 48
 private const val ARRIVAL_TIMEOUT_MILLIS = 500L
