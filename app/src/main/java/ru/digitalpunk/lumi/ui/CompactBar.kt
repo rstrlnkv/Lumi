@@ -33,6 +33,7 @@ fun CompactBar(
     onShowProtection: () -> Unit,
     engine: BrowserEngine,
     tabs: TabActions,
+    library: LibraryActions,
     editing: Boolean,
     onEditingChange: (Boolean) -> Unit,
     onSwitchStyle: () -> Unit,
@@ -67,7 +68,7 @@ fun CompactBar(
                 modifier = Modifier.weight(1f),
                 tabs = tabs,
             )
-            if (!editing) FloatingCircle { MoreMenu(AddressBarStyle.Compact, tabs, onSwitchStyle, onOpenSettings) }
+            if (!editing) FloatingCircle { MoreMenu(AddressBarStyle.Compact, tabs, library, onSwitchStyle, onOpenSettings) }
         }
         CollapsedStrip(
             state.url,

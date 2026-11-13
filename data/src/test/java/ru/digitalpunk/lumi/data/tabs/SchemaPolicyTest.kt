@@ -19,6 +19,12 @@ class SchemaPolicyTest {
         assertTrue("\"fieldPath\": \"currentGroupId\"" in json)
     }
 
+    @Test fun versionThreeSchemaHasTheBookmarkAndHistoryTables() {
+        val json = File(schemas, "3.json").readText()
+        assertTrue("\"tableName\": \"bookmark_node\"" in json)
+        assertTrue("\"tableName\": \"history\"" in json)
+    }
+
     @Test fun noMainSourceUsesADestructiveMigrationFallback() {
         val hits = File("src/main").walkTopDown().filter { it.isFile && it.extension == "kt" && "fallbackToDestructive" in it.readText() }.toList()
         assertTrue(hits.isEmpty(), "destructive fallback in $hits")

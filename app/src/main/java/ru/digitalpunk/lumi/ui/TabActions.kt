@@ -16,3 +16,12 @@ class TabActions(
     /** Closes the selected tab; the last one leaves a new blank tab. */
     val closeTab: () -> Unit,
 )
+
+/** What the More menu needs from the library: whether the page on screen is saved, whether it can be, and two actions. */
+class LibraryActions(
+    val bookmarked: Boolean,
+    val canBookmark: Boolean,
+    /** Saves the page into the start-page folder, or opens the editor when it is saved already. */
+    val addOrEditBookmark: () -> Unit,
+    val openLibrary: () -> Unit,
+)

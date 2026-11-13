@@ -24,7 +24,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDefaults
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -100,6 +99,7 @@ import android.os.Build
 import android.os.PersistableBundle
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import ru.digitalpunk.lumi.engine.PageTouchListener
 import ru.digitalpunk.lumi.engine.TabInfo
 import ru.digitalpunk.lumi.engine.neighbour
@@ -113,6 +113,15 @@ import ru.digitalpunk.lumi.ui.tabgrid.TabGrid
 import ru.digitalpunk.lumi.ui.tabgrid.closeEffect
 import ru.digitalpunk.lumi.ui.tabgrid.currentGroupTabCount
 import ru.digitalpunk.lumi.ui.settings.SettingsScreen
+import ru.digitalpunk.lumi.ui.library.BookmarkEditorDialog
+import ru.digitalpunk.lumi.ui.library.LibraryScreen
+import ru.digitalpunk.lumi.ui.library.deleteWithUndo
+import ru.digitalpunk.lumi.data.library.LibraryIds.FAVORITES
+import ru.digitalpunk.lumi.data.library.LibraryRepository
+import ru.digitalpunk.lumi.data.library.findBookmarkByUrl
+import ru.digitalpunk.lumi.library.canBookmark
+import ru.digitalpunk.lumi.library.folderName
+import androidx.compose.foundation.layout.navigationBarsPadding
 import kotlin.math.roundToInt
 
 private val TouchSlop = 8.dp
@@ -120,7 +129,7 @@ private const val MIN_REFRESH_MILLIS = 600L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: TabSnapshots, gate: PrivateGate) {
+fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: TabSnapshots, gate: PrivateGate, library: LibraryRepository) {
     val state by engine.state.collectAsStateWithLifecycle()
     val tabsState by engine.tabs.collectAsStateWithLifecycle()
     val style by settings.addressBarStyle.collectAsStateWithLifecycle<AddressBarStyle?>(null)
@@ -131,19 +140,24 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
     var editing by remember { mutableStateOf(false) }
     var gridOpen by rememberSaveable { mutableStateOf(false) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    var libraryOpen by rememberSaveable { mutableStateOf(false) }
+    // Only the id: a bookmark is in the normal store, so nothing private is kept in the saved state.
+    var editBookmarkId by rememberSaveable { mutableStateOf<String?>(null) }
     var capturing by remember { mutableStateOf(false) }
     BackHandler(enabled = state.canGoBack && !editing) { engine.goBack() }
     // After the page-history handler, so it comes first: Back closes the grid or Settings before anything else.
     BackHandler(enabled = gridOpen) { gridOpen = false }
     BackHandler(enabled = settingsOpen) { settingsOpen = false }
-    // Settings covers the page as the grid does: no snapshots, and the page is out of TalkBack.
-    LaunchedEffect(gridOpen || settingsOpen) { engine.gridOpen = gridOpen || settingsOpen }
+    // The Library installs its own Back handler (search, folder levels, then close).
+    // Settings and the Library cover the page as the grid does: no snapshots, and the page is out of TalkBack.
+    val coverOpen = gridOpen || settingsOpen || libraryOpen
+    LaunchedEffect(coverOpen) { engine.gridOpen = coverOpen }
 
     // Private tabs: the bar turns dark, recents and screenshots go blank, and a private tab that was in front when
     // Lumi locked waits behind the lock screen. Back there gives it up and opens the grid.
     val selectedPrivate = tabsState.tabs.any { it.id == tabsState.selectedId && it.isPrivate }
     val lockShown = tabsState.privateResume && !gridOpen
-    SecureWindow(needsSecureWindow(tabsState, gridOpen), darkBar = selectedPrivate && !gridOpen && !lockShown && !settingsOpen)
+    SecureWindow(needsSecureWindow(tabsState, gridOpen), darkBar = selectedPrivate && !coverOpen && !lockShown)
     BackHandler(enabled = lockShown) {
         engine.leavePrivate()
         gridOpen = true
@@ -152,6 +166,8 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
         if (lockShown) {
             editing = false
             settingsOpen = false
+            libraryOpen = false
+            editBookmarkId = null
         }
     }
     // One prompt per lock, on return to a private tab.
@@ -288,7 +304,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
         },
     )
 
-    // Private tabs that could not come back are told once, above the bar.
+    // Private tabs that could not come back are told once, above the bar (or above the Library).
     val snackbar = remember { SnackbarHostState() }
     val droppedText = stringResource(R.string.private_tabs_dropped)
     LaunchedEffect(gate) {
@@ -302,13 +318,15 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
     val openedText = stringResource(R.string.snackbar_new_tab_opened)
     val openedPrivateText = stringResource(R.string.snackbar_new_private_tab_opened)
     val openText = stringResource(R.string.snackbar_action_open)
+    val openNewTabLabel = stringResource(R.string.cd_snackbar_open_new_tab)
     LaunchedEffect(notice) {
         val shown = notice ?: return@LaunchedEffect
-        val result = snackbar.showSnackbar(if (shown.private) openedPrivateText else openedText, openText, duration = SnackbarDuration.Short)
+        val result = snackbar.showSnackbar(LumiSnackbarVisuals(if (shown.private) openedPrivateText else openedText, openText, openNewTabLabel))
         if (result == SnackbarResult.ActionPerformed) {
             val open = {
                 engine.selectTab(shown.tab)
                 gridOpen = false
+                libraryOpen = false
             }
             // A locked private tab cannot be selected: unlock first.
             if (shown.private) gate.enter(open, noScreenLock) else open()
@@ -319,7 +337,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
     // The link sheet belongs to the tab it was opened on; plain remember keeps a private URL out of the saved state.
     var link by remember { mutableStateOf<LinkTarget?>(null) }
     LaunchedEffect(engine) { engine.linkMenu.collect { link = it } }
-    val shownLink = link?.takeIf { it.tab == tabsState.selectedId && !gridOpen && !lockShown && !settingsOpen }
+    val shownLink = link?.takeIf { it.tab == tabsState.selectedId && !coverOpen && !lockShown }
     LaunchedEffect(shownLink == null) { if (shownLink == null) link = null }
     val copiedText = stringResource(R.string.snackbar_link_copied)
     val onLinkAction = { target: LinkTarget, action: LinkAction ->
@@ -338,16 +356,49 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
                 val open = {
                     val id = engine.newTab(private = plan.private, url = target.url, select = plan.select)
                     if (plan.showNotice) notice = NewTabNotice(id, plan.private)
-                    if (plan.select) gridOpen = false
+                    if (plan.select) {
+                        gridOpen = false
+                        libraryOpen = false
+                    }
                 }
                 if (plan.needsGate) gate.enter(open, noScreenLock) else open()
             }
         }
     }
 
+    // Add bookmark saves at once into the start-page folder (Favorites until M7a2); a saved page offers Edit instead.
+    val nodes by library.nodes.collectAsStateWithLifecycle(emptyList())
+    val savedBookmark = remember(nodes, state.url) { findBookmarkByUrl(nodes, state.url) }
+    val favoritesText = stringResource(R.string.folder_favorites)
+    val editText = stringResource(R.string.snackbar_action_edit)
+    val editBookmarkLabel = stringResource(R.string.cd_snackbar_edit_bookmark)
+    val resources = LocalResources.current
+    val libraryActions = LibraryActions(
+        bookmarked = savedBookmark != null,
+        canBookmark = canBookmark(state.url, state.isCrashed),
+        addOrEditBookmark = {
+            if (savedBookmark != null) {
+                editBookmarkId = savedBookmark.id
+            } else {
+                val url = state.url
+                val title = tabsState.tabs.firstOrNull { it.id == tabsState.selectedId }?.title.orEmpty()
+                scope.launch {
+                    val id = library.addBookmark(FAVORITES, title, url) ?: return@launch
+                    val folder = nodes.firstOrNull { it.id == FAVORITES }?.let { folderName(it, favoritesText) } ?: favoritesText
+                    val saved = LumiSnackbarVisuals(resources.getString(R.string.snackbar_bookmark_saved, folder), editText, editBookmarkLabel)
+                    if (snackbar.showSnackbar(saved) == SnackbarResult.ActionPerformed) editBookmarkId = id
+                }
+            }
+        },
+        openLibrary = {
+            editing = false
+            libraryOpen = true
+        },
+    )
+
     // The page fills the screen under the bar; only the keyboard shrinks it.
     // While the grid covers them, the page and the bar are out of TalkBack and keyboard focus.
-    val hiddenBehindGrid = if (gridOpen || lockShown || settingsOpen) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false } else Modifier
+    val hiddenBehindGrid = if (coverOpen || lockShown) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false } else Modifier
     Box(Modifier.fillMaxSize().imePadding()) {
         Box(
             Modifier.fillMaxSize()
@@ -409,10 +460,10 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
                 when (style) {
                     null -> Unit
                     AddressBarStyle.Compact -> CompactBar(
-                        state, site, openProtection, engine, tabActions, editing, { editing = it }, switchStyle, openSettings, progress, fullyCollapsed, bar::expand, barModifier,
+                        state, site, openProtection, engine, tabActions, libraryActions, editing, { editing = it }, switchStyle, openSettings, progress, fullyCollapsed, bar::expand, barModifier,
                     )
                     AddressBarStyle.Classic -> ClassicBar(
-                        state, site, openProtection, engine, tabActions, editing, { editing = it }, switchStyle, openSettings, progress, fullyCollapsed, bar::expand, barModifier,
+                        state, site, openProtection, engine, tabActions, libraryActions, editing, { editing = it }, switchStyle, openSettings, progress, fullyCollapsed, bar::expand, barModifier,
                     )
                 }
             }
@@ -424,6 +475,35 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
                 { scope.launch { settings.setSwitchToNewTabs(it) } },
                 onBack = { settingsOpen = false },
                 Modifier.fillMaxSize().pointerInput(Unit) {},
+            )
+        }
+
+        if (libraryOpen) {
+            LibraryScreen(
+                library, settings, snackbar, scope, selectedPrivate,
+                onOpen = { url ->
+                    engine.load(url)
+                    libraryOpen = false
+                },
+                onOpenInTab = { url, action ->
+                    tabsState.selectedId?.let { onLinkAction(LinkTarget(it, url, null, selectedPrivate), action) }
+                },
+                onEdit = { editBookmarkId = it },
+                onClose = { libraryOpen = false },
+                modifier = Modifier.fillMaxSize().pointerInput(Unit) {},
+            )
+        }
+
+        editBookmarkId?.let { id ->
+            val deleted = stringResource(R.string.snackbar_bookmark_deleted)
+            val undo = stringResource(R.string.snackbar_action_undo)
+            BookmarkEditorDialog(
+                library, nodes, id,
+                onDelete = {
+                    editBookmarkId = null
+                    scope.launch { deleteWithUndo(library, id, snackbar, deleted, undo) }
+                },
+                onDismiss = { editBookmarkId = null },
             )
         }
 
@@ -499,9 +579,11 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
             )
         }
 
-        val openNewTabLabel = stringResource(R.string.cd_snackbar_open_new_tab)
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = with(density) { expandedPx.toDp() })) { data ->
+        // Over the Library the bar is hidden, so the snackbar sits above the navigation bar instead.
+        val snackbarBottom = if (libraryOpen) Modifier.navigationBarsPadding() else Modifier.padding(bottom = with(density) { expandedPx.toDp() })
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).then(snackbarBottom)) { data ->
             val action = data.visuals.actionLabel
+            val actionDescription = (data.visuals as? LumiSnackbarVisuals)?.actionDescription
             if (action == null) {
                 Snackbar(data)
             } else {
@@ -511,7 +593,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
                         TextButton(
                             onClick = data::performAction,
                             colors = ButtonDefaults.textButtonColors(contentColor = SnackbarDefaults.actionColor),
-                            modifier = Modifier.semantics { contentDescription = openNewTabLabel },
+                            modifier = if (actionDescription == null) Modifier else Modifier.semantics { contentDescription = actionDescription },
                         ) { Text(action) }
                     },
                 ) { Text(data.visuals.message) }

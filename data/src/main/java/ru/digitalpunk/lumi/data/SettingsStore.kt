@@ -16,6 +16,12 @@ enum class AddressBarStyle(internal val stored: String) {
     Classic("classic"),
 }
 
+/** The tab the Library opens on: the one that was open last. */
+enum class LibraryTab(internal val stored: String) {
+    Bookmarks("bookmarks"),
+    History("history"),
+}
+
 private val Context.settingsDataStore by preferencesDataStore("settings")
 
 /** App settings that outlive the process. Nothing from a page or a private tab goes here. */
@@ -46,10 +52,21 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         store.edit { it[PROTECTION_OFF_HOSTS] = it[PROTECTION_OFF_HOSTS].orEmpty().toggled(host, off) }
     }
 
+    /** [LibraryTab.Bookmarks] when nothing, something unknown or a value of another type is stored. */
+    val libraryTab: Flow<LibraryTab> = store.data.map { prefs ->
+        val stored = prefs.read(LIBRARY_TAB)
+        LibraryTab.entries.firstOrNull { it.stored == stored } ?: LibraryTab.Bookmarks
+    }
+
+    suspend fun setLibraryTab(tab: LibraryTab) {
+        store.edit { it[LIBRARY_TAB] = tab.stored }
+    }
+
     private companion object {
         val ADDRESS_BAR_STYLE = stringPreferencesKey("address_bar_style")
         val PROTECTION_OFF_HOSTS = stringSetPreferencesKey("protection_off_hosts")
         val SWITCH_TO_NEW_TABS = booleanPreferencesKey("switch_to_new_tabs")
+        val LIBRARY_TAB = stringPreferencesKey("library_tab")
     }
 }
 

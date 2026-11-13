@@ -74,6 +74,7 @@ class MainActivity : FragmentActivity() {
             }
         }
         gate.prompter = prompter
+        app.historyRecorder.start()
         app.tabPersistence.start()
         app.privatePersistence.start()
         app.tabSnapshots.start()
@@ -95,7 +96,7 @@ class MainActivity : FragmentActivity() {
         setContent {
             LumiTheme {
                 Surface(Modifier.fillMaxSize()) {
-                    BrowserScreen(app.engine, app.settings, app.tabSnapshots, gate)
+                    BrowserScreen(app.engine, app.settings, app.tabSnapshots, gate, app.library)
                 }
             }
         }

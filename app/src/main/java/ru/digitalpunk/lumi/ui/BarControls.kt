@@ -116,10 +116,10 @@ fun FloatingCircle(modifier: Modifier = Modifier, content: @Composable () -> Uni
 
 /**
  * The More button and its menu: a new tab, a new private tab, all tabs (Compact only: Classic has the Tabs button),
- * switch the address-bar style, then Settings. In Compact a long press opens the quick actions (Classic has them on Tabs).
+ * Add or Edit bookmark and the Library, switch the address-bar style, then Settings. In Compact a long press opens the quick actions (Classic has them on Tabs).
  */
 @Composable
-fun MoreMenu(style: AddressBarStyle, tabs: TabActions, onSwitchStyle: () -> Unit, onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
+fun MoreMenu(style: AddressBarStyle, tabs: TabActions, library: LibraryActions, onSwitchStyle: () -> Unit, onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
     var quickOpen by remember { mutableStateOf(false) }
     val compact = style == AddressBarStyle.Compact
@@ -151,6 +151,21 @@ fun MoreMenu(style: AddressBarStyle, tabs: TabActions, onSwitchStyle: () -> Unit
                     tabs.openGrid()
                 }
             }
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            if (library.canBookmark) {
+                MenuItem(
+                    stringResource(if (library.bookmarked) R.string.menu_edit_bookmark else R.string.menu_add_bookmark),
+                    { Icon(painterResource(if (library.bookmarked) R.drawable.ic_bookmark_added else R.drawable.ic_bookmark_add), null) },
+                ) {
+                    open = false
+                    library.addOrEditBookmark()
+                }
+            }
+            MenuItem(stringResource(R.string.menu_library), { Icon(painterResource(R.drawable.ic_book_2), null) }) {
+                open = false
+                library.openLibrary()
+            }
+            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
             MenuItem(
                 stringResource(if (compact) R.string.menu_use_classic_bar else R.string.menu_use_compact_bar),
                 { Icon(painterResource(R.drawable.ic_swap_vert), null) },
@@ -158,7 +173,6 @@ fun MoreMenu(style: AddressBarStyle, tabs: TabActions, onSwitchStyle: () -> Unit
                 open = false
                 onSwitchStyle()
             }
-            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
             MenuItem(stringResource(R.string.menu_settings), { Icon(Icons.Filled.Settings, null) }) {
                 open = false
                 onOpenSettings()

@@ -5,10 +5,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import ru.digitalpunk.lumi.data.SettingsStore
+import ru.digitalpunk.lumi.data.library.LibraryRepository
 import ru.digitalpunk.lumi.data.privatetabs.PrivateTabStore
 import ru.digitalpunk.lumi.data.tabs.SnapshotStore
 import ru.digitalpunk.lumi.data.tabs.TabRepository
 import ru.digitalpunk.lumi.engine.BrowserEngine
+import ru.digitalpunk.lumi.library.HistoryRecorder
 import ru.digitalpunk.lumi.privacy.PrivateGate
 import ru.digitalpunk.lumi.privacy.PrivatePersistence
 import ru.digitalpunk.lumi.tabs.TabPersistence
@@ -33,6 +35,12 @@ class LumiApplication : Application() {
     val privatePersistence by lazy { PrivatePersistence(engine, PrivateTabStore.create(this), privateGate, appScope) }
 
     val tabSnapshots by lazy { TabSnapshots(engine, SnapshotStore.create(this), appScope) }
+
+    /** Bookmarks and history, in the same `tabs.db` as the tabs. */
+    val library by lazy { LibraryRepository.create(this) }
+
+    /** Normal tabs' visits go to [library]; private tabs never report any. */
+    val historyRecorder by lazy { HistoryRecorder(library, appScope).also { engine.historySink = it } }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)

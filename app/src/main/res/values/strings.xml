@@ -121,4 +121,67 @@
     <string name="settings_section_tabs">Tabs</string>
     <string name="settings_switch_to_new_tab">Switch to new tabs</string>
     <string name="settings_switch_to_new_tab_summary">Show a link opened in a new tab at once</string>
+    <!-- Library: bookmarks and history (M7a1) -->
+    <string name="menu_add_bookmark">Add bookmark</string>
+    <string name="menu_edit_bookmark">Edit bookmark</string>
+    <string name="menu_library">Library</string>
+    <string name="library_title">Library</string>
+    <string name="library_tab_bookmarks">Bookmarks</string>
+    <string name="library_tab_history">History</string>
+    <string name="bookmarks_root">Bookmarks</string>
+    <string name="folder_favorites">Favorites</string>
+    <string name="snackbar_bookmark_saved">Saved to %1$s</string>
+    <string name="snackbar_action_edit">Edit</string>
+    <string name="cd_snackbar_edit_bookmark">Edit bookmark</string>
+    <string name="snackbar_bookmark_deleted">Bookmark deleted</string>
+    <string name="snackbar_folder_deleted">Folder deleted</string>
+    <string name="snackbar_action_undo">Undo</string>
+    <string name="bookmark_editor_title">Edit bookmark</string>
+    <string name="bookmark_field_title">Title</string>
+    <string name="bookmark_field_url">URL</string>
+    <string name="bookmark_field_folder">Folder</string>
+    <string name="action_save">Save</string>
+    <string name="bookmark_delete">Delete bookmark</string>
+    <string name="folder_picker_title">Choose folder</string>
+    <string name="folder_picker_move_title">Move to</string>
+    <string name="folder_new">New folder</string>
+    <string name="folder_rename_title">Rename folder</string>
+    <string name="folder_in">In %1$s</string>
+    <string name="folder_name">Name</string>
+    <string name="action_move">Move</string>
+    <string name="action_edit">Edit</string>
+    <string name="delete_folder_title">Delete “%1$s”?</string>
+    <string name="folder_empty">No bookmarks here</string>
+    <string name="history_today">Today</string>
+    <string name="history_yesterday">Yesterday</string>
+    <string name="history_search_hint">Search history</string>
+    <string name="history_no_results">Nothing found</string>
+    <string name="history_empty">Pages you visit appear here</string>
+    <string name="history_removed">Removed from history</string>
+    <string name="history_row_support">%1$s · %2$s</string>
+    <string name="history_clear_title">Clear history</string>
+    <string name="history_clear_last_hour">Last hour</string>
+    <string name="history_clear_today">Today</string>
+    <string name="history_clear_all">All time</string>
+    <string name="history_clear_note">Bookmarks are kept.</string>
+    <string name="action_clear">Clear</string>
+    <string name="history_cleared">History cleared</string>
+    <string name="cd_new_folder">New folder</string>
+    <string name="cd_folder_options">Folder options</string>
+    <string name="cd_search_history">Search history</string>
+    <string name="cd_clear_history">Clear history</string>
+    <string name="cd_clear_search">Clear search</string>
+    <string name="cd_close">Close</string>
+    <plurals name="bookmarks_count">
+        <item quantity="one">%d bookmark</item>
+        <item quantity="other">%d bookmarks</item>
+    </plurals>
+    <plurals name="bookmarks_count_start">
+        <item quantity="one">Start page · %d bookmark</item>
+        <item quantity="other">Start page · %d bookmarks</item>
+    </plurals>
+    <plurals name="delete_folder_body">
+        <item quantity="one">The folder and the %d bookmark in it will be deleted.</item>
+        <item quantity="other">The folder and the %d bookmarks in it will be deleted.</item>
+    </plurals>
 </resources>

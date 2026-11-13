@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.mozilla.geckoview.ContentBlocking
+import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
@@ -71,6 +72,9 @@ class BrowserEngine(appContext: Context) {
     /** A long press on an http or https link in the selected tab. Other links and images send nothing. */
     val linkMenu: SharedFlow<LinkTarget> = mutableLinks
 
+    /** Receives the visits and titles of normal tabs; read at event time, so it may be set after tabs exist. */
+    var historySink: HistorySink? = null
+
     /**
      * While the tab grid covers the page, no automatic snapshot is taken (the page is not on screen) and the page is hidden from accessibility services.
      * Closing the grid makes the group of the tab on screen the current group again, so a new tab opens next to it.
@@ -125,6 +129,9 @@ class BrowserEngine(appContext: Context) {
 
     private val selected: Tab? get() = tabs.value.selectedId?.let(records::get)
 
+    private fun Tab.historyChanged(list: GeckoSession.HistoryDelegate.HistoryList) =
+        pageChanged { historyChanged(list.map { HistoryEntry(it.title, it.uri) }, list.currentIndex) }
+
     private fun Tab.pageChanged(notify: Boolean = false, block: PageStateStore.() -> Unit) {
         page.block()
         tabsStore.pageChanged(id, page.state.value)
@@ -141,6 +148,7 @@ class BrowserEngine(appContext: Context) {
 
             override fun onTitleChange(session: GeckoSession, title: String?) {
                 tabsStore.titleChanged(tab.id, title.orEmpty())
+                if (!tab.isPrivate && !title.isNullOrEmpty()) historySink?.titled(tab.page.state.value.url, title)
                 mutableChanges.tryEmit(Unit)
             }
 
@@ -151,9 +159,20 @@ class BrowserEngine(appContext: Context) {
                 }
             }
         }
-        session.historyDelegate = object : GeckoSession.HistoryDelegate {
-            override fun onHistoryStateChange(session: GeckoSession, historyList: GeckoSession.HistoryDelegate.HistoryList) =
-                tab.pageChanged { historyChanged(historyList.map { HistoryEntry(it.title, it.uri) }, historyList.currentIndex) }
+        // A private session gets no onVisited at all, so it can never write global history.
+        session.historyDelegate = if (tab.isPrivate) {
+            object : GeckoSession.HistoryDelegate {
+                override fun onHistoryStateChange(session: GeckoSession, historyList: GeckoSession.HistoryDelegate.HistoryList) = tab.historyChanged(historyList)
+            }
+        } else {
+            object : GeckoSession.HistoryDelegate {
+                override fun onHistoryStateChange(session: GeckoSession, historyList: GeckoSession.HistoryDelegate.HistoryList) = tab.historyChanged(historyList)
+
+                override fun onVisited(session: GeckoSession, url: String, lastVisitedURL: String?, flags: Int): GeckoResult<Boolean> {
+                    if (shouldReport(tab.isPrivate, flags)) historySink?.visited(url)
+                    return GeckoResult.fromValue(true)
+                }
+            }
         }
         session.progressDelegate = object : GeckoSession.ProgressDelegate {
             override fun onPageStart(session: GeckoSession, url: String) {

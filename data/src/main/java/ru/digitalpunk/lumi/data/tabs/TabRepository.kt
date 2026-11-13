@@ -2,7 +2,6 @@ package ru.digitalpunk.lumi.data.tabs
 
 import android.content.Context
 import android.util.Log
-import androidx.room.Room
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -102,8 +101,7 @@ class TabRepository(
 
         /** The real thing: Room database `tabs.db` and session states in `filesDir/tab-state`. */
         fun create(context: Context): TabRepository {
-            val db = Room.databaseBuilder(context, TabDatabase::class.java, "tabs.db").build()
-            return TabRepository(db.tabDao(), BlobFiles(File(context.filesDir, "tab-state"), "json", MAX_STATE_BYTES))
+            return TabRepository(TabDatabase.get(context).tabDao(), BlobFiles(File(context.filesDir, "tab-state"), "json", MAX_STATE_BYTES))
         }
     }
 }

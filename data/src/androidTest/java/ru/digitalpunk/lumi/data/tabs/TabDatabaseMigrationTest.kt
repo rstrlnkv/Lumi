@@ -3,7 +3,9 @@ package ru.digitalpunk.lumi.data.tabs
 import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import ru.digitalpunk.lumi.data.library.HistoryEntity
 import org.junit.Rule
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -50,6 +52,44 @@ class TabDatabaseMigrationTest {
             assertEquals(listOf("a"), db.tabDao().tabs().map { it.id })
             assertNull(db.tabDao().tabs().single().groupId)
             assertEquals(emptyList(), db.tabDao().groups())
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test fun migratingV2ToV3KeepsTabsAndGroupsAndAddsEmptyLibraryTables() {
+        helper.createDatabase(NAME, 2).apply {
+            execSQL("INSERT INTO tab_group (id, name, position) VALUES ('g', 'Work', 0)")
+            execSQL("INSERT INTO tab (id, position, url, title, lastActiveAt, groupId) VALUES ('a', 0, 'https://x', 't', 7, 'g')")
+            execSQL("INSERT INTO tab_selection (id, tabId, currentGroupId) VALUES (0, 'a', 'g')")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(NAME, 3, true)
+        db.query("SELECT t.id, t.groupId, g.name, s.currentGroupId FROM tab t, tab_group g, tab_selection s").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(listOf("a", "g", "Work", "g"), (0..3).map { i -> it.getString(i) })
+        }
+        listOf("bookmark_node", "history").forEach { table ->
+            db.query("SELECT COUNT(*) FROM $table").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0), table)
+            }
+        }
+    }
+
+    @Test fun migratingV1ToV3InOneStepKeepsTheTabAndTheLibraryWorks() = runBlocking<Unit> {
+        helper.createDatabase(NAME, 1).apply {
+            execSQL("INSERT INTO tab (id, position, url, title, lastActiveAt) VALUES ('a', 0, 'https://x', 't', 7)")
+            close()
+        }
+        helper.runMigrationsAndValidate(NAME, 3, true).close()
+        val db = Room.databaseBuilder(instrumentation.targetContext, TabDatabase::class.java, NAME).build()
+        try {
+            assertEquals(listOf("a"), db.tabDao().tabs().map { it.id })
+            assertEquals(emptyList(), db.libraryDao().nodes())
+            db.libraryDao().insertVisit(HistoryEntity(url = "https://x", title = "", visitedAt = 1))
+            db.libraryDao().titleLatest("https://x", "X")
+            assertEquals("X", db.libraryDao().observeHistory(10).first().single().title)
         } finally {
             db.close()
         }

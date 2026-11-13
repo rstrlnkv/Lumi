@@ -37,6 +37,7 @@ fun ClassicBar(
     onShowProtection: () -> Unit,
     engine: BrowserEngine,
     tabs: TabActions,
+    library: LibraryActions,
     editing: Boolean,
     onEditingChange: (Boolean) -> Unit,
     onSwitchStyle: () -> Unit,
@@ -76,7 +77,7 @@ fun ClassicBar(
                         BackButton(state.canGoBack, engine::goBack, state.history, engine::gotoHistoryIndex)
                         ForwardButton(state.canGoForward, engine::goForward)
                         TabsButton(tabs.count, tabs.openGrid, onLongClick = { quickOpen = true })
-                        MoreMenu(AddressBarStyle.Classic, tabs, onSwitchStyle, onOpenSettings)
+                        MoreMenu(AddressBarStyle.Classic, tabs, library, onSwitchStyle, onOpenSettings)
                     }
                     // The quick actions hang from the right edge, as the Compact bar's do: a menu anchored on the
                     // mid-row Tabs button would start there instead.
