@@ -1,6 +1,9 @@
 package ru.digitalpunk.lumi.ui.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -11,6 +14,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -27,20 +31,24 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import ru.digitalpunk.lumi.R
 import ru.digitalpunk.lumi.data.library.BookmarkNodeEntity
+import ru.digitalpunk.lumi.data.search.SearchEngine
 import ru.digitalpunk.lumi.data.library.LibraryRepository
 import ru.digitalpunk.lumi.ui.library.FolderPickerDialog
 import ru.digitalpunk.lumi.ui.library.folderLabel
 
 /**
- * The Settings screen over the browser: Start page (the start-page folder) and Tabs ("Switch to new tabs").
+ * The Settings screen over the browser: Search (engine and suggestions), Start page (the start-page folder) and Tabs
+ * ("Switch to new tabs"). The engine list opens over it and Back closes the list first.
  * State is the caller's; [startFolder] is the folder in effect, Favorites when the chosen one is gone.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,41 +60,72 @@ fun SettingsScreen(
     onStartFolderChange: (String) -> Unit,
     switchToNewTabs: Boolean,
     onSwitchToNewTabsChange: (Boolean) -> Unit,
+    searchEngine: SearchEngine,
+    onSearchEngineChange: (SearchEngine) -> Unit,
+    searchSuggestions: Boolean,
+    onSearchSuggestionsChange: (Boolean) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var picking by rememberSaveable { mutableStateOf(false) }
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Column(Modifier.padding(padding).verticalScroll(rememberScrollState())) {
-            SectionHeader(stringResource(R.string.settings_section_start_page))
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_start_page_folder)) },
-                supportingContent = { Text(folderLabel(nodes, startFolder)) },
-                leadingContent = { Icon(painterResource(R.drawable.ic_grid_view), contentDescription = null) },
-                modifier = Modifier.clickable(onClickLabel = stringResource(R.string.cd_change), role = Role.Button) { picking = true },
-            )
-            SectionHeader(stringResource(R.string.settings_section_tabs))
-            // One element for TalkBack: headline, summary, then the switch state.
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.settings_switch_to_new_tab)) },
-                supportingContent = { Text(stringResource(R.string.settings_switch_to_new_tab_summary)) },
-                leadingContent = { Icon(painterResource(R.drawable.ic_tab), contentDescription = null) },
-                trailingContent = { Switch(checked = switchToNewTabs, onCheckedChange = null) },
-                modifier = Modifier.toggleable(value = switchToNewTabs, role = Role.Switch, onValueChange = onSwitchToNewTabsChange),
+    var listOpen by rememberSaveable { mutableStateOf(false) }
+    Box(modifier) {
+        Scaffold(
+            // The engine list covers this layer; TalkBack must not read it underneath.
+            modifier = Modifier.fillMaxSize().then(if (listOpen) Modifier.clearAndSetSemantics {} else Modifier),
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                        }
+                    },
+                )
+            },
+        ) { padding ->
+            Column(Modifier.padding(padding).verticalScroll(rememberScrollState())) {
+                SectionHeader(stringResource(R.string.settings_section_search))
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_search_engine)) },
+                    supportingContent = { Text(searchEngine.displayName()) },
+                    leadingContent = { Icon(painterResource(R.drawable.ic_travel_explore), contentDescription = null) },
+                    modifier = Modifier.clickable(onClickLabel = stringResource(R.string.cd_change), role = Role.Button) { listOpen = true },
+                )
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_search_suggestions)) },
+                    supportingContent = { Text(stringResource(R.string.settings_search_suggestions_summary, searchEngine.displayName())) },
+                    leadingContent = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    trailingContent = { Switch(checked = searchSuggestions, onCheckedChange = null) },
+                    modifier = Modifier.toggleable(value = searchSuggestions, role = Role.Switch, onValueChange = onSearchSuggestionsChange),
+                )
+                SectionHeader(stringResource(R.string.settings_section_start_page))
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_start_page_folder)) },
+                    supportingContent = { Text(folderLabel(nodes, startFolder)) },
+                    leadingContent = { Icon(painterResource(R.drawable.ic_grid_view), contentDescription = null) },
+                    modifier = Modifier.clickable(onClickLabel = stringResource(R.string.cd_change), role = Role.Button) { picking = true },
+                )
+                SectionHeader(stringResource(R.string.settings_section_tabs))
+                // One element for TalkBack: headline, summary, then the switch state.
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_switch_to_new_tab)) },
+                    supportingContent = { Text(stringResource(R.string.settings_switch_to_new_tab_summary)) },
+                    leadingContent = { Icon(painterResource(R.drawable.ic_tab), contentDescription = null) },
+                    trailingContent = { Switch(checked = switchToNewTabs, onCheckedChange = null) },
+                    modifier = Modifier.toggleable(value = switchToNewTabs, role = Role.Switch, onValueChange = onSwitchToNewTabsChange),
+                )
+            }
+        }
+        if (listOpen) {
+            BackHandler { listOpen = false }
+            SearchEngineScreen(
+                searchEngine,
+                onPick = { listOpen = false; onSearchEngineChange(it) },
+                onBack = { listOpen = false },
+                modifier = Modifier.fillMaxSize().pointerInput(Unit) {},
             )
         }
     }

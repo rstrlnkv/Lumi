@@ -130,6 +130,26 @@ class LibraryRepository(
         write("Naming a visit", Unit) { dao.titleLatest(url, title.take(MAX_TITLE_LENGTH)) }
     }
 
+    /**
+     * Bookmarks and history for the address bar's suggestions, one entry per URL (a bookmark takes its history counts).
+     * A read, so no write lock; empty on failure.
+     */
+    suspend fun suggestionPages(): List<SuggestPage> = withContext(io) {
+        try {
+            val visits = dao.historyPages(HISTORY_LIMIT).associateBy { it.url }
+            val bookmarks = dao.nodes().mapNotNull { node ->
+                val url = node.url?.takeIf { !node.isFolder } ?: return@mapNotNull null
+                val hit = visits[url]
+                SuggestPage(url, node.title, hit?.visits ?: 0, hit?.lastVisit ?: 0, bookmark = true)
+            }.distinctBy { it.url }
+            val marked = bookmarks.mapTo(HashSet()) { it.url }
+            bookmarks + visits.values.filter { it.url !in marked }.map { SuggestPage(it.url, it.title, it.visits, it.lastVisit, bookmark = false) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Reading suggestion pages failed", e)
+            emptyList()
+        }
+    }
+
     suspend fun deleteVisits(ids: List<Long>) {
         write("Deleting visits", Unit) { ids.chunked(CHUNK).forEach { dao.deleteVisits(it) } }
     }

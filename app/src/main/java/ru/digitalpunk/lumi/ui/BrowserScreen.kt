@@ -78,6 +78,11 @@ import ru.digitalpunk.lumi.address.displayUrl
 import ru.digitalpunk.lumi.address.siteStatus
 import ru.digitalpunk.lumi.data.AddressBarStyle
 import ru.digitalpunk.lumi.data.SettingsStore
+import ru.digitalpunk.lumi.data.search.EngineSuggestClient
+import ru.digitalpunk.lumi.data.search.SearchEngine
+import ru.digitalpunk.lumi.suggest.LocalIndex
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import ru.digitalpunk.lumi.engine.BrowserEngine
 import ru.digitalpunk.lumi.engine.LinkTarget
 import ru.digitalpunk.lumi.engine.PRIVATE_GROUP
@@ -131,6 +136,7 @@ import ru.digitalpunk.lumi.ui.startpage.StartPage
 import ru.digitalpunk.lumi.library.canBookmark
 import ru.digitalpunk.lumi.library.folderName
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.text.input.clearText
 import kotlin.math.roundToInt
 
 private val TouchSlop = 8.dp
@@ -138,12 +144,22 @@ private const val MIN_REFRESH_MILLIS = 600L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: TabSnapshots, gate: PrivateGate, library: LibraryRepository) {
+fun BrowserScreen(
+    engine: BrowserEngine,
+    settings: SettingsStore,
+    snapshots: TabSnapshots,
+    gate: PrivateGate,
+    library: LibraryRepository,
+    suggestClient: EngineSuggestClient,
+) {
     val state by engine.state.collectAsStateWithLifecycle()
     val tabsState by engine.tabs.collectAsStateWithLifecycle()
     val style by settings.addressBarStyle.collectAsStateWithLifecycle<AddressBarStyle?>(null)
     val offHosts by settings.protectionOffHosts.collectAsStateWithLifecycle(emptySet())
     val switchToNewTabs by settings.switchToNewTabs.collectAsStateWithLifecycle(false)
+    // Null until read: no suggestion request goes out before the stored switch is known.
+    val searchEngine by settings.searchEngine.collectAsStateWithLifecycle<SearchEngine?>(null)
+    val searchSuggestions by settings.searchSuggestions.collectAsStateWithLifecycle<Boolean?>(null)
     // The start page shows the start folder; a new tab focuses the address field only when that folder is empty.
     val nodes by library.nodes.collectAsStateWithLifecycle(emptyList())
     val startStored by settings.startPageFolder.collectAsStateWithLifecycle(FAVORITES)
@@ -153,6 +169,13 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     var editing by remember { mutableStateOf(false) }
+    val editor = remember { AddressEditor() }
+    LaunchedEffect(searchEngine) { editor.searchPrefix = (searchEngine ?: SearchEngine.Google).searchPrefix }
+    // Loaded once per edit; nothing typed is stored, in any tab, nor kept once the bar closes.
+    LaunchedEffect(editing) {
+        if (!editing) editor.text.clearText()
+        editor.index = if (editing) library.suggestionPages().let { withContext(Dispatchers.Default) { LocalIndex(it) } } else null
+    }
     var gridOpen by rememberSaveable { mutableStateOf(false) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var libraryOpen by rememberSaveable { mutableStateOf(false) }
@@ -474,6 +497,16 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
             PullToRefreshDefaults.Indicator(state = pullState, isRefreshing = refreshing, modifier = Modifier.align(Alignment.TopCenter))
         }
 
+        if (editing && !coverOpen && !lockShown) {
+            SuggestionLayer(
+                editor,
+                engine = searchEngine.takeIf { searchSuggestions == true },
+                client = suggestClient,
+                barHeight = with(density) { expandedPx.toDp() },
+                onOpen = engine::load,
+            )
+        }
+
         val barModifier = Modifier
             .align(Alignment.BottomCenter)
             .onSizeChanged { expandedPx = it.height }
@@ -497,10 +530,10 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
                 when (style) {
                     null -> Unit
                     AddressBarStyle.Compact -> CompactBar(
-                        state, site, openProtection, engine, tabActions, libraryActions, editing, { editing = it }, switchStyle, openSettings, progress, fullyCollapsed, bar::expand, barModifier,
+                        state, site, openProtection, engine, tabActions, libraryActions, editing, { editing = it }, editor, switchStyle, openSettings, progress, fullyCollapsed, bar::expand, barModifier,
                     )
                     AddressBarStyle.Classic -> ClassicBar(
-                        state, site, openProtection, engine, tabActions, libraryActions, editing, { editing = it }, switchStyle, openSettings, progress, fullyCollapsed, bar::expand, barModifier,
+                        state, site, openProtection, engine, tabActions, libraryActions, editing, { editing = it }, editor, switchStyle, openSettings, progress, fullyCollapsed, bar::expand, barModifier,
                     )
                 }
             }
@@ -512,6 +545,10 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
                 { scope.launch { settings.setStartPageFolder(it) } },
                 switchToNewTabs,
                 { scope.launch { settings.setSwitchToNewTabs(it) } },
+                searchEngine = searchEngine ?: SearchEngine.Google,
+                onSearchEngineChange = { scope.launch { settings.setSearchEngine(it) } },
+                searchSuggestions = searchSuggestions ?: true,
+                onSearchSuggestionsChange = { scope.launch { settings.setSearchSuggestions(it) } },
                 onBack = { settingsOpen = false },
                 Modifier.fillMaxSize().pointerInput(Unit) {},
             )

@@ -99,7 +99,7 @@ class MainActivity : FragmentActivity() {
             LumiTheme {
                 Surface(Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalSiteIcons provides app.siteIcons) {
-                        BrowserScreen(app.engine, app.settings, app.tabSnapshots, gate, app.library)
+                        BrowserScreen(app.engine, app.settings, app.tabSnapshots, gate, app.library, app.suggestClient)
                     }
                 }
             }

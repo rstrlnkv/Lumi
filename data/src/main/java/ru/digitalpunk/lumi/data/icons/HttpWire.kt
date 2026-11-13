@@ -11,10 +11,17 @@ private const val MAX_CHUNK_LINE = 1024
 /** A response's status and headers; header names are lower case. */
 internal class Head(val status: Int, val headers: Map<String, String>)
 
-/** A plain HTTP/1.1 GET: no cookies, no Referer, no compression, one request per connection. */
-internal fun buildRequest(host: String, pathAndQuery: String, accept: String): ByteArray {
+private val ACCEPT_LANGUAGE = Regex("[A-Za-z0-9,;=.* -]{1,100}")
+
+/**
+ * A plain HTTP/1.1 GET: no cookies, no Referer, no compression, one request per connection.
+ * [acceptLanguage], when given, must match [ACCEPT_LANGUAGE], so it cannot add a header line.
+ */
+internal fun buildRequest(host: String, pathAndQuery: String, accept: String, acceptLanguage: String? = null): ByteArray {
     require(pathAndQuery.none { it == ' ' || it == '\r' || it == '\n' }) { "Bad request target" }
-    return ("GET $pathAndQuery HTTP/1.1\r\nHost: $host\r\nUser-Agent: Lumi\r\nAccept: $accept\r\n" +
+    require(acceptLanguage == null || ACCEPT_LANGUAGE.matches(acceptLanguage)) { "Bad Accept-Language" }
+    val language = acceptLanguage?.let { "Accept-Language: $it\r\n" }.orEmpty()
+    return ("GET $pathAndQuery HTTP/1.1\r\nHost: $host\r\nUser-Agent: Lumi\r\nAccept: $accept\r\n$language" +
         "Accept-Encoding: identity\r\nConnection: close\r\n\r\n").toByteArray(Charsets.ISO_8859_1)
 }
 

@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import ru.digitalpunk.lumi.data.library.BookmarkNodeEntity
 import ru.digitalpunk.lumi.data.library.HistoryEntity
+import ru.digitalpunk.lumi.data.library.HistoryHit
 import ru.digitalpunk.lumi.data.library.LibraryDao
 import ru.digitalpunk.lumi.data.library.LibraryRepository
 import kotlin.test.Test
@@ -31,6 +32,7 @@ private class VisitsDao : LibraryDao {
         visits = visits.map { if (it.id == latest.id) it.copy(title = title) else it }
     }
     override fun observeHistory(limit: Int): Flow<List<HistoryEntity>> = MutableStateFlow(visits)
+    override suspend fun historyPages(limit: Int) = emptyList<HistoryHit>()
     override suspend fun insertVisits(entries: List<HistoryEntity>) = error("unused")
     override suspend fun deleteVisits(ids: List<Long>) = error("unused")
     override suspend fun deleteVisitsSince(from: Long) = error("unused")

@@ -40,6 +40,7 @@ fun ClassicBar(
     library: LibraryActions,
     editing: Boolean,
     onEditingChange: (Boolean) -> Unit,
+    editor: AddressEditor,
     onSwitchStyle: () -> Unit,
     onOpenSettings: () -> Unit,
     progress: () -> Float,
@@ -47,7 +48,8 @@ fun ClassicBar(
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val container = if (editing) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceContainer
+    // One colour in every state, so the suggestion sheet meets the bar without a seam.
+    val container = MaterialTheme.colorScheme.surfaceContainer
     Box(modifier.fillMaxWidth().background(container)) {
         Column(
             Modifier
@@ -64,6 +66,7 @@ fun ClassicBar(
                 style = AddressBarStyle.Classic,
                 editing = editing,
                 onEditingChange = onEditingChange,
+                editor = editor,
                 onSubmit = engine::load,
                 onReload = engine::reload,
                 onStop = engine::stop,

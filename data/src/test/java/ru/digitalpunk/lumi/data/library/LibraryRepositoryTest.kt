@@ -50,6 +50,9 @@ internal class FakeLibraryDao : LibraryDao {
         visits = visits.map { if (it.id == latest.id) it.copy(title = title) else it }
     }
     override fun observeHistory(limit: Int): Flow<List<HistoryEntity>> = MutableStateFlow(visits).map { it.take(limit) }
+    override suspend fun historyPages(limit: Int): List<HistoryHit> = visits.filter { it.url.length <= 2048 }.groupBy { it.url }.values
+        .map { rows -> val newest = rows.maxBy { it.id }; HistoryHit(newest.url, newest.title, rows.size, rows.maxOf { it.visitedAt }) }
+        .sortedByDescending { it.lastVisit }.take(limit)
     override suspend fun insertVisits(entries: List<HistoryEntity>) {
         val ids = entries.map { it.id }.toSet()
         visits = visits.filterNot { it.id in ids } + entries

@@ -11,6 +11,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import ru.digitalpunk.lumi.data.library.LibraryIds
+import ru.digitalpunk.lumi.data.search.SearchEngine
 
 enum class AddressBarStyle(internal val stored: String) {
     Compact("compact"),
@@ -72,12 +73,28 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         store.edit { it[START_PAGE_FOLDER] = id }
     }
 
+    /** The engine for searches and suggestions; [SearchEngine.Google] when nothing, something unknown or another type is stored. */
+    val searchEngine: Flow<SearchEngine> = store.data.map { SearchEngine.fromId(it.read(SEARCH_ENGINE)) }
+
+    suspend fun setSearchEngine(engine: SearchEngine) {
+        store.edit { it[SEARCH_ENGINE] = engine.id }
+    }
+
+    /** "Search engine suggestions": what is typed in the address bar goes to the engine. On when nothing is stored. */
+    val searchSuggestions: Flow<Boolean> = store.data.map { it.read(SEARCH_SUGGESTIONS) ?: true }
+
+    suspend fun setSearchSuggestions(value: Boolean) {
+        store.edit { it[SEARCH_SUGGESTIONS] = value }
+    }
+
     private companion object {
         val ADDRESS_BAR_STYLE = stringPreferencesKey("address_bar_style")
         val PROTECTION_OFF_HOSTS = stringSetPreferencesKey("protection_off_hosts")
         val SWITCH_TO_NEW_TABS = booleanPreferencesKey("switch_to_new_tabs")
         val LIBRARY_TAB = stringPreferencesKey("library_tab")
         val START_PAGE_FOLDER = stringPreferencesKey("start_page_folder")
+        val SEARCH_ENGINE = stringPreferencesKey("search_engine")
+        val SEARCH_SUGGESTIONS = booleanPreferencesKey("search_suggestions")
     }
 }
 

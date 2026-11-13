@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndSelectAll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -76,6 +75,7 @@ fun AddressField(
     style: AddressBarStyle,
     editing: Boolean,
     onEditingChange: (Boolean) -> Unit,
+    editor: AddressEditor,
     onSubmit: (String) -> Unit,
     onReload: () -> Unit,
     onStop: () -> Unit,
@@ -102,7 +102,7 @@ fun AddressField(
         Box {
             Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (editing) {
-                    val text = rememberTextFieldState()
+                    val text = editor.text
                     val focusRequester = remember { FocusRequester() }
                     var hadFocus by remember { mutableStateOf(false) }
                     // Keyed on the tab so a tab that opens while editing starts empty, not with the old URL.
@@ -115,12 +115,13 @@ fun AddressField(
                     NoLearningInPrivateTab {
                         BasicTextField(
                             state = text,
+                            inputTransformation = editor.completion,
                             textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
                             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                             lineLimits = TextFieldLineLimits.SingleLine,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go, keyboardType = KeyboardType.Uri),
                             onKeyboardAction = {
-                                resolveInput(text.text.toString(), debugPages = BuildConfig.DEBUG)?.let(onSubmit)
+                                resolveInput(text.text.toString(), editor.searchPrefix, BuildConfig.DEBUG)?.let(onSubmit)
                                 focusManager.clearFocus()
                             },
                             decorator = { inner ->

@@ -190,4 +190,15 @@
     <string name="cd_back_to_folder">Back to %s</string>
     <string name="cd_folder_tile">%1$s, folder, %2$s</string>
     <string name="cd_change">Change</string>
+    <string name="settings_section_search">Search</string>
+    <string name="settings_search_engine">Search engine</string>
+    <string name="settings_search_suggestions">Search engine suggestions</string>
+    <string name="settings_search_suggestions_summary">Sends what you type to %1$s</string>
+    <string name="search_engine_title">Search engine</string>
+    <string name="search_engine_note">Lumi does not change your search engine\'s own privacy policy.</string>
+    <string name="engine_yandex">Yandex</string>
+    <string name="cd_fill_suggestion">Fill in \"%1$s\"</string>
+    <string name="cd_suggestion_search">Search for %1$s</string>
+    <string name="cd_suggestion_history">%1$s, from history</string>
+    <string name="cd_suggestion_bookmark">%1$s, bookmark</string>
 </resources>

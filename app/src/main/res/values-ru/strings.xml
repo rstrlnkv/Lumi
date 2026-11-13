@@ -207,4 +207,15 @@
     <string name="cd_back_to_folder">Назад к «%s»</string>
     <string name="cd_folder_tile">%1$s, папка, %2$s</string>
     <string name="cd_change">Изменить</string>
+    <string name="settings_section_search">Поиск</string>
+    <string name="settings_search_engine">Поисковая система</string>
+    <string name="settings_search_suggestions">Подсказки поисковой системы</string>
+    <string name="settings_search_suggestions_summary">Отправляет набранный текст в %1$s</string>
+    <string name="search_engine_title">Поисковая система</string>
+    <string name="search_engine_note">Lumi не меняет политику конфиденциальности поисковой системы.</string>
+    <string name="engine_yandex">Яндекс</string>
+    <string name="cd_fill_suggestion">Подставить «%1$s»</string>
+    <string name="cd_suggestion_search">Искать %1$s</string>
+    <string name="cd_suggestion_history">%1$s, из истории</string>
+    <string name="cd_suggestion_bookmark">%1$s, закладка</string>
 </resources>

@@ -46,6 +46,14 @@ interface LibraryDao {
     @Query("SELECT * FROM history ORDER BY visitedAt DESC, id DESC LIMIT :limit")
     fun observeHistory(limit: Int): Flow<List<HistoryEntity>>
 
+    /** History grouped by URL, newest first: the title of the last-inserted row (highest id), the visit count and the newest visit. */
+    @Query(
+        "SELECT h.url AS url, h.title AS title, c.visits AS visits, c.newest AS lastVisit FROM history h " +
+            "JOIN (SELECT MAX(id) AS id, COUNT(*) AS visits, MAX(visitedAt) AS newest FROM history GROUP BY url) c ON h.id = c.id " +
+            "WHERE length(h.url) <= 2048 ORDER BY c.newest DESC LIMIT :limit",
+    )
+    suspend fun historyPages(limit: Int): List<HistoryHit>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVisits(entries: List<HistoryEntity>)
 

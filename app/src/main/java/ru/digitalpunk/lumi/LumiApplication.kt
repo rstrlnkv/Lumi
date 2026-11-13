@@ -8,6 +8,7 @@ import ru.digitalpunk.lumi.data.SettingsStore
 import ru.digitalpunk.lumi.data.icons.SiteIcons
 import ru.digitalpunk.lumi.data.library.LibraryRepository
 import ru.digitalpunk.lumi.data.privatetabs.PrivateTabStore
+import ru.digitalpunk.lumi.data.search.EngineSuggestClient
 import ru.digitalpunk.lumi.data.tabs.SnapshotStore
 import ru.digitalpunk.lumi.data.tabs.TabRepository
 import ru.digitalpunk.lumi.engine.BrowserEngine
@@ -45,6 +46,9 @@ class LumiApplication : Application() {
 
     /** Site icons for bookmarks and history, fetched outside Gecko (ADR 008). */
     val siteIcons by lazy { SiteIcons.create(this, appScope) }
+
+    /** Search suggestions from the chosen engine (ADR 009); its own pinned client, so its live limit is its own. */
+    val suggestClient by lazy { EngineSuggestClient() }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
