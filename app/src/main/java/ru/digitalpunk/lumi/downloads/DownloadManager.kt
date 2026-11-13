@@ -36,10 +36,13 @@ import ru.digitalpunk.lumi.data.downloads.PrivateDownloads
 import ru.digitalpunk.lumi.data.downloads.canRetry
 import ru.digitalpunk.lumi.data.downloads.enoughSpace
 import ru.digitalpunk.lumi.data.downloads.isActive
+import ru.digitalpunk.lumi.data.downloads.isImageType
 import ru.digitalpunk.lumi.data.downloads.mimeForName
+import ru.digitalpunk.lumi.data.downloads.nameAndMimeAfterResponse
 import ru.digitalpunk.lumi.data.downloads.sanitizeFileName
 import ru.digitalpunk.lumi.engine.BrowserEngine
 import ru.digitalpunk.lumi.engine.DownloadOffer
+import ru.digitalpunk.lumi.engine.ImageTarget
 import ru.digitalpunk.lumi.engine.nameFromUrl
 import java.io.IOException
 import java.io.InputStream
@@ -114,18 +117,31 @@ class DownloadManager(
         }
     }
 
-    /** The entry point for "Save image" (M7c2): no ask sheet, fetched again through Gecko in the tab's context. */
-    fun saveUrl(url: String, inPrivateTab: Boolean, site: String?, suggestedName: String?) {
-        scope.launch { run(create(entryFor(url, suggestedName, null, -1, site, inPrivateTab))) { engine.fetchForDownload(url, inPrivateTab) } }
+    /** "Save image" (M7c2): no ask sheet, fetched again through Gecko in the tab's context; a response that is not an image fails. */
+    fun saveImage(image: ImageTarget) {
+        scope.launch {
+            run(create(imageEntry(image))) {
+                engine.fetchForDownload(image.url, image.inPrivateTab).also {
+                    if (!isImageType(it.mimeType)) {
+                        it.discard()
+                        throw IOException("Not an image: ${it.mimeType}")
+                    }
+                }
+            }
+        }
     }
 
     /** The storage permission was refused (API 26-28): the entry shows Failed so the person sees why. */
     fun refuse(offer: DownloadOffer) {
         offer.discard()
-        scope.launch {
-            val item = create(entryFor(offer.url, offer.suggestedName, offer.mimeType, offer.contentLength, offer.site, offer.inPrivateTab).copy(state = DownloadState.Failed))
-            mutableEvents.tryEmit(DownloadEvent.Failed(item))
-        }
+        refused(entryFor(offer.url, offer.suggestedName, offer.mimeType, offer.contentLength, offer.site, offer.inPrivateTab))
+    }
+
+    /** [refuse] for a Save image. */
+    fun refuseImage(image: ImageTarget) = refused(imageEntry(image))
+
+    private fun refused(entry: DownloadItem) {
+        scope.launch { mutableEvents.tryEmit(DownloadEvent.Failed(create(entry.copy(state = DownloadState.Failed)))) }
     }
 
     /** Retry and "download again": fetched again, no ask sheet. A POST or cookie-only download may fail here. */
@@ -187,6 +203,8 @@ class DownloadManager(
         )
     }
 
+    private fun imageEntry(image: ImageTarget) = entryFor(image.url, null, null, -1, image.site, image.inPrivateTab)
+
     private suspend fun create(item: DownloadItem): DownloadItem = if (item.isPrivate) privates.add(item) else item.copy(id = repository.insert(item))
 
     private suspend fun write(item: DownloadItem) {
@@ -203,6 +221,8 @@ class DownloadManager(
         var target: DownloadStorage.Target? = null
         val end = try {
             val offer = source()
+            nameAndMimeAfterResponse(item.fileName, item.mimeType, offer.mimeType, mimeMap::getExtensionFromMimeType, mimeMap::getMimeTypeFromExtension)
+                .let { (name, mime) -> item = item.copy(fileName = name, mimeType = mime) }
             val stream = offer.take() ?: throw IOException("The response is gone")
             streams[entry.id] = stream
             if (item.totalBytes < 0) item = item.copy(totalBytes = offer.contentLength)

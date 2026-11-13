@@ -14,7 +14,17 @@ internal fun webLink(raw: String?): String? {
     return url.takeIf { it.length > scheme.length && it.length <= MAX_LINK_LENGTH }
 }
 
-/** The link's title attribute, else its text; whitespace collapsed, cut to [MAX_LINK_TITLE] chars, never inside a surrogate pair; null when both are blank. */
+/**
+ * The link's title attribute, else its text; format characters (bidi overrides, zero-width) dropped except the ZWNJ that
+ * Persian and Arabic words need, so a page cannot spoof an address; whitespace collapsed, cut to [MAX_LINK_TITLE] chars,
+ * never inside a surrogate pair; null when both are blank.
+ */
 internal fun linkTitle(title: String?, text: String?): String? =
-    listOf(title, text).firstNotNullOfOrNull { it?.trim()?.replace(Regex("\\s+"), " ")?.ifEmpty { null } }?.take(MAX_LINK_TITLE)
+    listOf(title, text).firstNotNullOfOrNull { it?.withoutFormatChars()?.trim()?.replace(Regex("\\s+"), " ")?.ifEmpty { null } }?.take(MAX_LINK_TITLE)
         ?.let { if (it.last().isHighSurrogate()) it.dropLast(1) else it }
+
+private fun String.withoutFormatChars() = buildString {
+    this@withoutFormatChars.codePoints().forEach { if (Character.getType(it) != Character.FORMAT.toInt() || it == ZWNJ) appendCodePoint(it) }
+}
+
+private const val ZWNJ = 0x200C

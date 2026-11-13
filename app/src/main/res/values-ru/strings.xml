@@ -119,6 +119,14 @@
     <string name="link_copy">Копировать ссылку</string>
     <string name="link_share">Поделиться</string>
     <string name="snackbar_link_copied">Ссылка скопирована</string>
+    <string name="link_share_link">Поделиться ссылкой</string>
+    <string name="image_save">Сохранить изображение</string>
+    <string name="image_open_in_new_tab">Открыть изображение в новой вкладке</string>
+    <string name="image_open_in_new_private_tab">Открыть изображение в новой приватной вкладке</string>
+    <string name="image_copy_address">Копировать адрес изображения</string>
+    <string name="image_share">Поделиться изображением</string>
+    <string name="snackbar_image_address_copied">Адрес изображения скопирован</string>
+    <string name="cd_image_sheet">Изображение: %1$s</string>
     <string name="menu_close_tab">Закрыть вкладку</string>
     <string name="menu_settings">Настройки</string>
     <string name="snackbar_new_tab_opened">Открыта новая вкладка</string>

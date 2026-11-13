@@ -108,6 +108,14 @@
     <string name="link_copy">Copy link</string>
     <string name="link_share">Share</string>
     <string name="snackbar_link_copied">Link copied</string>
+    <string name="link_share_link">Share link</string>
+    <string name="image_save">Save image</string>
+    <string name="image_open_in_new_tab">Open image in new tab</string>
+    <string name="image_open_in_new_private_tab">Open image in new private tab</string>
+    <string name="image_copy_address">Copy image address</string>
+    <string name="image_share">Share image</string>
+    <string name="snackbar_image_address_copied">Image address copied</string>
+    <string name="cd_image_sheet">Image: %1$s</string>
     <string name="menu_close_tab">Close tab</string>
     <string name="menu_settings">Settings</string>
     <string name="snackbar_new_tab_opened">New tab opened</string>

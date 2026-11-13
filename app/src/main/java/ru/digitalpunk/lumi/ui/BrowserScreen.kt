@@ -98,6 +98,7 @@ import ru.digitalpunk.lumi.suggest.LocalIndex
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ru.digitalpunk.lumi.engine.BrowserEngine
+import ru.digitalpunk.lumi.engine.ContextTarget
 import ru.digitalpunk.lumi.engine.LinkTarget
 import ru.digitalpunk.lumi.engine.PRIVATE_GROUP
 import ru.digitalpunk.lumi.engine.PageTouchInfo
@@ -396,11 +397,11 @@ fun BrowserScreen(
         notice = notice.clearedBy(shown)
     }
 
-    // The link sheet belongs to the tab it was opened on; plain remember keeps a private URL out of the saved state.
-    var link by remember { mutableStateOf<LinkTarget?>(null) }
-    LaunchedEffect(engine) { engine.linkMenu.collect { link = it } }
-    val shownLink = link?.takeIf { it.tab == tabsState.selectedId && !coverOpen && !lockShown }
-    LaunchedEffect(shownLink == null) { if (shownLink == null) link = null }
+    // The link and image sheet belongs to the tab it was opened on; plain remember keeps a private URL out of the saved state.
+    var press by remember { mutableStateOf<ContextTarget?>(null) }
+    LaunchedEffect(engine) { engine.linkMenu.collect { press = it } }
+    val shownPress = press?.takeIf { it.tab == tabsState.selectedId && !coverOpen && !lockShown }
+    LaunchedEffect(shownPress == null) { if (shownPress == null) press = null }
 
     // Downloads (M7c1): "Show" and a download notification open the Library on the Downloads tab.
     val downloadsRequested by showDownloads.collectAsStateWithLifecycle()
@@ -463,16 +464,19 @@ fun BrowserScreen(
     }
     val offers by downloadAsks.offers.collectAsStateWithLifecycle()
     val copiedText = stringResource(R.string.snackbar_link_copied)
+    val imageCopiedText = stringResource(R.string.snackbar_image_address_copied)
+    // The image items reach here with a LinkTarget made from the image's URL.
     val onLinkAction = { target: LinkTarget, action: LinkAction ->
-        link = null
+        press = null
         when (action) {
             LinkAction.Open -> engine.load(target.url)
-            LinkAction.Copy -> {
+            LinkAction.Copy, LinkAction.CopyImageAddress -> {
                 copyLink(context, target)
                 // Android 13 and later show their own confirmation.
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) scope.launch { snackbar.showSnackbar(copiedText) }
+                val text = if (action == LinkAction.CopyImageAddress) imageCopiedText else copiedText
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) scope.launch { snackbar.showSnackbar(text) }
             }
-            LinkAction.Share -> context.startActivity(
+            LinkAction.Share, LinkAction.ShareImage -> context.startActivity(
                 Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, target.url), null),
             )
             else -> linkOpen(action, switchToNewTabs)?.let { plan ->
@@ -486,6 +490,16 @@ fun BrowserScreen(
                 }
                 if (plan.needsGate) gate.enter(open, noScreenLock) else open()
             }
+        }
+    }
+    val onContextAction = { target: ContextTarget, action: LinkAction ->
+        when (val step = sheetStep(target, action)) {
+            is SheetStep.Link -> onLinkAction(step.link, action)
+            is SheetStep.Save -> {
+                press = null
+                downloadAsks.saveImage(step.image)
+            }
+            null -> Unit
         }
     }
 
@@ -663,7 +677,7 @@ fun BrowserScreen(
 
         if (lockShown) PrivateLockScreen(onUnlock = { gate.requestUnlock() })
 
-        shownLink?.let { target -> LinkSheet(target, { onLinkAction(target, it) }, onDismiss = { link = null }) }
+        shownPress?.let { target -> LinkSheet(target, { onContextAction(target, it) }, onDismiss = { press = null }) }
 
         // A private file is never asked about over the private lock screen.
         offers.firstOrNull()?.takeIf { !lockShown }?.let { offer ->
@@ -764,7 +778,7 @@ fun BrowserScreen(
 
 private const val GRID_FADE_MILLIS = 200
 
-/** Puts the link on the clipboard; from a private tab it is marked sensitive so Android hides its preview. */
+/** Puts the link (or image address) on the clipboard; from a private tab it is marked sensitive so Android hides its preview. */
 private fun copyLink(context: Context, target: LinkTarget) {
     val clip = ClipData.newPlainText("link", target.url)
     if (target.inPrivateTab && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

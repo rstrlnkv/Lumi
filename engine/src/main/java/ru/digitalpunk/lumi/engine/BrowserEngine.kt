@@ -74,10 +74,10 @@ class BrowserEngine(appContext: Context) {
     /** A fresh picture of a tab's page, after a load or on request ([captureSelected]). */
     val snapshots: SharedFlow<TabSnapshot> = mutableSnapshots
 
-    private val mutableLinks = MutableSharedFlow<LinkTarget>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    private val mutableLinks = MutableSharedFlow<ContextTarget>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
-    /** A long press on an http or https link in the selected tab. Other links and images send nothing. */
-    val linkMenu: SharedFlow<LinkTarget> = mutableLinks
+    /** A long press on an http or https link or image in the selected tab. Other links and images send nothing. */
+    val linkMenu: SharedFlow<ContextTarget> = mutableLinks
 
     // Unlimited: a dropped offer would leak its open stream.
     private val downloadOffers = Channel<DownloadOffer>(Channel.UNLIMITED)
@@ -169,9 +169,8 @@ class BrowserEngine(appContext: Context) {
 
             override fun onContextMenu(session: GeckoSession, screenX: Int, screenY: Int, element: GeckoSession.ContentDelegate.ContextElement) {
                 if (tab !== selected) return
-                webLink(element.linkUri)?.let { url ->
-                    mutableLinks.tryEmit(LinkTarget(tab.id, url, linkTitle(element.title, element.linkText), tab.isPrivate))
-                }
+                contextTarget(tab.id, tab.isPrivate, tab.page.state.value.url, element.linkUri, element.title, element.linkText, element.type, element.srcUri, element.altText)
+                    ?.let(mutableLinks::tryEmit)
             }
 
             // Main thread: only read the headers here; the body is read by the app on an IO thread.

@@ -174,3 +174,42 @@ class FreeSpaceTest {
         assertFalse(enoughSpace(free = FREE_SPACE_FLOOR - 1, remaining = -1))
     }
 }
+
+class NameAfterResponseTest {
+    private val ext = mapOf("image/jpeg" to "jpg", "image/png" to "png")
+    private val types = mapOf("jpg" to "image/jpeg", "png" to "image/png")
+
+    private fun after(name: String, entryMime: String, header: String?) = nameAndMimeAfterResponse(name, entryMime, header, ext::get, types::get)
+
+    @Test fun aNameWithoutExtensionTakesItFromTheResponseType() = assertEquals("12345.jpg" to "image/jpeg", after("12345", OCTET_STREAM, "image/jpeg"))
+
+    @Test fun anExistingExtensionIsKept() = assertEquals("cat.png" to "image/png", after("cat.png", "image/png", "image/jpeg"))
+
+    @Test fun aGenericOrMissingOrUnknownTypeChangesNothing() {
+        assertEquals("12345" to OCTET_STREAM, after("12345", OCTET_STREAM, OCTET_STREAM))
+        assertEquals("12345" to OCTET_STREAM, after("12345", OCTET_STREAM, null))
+        assertEquals("12345" to OCTET_STREAM, after("12345", OCTET_STREAM, "image/x-unknown"))
+    }
+
+    @Test fun aLongNameStaysWithinTheByteCapWithTheNewExtension() {
+        val (name, mime) = after("a".repeat(200), OCTET_STREAM, "image/jpeg")
+        assertTrue(name.endsWith(".jpg") && name.toByteArray().size <= 200, name)
+        assertEquals("image/jpeg", mime)
+    }
+
+    @Test fun aSpecificResponseTypeWinsOverAGenericTypeGuessedFromAnUnknownExtension() =
+        assertEquals("avatar.php" to "image/png", after("avatar.php", OCTET_STREAM, "image/png"))
+
+    @Test fun aNameWithATrailingDotTakesTheExtension() = assertEquals("image.png" to "image/png", after("image.", OCTET_STREAM, "image/png"))
+
+    @Test fun aHiddenFileNameTakesTheExtensionAndLosesItsLeadingDot() = assertEquals("hidden.png" to "image/png", after(".hidden", OCTET_STREAM, "image/png"))
+
+    @Test fun aSpecificEntryTypeIsKeptWhenTheResponseIsGeneric() = assertEquals("cat.png" to "image/png", after("cat.png", "image/png", OCTET_STREAM))
+}
+
+class ImageTypeTest {
+    @Test fun imageTypesAreImages() = listOf("image/png", "IMAGE/JPEG", "image/svg+xml; charset=utf-8").forEach { assertTrue(isImageType(it), it) }
+
+    @Test fun otherOrMissingTypesAreNotImages() =
+        listOf("application/vnd.android.package-archive", "text/html", OCTET_STREAM, "", null, "video/mp4", "imagex/png").forEach { assertFalse(isImageType(it), "$it") }
+}

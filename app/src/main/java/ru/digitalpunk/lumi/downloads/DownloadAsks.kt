@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import ru.digitalpunk.lumi.data.SettingsStore
 import ru.digitalpunk.lumi.engine.BrowserEngine
 import ru.digitalpunk.lumi.engine.DownloadOffer
+import ru.digitalpunk.lumi.engine.ImageTarget
 
 /** The most files waiting for the ask sheet; each holds an open response stream. */
 const val MAX_ASKS = 5
@@ -59,7 +60,7 @@ class DownloadAsks(
     private val queue = AskQueue()
     val offers: StateFlow<List<DownloadOffer>> = queue.offers
     var requester: ((permission: String, code: Int) -> Unit)? = null
-    private var held: DownloadOffer? = null
+    private var held: Held? = null
     private var notificationsAsked = false
     private var asking = false
     private var hintShown = false
@@ -81,11 +82,19 @@ class DownloadAsks(
 
     fun confirm(offer: DownloadOffer) {
         queue.remove(offer)
+        begin({ downloads.start(offer) }, { downloads.refuse(offer) })
+    }
+
+    /** "Save image": no ask sheet, but the same permission asks as a confirmed download. */
+    fun saveImage(image: ImageTarget) = begin({ downloads.saveImage(image) }, { downloads.refuseImage(image) })
+
+    /** Asks for what the download needs, then [start]s it; a refused storage permission (API 26-28) [refuse]s it. */
+    private fun begin(start: () -> Unit, refuse: () -> Unit) {
         val request = requester
         val plan = permissionPlan(Build.VERSION.SDK_INT, granted(Manifest.permission.WRITE_EXTERNAL_STORAGE), granted(NOTIFICATIONS), notificationsAsked)
         if (plan.askStorage && request != null) {
-            held?.let(downloads::refuse)
-            held = offer
+            held?.refuse?.invoke()
+            held = Held(start, refuse)
             request(Manifest.permission.WRITE_EXTERNAL_STORAGE, REQUEST_STORAGE)
             return
         }
@@ -96,19 +105,19 @@ class DownloadAsks(
             request(NOTIFICATIONS, REQUEST_NOTIFICATIONS)
         }
         // The download never waits for the notification answer.
-        downloads.start(offer)
+        start()
         if (!asking) hintIfMuted()
     }
 
     fun onPermissionResult(code: Int, granted: Boolean) {
         when (code) {
-            REQUEST_STORAGE -> held?.let { offer ->
+            REQUEST_STORAGE -> held?.let { download ->
                 held = null
                 if (granted) {
-                    downloads.start(offer)
+                    download.start()
                     hintIfMuted()
                 } else {
-                    downloads.refuse(offer)
+                    download.refuse()
                 }
             }
             REQUEST_NOTIFICATIONS -> {
@@ -125,6 +134,9 @@ class DownloadAsks(
         hintShown = true
         mutableHints.tryEmit(Unit)
     }
+
+    /** A download waiting for the storage answer. */
+    private class Held(val start: () -> Unit, val refuse: () -> Unit)
 
     companion object {
         const val REQUEST_STORAGE = 2

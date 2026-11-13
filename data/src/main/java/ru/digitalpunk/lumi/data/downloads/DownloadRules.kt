@@ -111,6 +111,23 @@ fun mimeForName(name: String, headerMime: String?, lookup: (String) -> String?):
 
 const val OCTET_STREAM = "application/octet-stream"
 
+/**
+ * The name and type of an entry made before its response (Save image, Retry): a [name] without an extension takes one
+ * from [headerMime] through [extensionFor]; a name with one keeps it, and a generic [entryMime] gives way to a specific
+ * [headerMime]. Otherwise [name] and [entryMime] stay.
+ */
+fun nameAndMimeAfterResponse(
+    name: String, entryMime: String, headerMime: String?, extensionFor: (String) -> String?, lookup: (String) -> String?,
+): Pair<String, String> {
+    val header = headerMime?.takeIf { it.isNotBlank() && it != OCTET_STREAM } ?: return name to entryMime
+    if (extensionOf(name) != null) return name to if (entryMime == OCTET_STREAM) header else entryMime
+    val named = sanitizeFileName(name, name, extensionFor(header) ?: return name to entryMime)
+    return named to mimeForName(named, header, lookup)
+}
+
+/** Whether a response type is an image: Save image keeps nothing else, so a page cannot drop an .apk or .html into Downloads. */
+fun isImageType(mime: String?): Boolean = mime?.startsWith("image/", ignoreCase = true) == true
+
 /** Free space a download always leaves on the device, so a file of unknown size cannot fill the disk. */
 const val FREE_SPACE_FLOOR = 100L * 1024 * 1024
 
