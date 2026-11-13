@@ -20,6 +20,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -55,7 +56,7 @@ fun LongPressIconButton(
 ) {
     val color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
     Box(
-        modifier.size(48.dp).clip(CircleShape).combinedClickable(
+        modifier.minimumInteractiveComponentSize().size(48.dp).clip(CircleShape).combinedClickable(
             enabled = enabled,
             role = Role.Button,
             onLongClickLabel = longClickLabel,
