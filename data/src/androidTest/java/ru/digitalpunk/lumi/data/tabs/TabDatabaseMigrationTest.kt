@@ -5,6 +5,7 @@ import androidx.room.testing.MigrationTestHelper
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import ru.digitalpunk.lumi.data.downloads.DownloadEntity
 import ru.digitalpunk.lumi.data.library.HistoryEntity
 import org.junit.Rule
 import kotlin.test.Test
@@ -90,6 +91,43 @@ class TabDatabaseMigrationTest {
             db.libraryDao().insertVisit(HistoryEntity(url = "https://x", title = "", visitedAt = 1))
             db.libraryDao().titleLatest("https://x", "X")
             assertEquals("X", db.libraryDao().observeHistory(10).first().single().title)
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test fun migratingV3ToV4KeepsLibraryRowsAndAddsAnEmptyDownloadTable() {
+        helper.createDatabase(NAME, 3).apply {
+            execSQL("INSERT INTO tab_group (id, name, position) VALUES ('g', 'Work', 0)")
+            execSQL("INSERT INTO tab (id, position, url, title, lastActiveAt, groupId) VALUES ('a', 0, 'https://x', 't', 7, 'g')")
+            execSQL("INSERT INTO bookmark_node (id, parentId, kind, title, url, position, createdAt) VALUES ('b', 'root', 0, 'X', 'https://x', 0, 1)")
+            execSQL("INSERT INTO history (id, url, title, visitedAt) VALUES (1, 'https://x', 'X', 5)")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(NAME, 4, true)
+        for ((table, count) in listOf("tab" to 1, "tab_group" to 1, "bookmark_node" to 1, "history" to 1, "download" to 0)) {
+            db.query("SELECT COUNT(*) FROM $table").use {
+                it.moveToFirst()
+                assertEquals(count, it.getInt(0), table)
+            }
+        }
+        db.close()
+    }
+
+    @Test fun migratingV1ToV4InOneStepKeepsTheTabAndDownloadsWork() = runBlocking<Unit> {
+        helper.createDatabase(NAME, 1).apply {
+            execSQL("INSERT INTO tab (id, position, url, title, lastActiveAt) VALUES ('a', 0, 'https://x', 't', 7)")
+            close()
+        }
+        helper.runMigrationsAndValidate(NAME, 4, true).close()
+        val db = Room.databaseBuilder(instrumentation.targetContext, TabDatabase::class.java, NAME).build()
+        try {
+            assertEquals(listOf("a"), db.tabDao().tabs().map { it.id })
+            val dao = db.downloadDao()
+            dao.insert(DownloadEntity(url = "https://x/a.pdf", fileName = "a.pdf", mimeType = "application/pdf", uri = null, site = "x", totalBytes = 1, doneBytes = 0, state = "Running", startedAt = 1))
+            dao.insert(DownloadEntity(url = "https://x/b.pdf", fileName = "b.pdf", mimeType = "application/pdf", uri = null, site = "x", totalBytes = 1, doneBytes = 1, state = "Done", startedAt = 2))
+            assertEquals(1, dao.deleteFinished())
+            assertEquals(listOf("a.pdf"), dao.observe().first().map { it.fileName })
         } finally {
             db.close()
         }

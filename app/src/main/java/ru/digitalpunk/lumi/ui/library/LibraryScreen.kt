@@ -56,6 +56,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -89,6 +90,7 @@ import ru.digitalpunk.lumi.library.backTarget
 import ru.digitalpunk.lumi.library.disabledMoveTargets
 import ru.digitalpunk.lumi.library.folderName
 import ru.digitalpunk.lumi.library.weekdayDate
+import ru.digitalpunk.lumi.downloads.DownloadManager
 import ru.digitalpunk.lumi.library.withoutScheme
 import ru.digitalpunk.lumi.ui.LinkAction
 import ru.digitalpunk.lumi.ui.LumiDropdownMenu
@@ -113,13 +115,14 @@ suspend fun deleteWithUndo(library: LibraryRepository, id: String, snackbar: Sna
 }
 
 /**
- * The Library over the browser: Bookmarks and History. [scope] outlives the screen, so an Undo still works after it closes.
+ * The Library over the browser: Bookmarks, History and Downloads. [scope] outlives the screen, so an Undo still works after it closes.
  * [onOpen] loads in the current tab (a private tab stays private); [onOpenInTab] takes the link actions of the link sheet.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
     library: LibraryRepository,
+    downloads: DownloadManager,
     settings: SettingsStore,
     snackbar: SnackbarHostState,
     scope: CoroutineScope,
@@ -141,6 +144,8 @@ fun LibraryScreen(
     var moving by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmDelete by rememberSaveable { mutableStateOf<String?>(null) }
     var clearing by rememberSaveable { mutableStateOf(false) }
+    var clearingDownloads by rememberSaveable { mutableStateOf(false) }
+    val downloadItems by downloads.items.collectAsStateWithLifecycle()
     var folderMenu by remember { mutableStateOf(false) }
 
     BackHandler {
@@ -224,6 +229,11 @@ fun LibraryScreen(
                                 }
                             }
                         }
+                        tab == LibraryTab.Downloads -> if (downloadItems.isNotEmpty()) {
+                            IconButton(onClick = { clearingDownloads = true }) {
+                                Icon(painterResource(R.drawable.ic_delete_sweep), stringResource(R.string.cd_clear_downloads))
+                            }
+                        }
                         else -> {
                             IconButton(onClick = { searching = true }) { Icon(Icons.Filled.Search, stringResource(R.string.cd_search_history)) }
                             IconButton(onClick = { clearing = true }) {
@@ -243,7 +253,15 @@ fun LibraryScreen(
                             selected = tab == entry,
                             onClick = { scope.launch { settings.setLibraryTab(entry) } },
                             text = {
-                                Text(stringResource(if (entry == LibraryTab.Bookmarks) R.string.library_tab_bookmarks else R.string.library_tab_history))
+                                Text(
+                                    stringResource(
+                                        when (entry) {
+                                            LibraryTab.Bookmarks -> R.string.library_tab_bookmarks
+                                            LibraryTab.History -> R.string.library_tab_history
+                                            LibraryTab.Downloads -> R.string.library_tab_downloads
+                                        },
+                                    ),
+                                )
                             },
                         )
                     }
@@ -284,6 +302,7 @@ fun LibraryScreen(
                         MenuItem(stringResource(R.string.action_delete), { Icon(Icons.Filled.Delete, null) }) { dismiss(); remove() }
                     }
                 }
+                LibraryTab.Downloads -> DownloadsList(downloads, snackbar, scope)
             }
         }
     }
@@ -320,6 +339,19 @@ fun LibraryScreen(
                 scope.launch { deleteWithUndo(library, id, snackbar, folderDeleted, undo) }
             },
             onDismiss = { confirmDelete = null },
+        )
+    }
+    if (clearingDownloads) {
+        val resources = LocalResources.current
+        ClearDownloadsDialog(
+            onClear = {
+                clearingDownloads = false
+                scope.launch {
+                    val removed = downloads.clearList()
+                    snackbar.showSnackbar(resources.getQuantityString(R.plurals.downloads_cleared, removed, removed))
+                }
+            },
+            onDismiss = { clearingDownloads = false },
         )
     }
     if (clearing) {
@@ -425,6 +457,22 @@ private fun BookmarksList(
     }
 }
 
+/** "Today", "Yesterday" or the date: the section header of History and Downloads. */
+@Composable
+fun DayHeader(date: LocalDate, today: LocalDate) {
+    Text(
+        when (dayKind(date, today)) {
+            DayKind.Today -> stringResource(R.string.history_today)
+            DayKind.Yesterday -> stringResource(R.string.history_yesterday)
+            DayKind.Other -> weekdayDate(date, LocalConfiguration.current.locales[0])
+        },
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.fillMaxWidth().height(44.dp).background(MaterialTheme.colorScheme.surface)
+            .padding(start = 16.dp).wrapContentHeight(Alignment.CenterVertically).semantics { heading() },
+    )
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HistoryList(
@@ -450,25 +498,10 @@ private fun HistoryList(
     val removed = stringResource(R.string.history_removed)
     val undo = stringResource(R.string.snackbar_action_undo)
     val today = LocalDate.now(zone)
-    val locale = LocalConfiguration.current.locales[0]
     val timeFormat = DateFormat.getTimeFormat(LocalContext.current)
-    val todayText = stringResource(R.string.history_today)
-    val yesterdayText = stringResource(R.string.history_yesterday)
     LazyColumn(Modifier.fillMaxSize()) {
         days.forEach { day ->
-            stickyHeader(key = day.date.toString()) {
-                Text(
-                    when (dayKind(day.date, today)) {
-                        DayKind.Today -> todayText
-                        DayKind.Yesterday -> yesterdayText
-                        DayKind.Other -> weekdayDate(day.date, locale)
-                    },
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.fillMaxWidth().height(44.dp).background(MaterialTheme.colorScheme.surface)
-                        .padding(start = 16.dp).wrapContentHeight(Alignment.CenterVertically).semantics { heading() },
-                )
-            }
+            stickyHeader(key = day.date.toString()) { DayHeader(day.date, today) }
             items(day.rows, key = { it.ids.first() }) { row ->
                 val remove = {
                     val rows = all.filter { it.id in row.ids }

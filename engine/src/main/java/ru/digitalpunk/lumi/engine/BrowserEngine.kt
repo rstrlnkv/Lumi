@@ -7,6 +7,10 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
+import java.io.IOException
+import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
@@ -20,6 +24,9 @@ import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
+import org.mozilla.geckoview.GeckoWebExecutor
+import org.mozilla.geckoview.WebRequest
+import org.mozilla.geckoview.WebResponse
 import org.mozilla.geckoview.GeckoSession.PermissionDelegate.ContentPermission
 
 /**
@@ -71,6 +78,14 @@ class BrowserEngine(appContext: Context) {
 
     /** A long press on an http or https link in the selected tab. Other links and images send nothing. */
     val linkMenu: SharedFlow<LinkTarget> = mutableLinks
+
+    // Unlimited: a dropped offer would leak its open stream.
+    private val downloadOffers = Channel<DownloadOffer>(Channel.UNLIMITED)
+
+    /** Files pages send (a `download` link, `Content-Disposition: attachment`, a type Gecko cannot show), from any tab. */
+    val downloads: Flow<DownloadOffer> = downloadOffers.receiveAsFlow()
+
+    private val executor by lazy { GeckoWebExecutor(runtime) }
 
     /** Receives the visits and titles of normal tabs; read at event time, so it may be set after tabs exist. */
     var historySink: HistorySink? = null
@@ -157,6 +172,13 @@ class BrowserEngine(appContext: Context) {
                 webLink(element.linkUri)?.let { url ->
                     mutableLinks.tryEmit(LinkTarget(tab.id, url, linkTitle(element.title, element.linkText), tab.isPrivate))
                 }
+            }
+
+            // Main thread: only read the headers here; the body is read by the app on an IO thread.
+            override fun onExternalResponse(session: GeckoSession, response: WebResponse) {
+                val body = response.body ?: return
+                val offer = downloadOffer(response.uri, response.headers, tab.page.state.value.url, tab.isPrivate, body) ?: return
+                if (downloadOffers.trySend(offer).isFailure) offer.discard()
             }
         }
         // A private session gets no onVisited at all, so it can never write global history.
@@ -499,6 +521,25 @@ class BrowserEngine(appContext: Context) {
         withTimeoutOrNull(CAPTURE_TIMEOUT_MILLIS) {
             suspendCancellableCoroutine { c -> capture(tab) { c.resume(it) } }
         }
+    }
+
+    /**
+     * Fetches [url] again for Retry or Save, through Gecko so the cookies of the right context go along; [private] uses the
+     * private context. Call it from the main thread. Throws [IOException] for a non-web address or a non-2xx answer.
+     */
+    suspend fun fetchForDownload(url: String, private: Boolean): DownloadOffer {
+        if (!isDownloadableUrl(url)) throw IOException("Not a web address")
+        val flags = if (private) GeckoWebExecutor.FETCH_FLAGS_PRIVATE else GeckoWebExecutor.FETCH_FLAGS_NONE
+        val response = suspendCancellableCoroutine { c ->
+            executor.fetch(WebRequest.Builder(url).build(), flags)
+                .accept({ c.resume(it!!) }, { c.resumeWithException(it ?: IOException("Fetch failed")) })
+        }
+        val body = response.body
+        if (response.statusCode !in 200..299 || body == null) {
+            runCatching { body?.close() }
+            throw IOException("HTTP ${response.statusCode}")
+        }
+        return downloadOffer(response.uri, response.headers, url, private, body) ?: throw IOException("Not a web address")
     }
 
     /** [level] is a `ComponentCallbacks2.TRIM_MEMORY_*` value. The cap returns to normal on the next tab switch. */

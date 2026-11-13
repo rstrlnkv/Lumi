@@ -4,13 +4,19 @@ import android.app.Application
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 import ru.digitalpunk.lumi.data.SettingsStore
+import ru.digitalpunk.lumi.data.downloads.DownloadRepository
+import ru.digitalpunk.lumi.data.downloads.DownloadStorage
 import ru.digitalpunk.lumi.data.icons.SiteIcons
 import ru.digitalpunk.lumi.data.library.LibraryRepository
 import ru.digitalpunk.lumi.data.privatetabs.PrivateTabStore
 import ru.digitalpunk.lumi.data.search.EngineSuggestClient
 import ru.digitalpunk.lumi.data.tabs.SnapshotStore
 import ru.digitalpunk.lumi.data.tabs.TabRepository
+import ru.digitalpunk.lumi.downloads.DownloadAsks
+import ru.digitalpunk.lumi.downloads.DownloadManager
+import ru.digitalpunk.lumi.downloads.DownloadNotifier
 import ru.digitalpunk.lumi.engine.BrowserEngine
 import ru.digitalpunk.lumi.library.HistoryRecorder
 import ru.digitalpunk.lumi.privacy.PrivateGate
@@ -49,6 +55,17 @@ class LumiApplication : Application() {
 
     /** Search suggestions from the chosen engine (ADR 009); its own pinned client, so its live limit is its own. */
     val suggestClient by lazy { EngineSuggestClient() }
+
+    val downloadNotifier by lazy { DownloadNotifier(this) }
+
+    /** Every download of the process (ADR 010); the copy outlives the activity. */
+    val downloads by lazy { DownloadManager(this, engine, DownloadRepository.create(this), DownloadStorage(this), downloadNotifier, appScope) }
+
+    /** Files waiting for the ask sheet, and the permission requests of a "Download" tap. */
+    val downloadAsks by lazy { DownloadAsks(this, engine, downloads, settings, appScope) }
+
+    /** Set by a download notification or a "Show" action: the Library opens on the Downloads tab. */
+    val showDownloads = MutableStateFlow(false)
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)

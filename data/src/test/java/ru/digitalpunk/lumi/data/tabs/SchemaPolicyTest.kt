@@ -25,6 +25,11 @@ class SchemaPolicyTest {
         assertTrue("\"tableName\": \"history\"" in json)
     }
 
+    @Test fun versionFourSchemaHasTheDownloadTable() {
+        val json = File(schemas, "4.json").readText()
+        assertTrue("\"tableName\": \"download\"" in json)
+    }
+
     @Test fun noMainSourceUsesADestructiveMigrationFallback() {
         val hits = File("src/main").walkTopDown().filter { it.isFile && it.extension == "kt" && "fallbackToDestructive" in it.readText() }.toList()
         assertTrue(hits.isEmpty(), "destructive fallback in $hits")

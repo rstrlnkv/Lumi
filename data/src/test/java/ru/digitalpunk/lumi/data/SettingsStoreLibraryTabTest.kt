@@ -35,6 +35,21 @@ class SettingsStoreLibraryTabTest {
         withStore { store, _ -> assertEquals(LibraryTab.History, store.libraryTab.first()) }
     }
 
+    @Test fun theDownloadsTabSurvivesANewStoreOnTheSameFile() {
+        withStore { store, _ -> store.setLibraryTab(LibraryTab.Downloads) }
+        withStore { store, _ -> assertEquals(LibraryTab.Downloads, store.libraryTab.first()) }
+    }
+
+    @Test fun theNotificationAskIsRememberedAndAWrongTypedValueReadsAsNotAsked() {
+        withStore { store, _ -> assertEquals(false, store.downloadNotificationsAsked.first()) }
+        withStore { store, ds ->
+            ds.edit { it[stringPreferencesKey("download_notifications_asked")] = "yes" }
+            assertEquals(false, store.downloadNotificationsAsked.first())
+            store.setDownloadNotificationsAsked()
+            assertEquals(true, store.downloadNotificationsAsked.first())
+        }
+    }
+
     @Test fun anUnknownStoredValueFallsBackToBookmarks() = withStore { store, ds ->
         ds.edit { it[stringPreferencesKey("library_tab")] = "downloads-from-the-future" }
         assertEquals(LibraryTab.Bookmarks, store.libraryTab.first())

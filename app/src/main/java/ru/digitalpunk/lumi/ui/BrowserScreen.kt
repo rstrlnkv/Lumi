@@ -1,5 +1,19 @@
 package ru.digitalpunk.lumi.ui
 
+import android.provider.Settings
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.platform.LocalResources
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.flow.MutableStateFlow
+import ru.digitalpunk.lumi.data.LibraryTab
+import ru.digitalpunk.lumi.downloads.DownloadAsks
+import ru.digitalpunk.lumi.downloads.DownloadEvent
+import ru.digitalpunk.lumi.downloads.DownloadManager
+import ru.digitalpunk.lumi.downloads.showsDownloadSnackbar
+import ru.digitalpunk.lumi.ui.library.openDownload
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -151,6 +165,9 @@ fun BrowserScreen(
     gate: PrivateGate,
     library: LibraryRepository,
     suggestClient: EngineSuggestClient,
+    downloads: DownloadManager,
+    downloadAsks: DownloadAsks,
+    showDownloads: MutableStateFlow<Boolean>,
 ) {
     val state by engine.state.collectAsStateWithLifecycle()
     val tabsState by engine.tabs.collectAsStateWithLifecycle()
@@ -384,6 +401,67 @@ fun BrowserScreen(
     LaunchedEffect(engine) { engine.linkMenu.collect { link = it } }
     val shownLink = link?.takeIf { it.tab == tabsState.selectedId && !coverOpen && !lockShown }
     LaunchedEffect(shownLink == null) { if (shownLink == null) link = null }
+
+    // Downloads (M7c1): "Show" and a download notification open the Library on the Downloads tab.
+    val downloadsRequested by showDownloads.collectAsStateWithLifecycle()
+    LaunchedEffect(downloadsRequested) {
+        if (!downloadsRequested) return@LaunchedEffect
+        showDownloads.value = false
+        settings.setLibraryTab(LibraryTab.Downloads)
+        editing = false
+        libraryOpen = true
+    }
+    val libraryTab by settings.libraryTab.collectAsStateWithLifecycle(LibraryTab.Bookmarks)
+    val downloadsOnScreen by rememberUpdatedState(libraryOpen && libraryTab == LibraryTab.Downloads)
+    val downloadContext = LocalContext.current
+    val downloadResources = LocalResources.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val downloadLockShown by rememberUpdatedState(lockShown)
+    LaunchedEffect(downloads) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            downloads.events.collect { event ->
+                if (!showsDownloadSnackbar(event.item, downloadLockShown)) return@collect
+                val name = event.item.fileName
+                val private = event.item.isPrivate
+                // A private file's name stays out of the snackbar, as it does out of the notification.
+                fun visuals(text: Int, privateText: Int, action: Int, description: Int, duration: SnackbarDuration) = LumiSnackbarVisuals(
+                    if (private) downloadResources.getString(privateText) else downloadResources.getString(text, name),
+                    downloadResources.getString(action), downloadResources.getString(description, name), duration,
+                )
+                when (event) {
+                    // The list itself shows a new download.
+                    is DownloadEvent.Started -> if (!downloadsOnScreen) launch {
+                        val shown = visuals(R.string.download_started, R.string.download_started_private, R.string.action_show, R.string.cd_snackbar_show_downloads, SnackbarDuration.Short)
+                        if (snackbar.showSnackbar(shown) == SnackbarResult.ActionPerformed) showDownloads.value = true
+                    }
+                    is DownloadEvent.Finished -> launch {
+                        val shown = visuals(R.string.download_finished, R.string.download_finished_private, R.string.snackbar_action_open, R.string.cd_snackbar_open_file, SnackbarDuration.Long)
+                        if (snackbar.showSnackbar(shown) == SnackbarResult.ActionPerformed) openDownload(downloadContext, event.item, false, scope, snackbar)
+                    }
+                    is DownloadEvent.Failed -> launch {
+                        val description = if (private) R.string.action_retry else R.string.cd_download_retry
+                        val shown = visuals(R.string.download_failed_snackbar, R.string.download_failed_private, R.string.action_retry, description, SnackbarDuration.Long)
+                        if (snackbar.showSnackbar(shown) == SnackbarResult.ActionPerformed) downloads.retry(event.item.id)
+                    }
+                }
+            }
+        }
+    }
+    LaunchedEffect(downloadAsks) {
+        downloadAsks.hints.collect {
+            launch {
+                val hint = LumiSnackbarVisuals(
+                    downloadResources.getString(R.string.download_no_notifications), downloadResources.getString(R.string.action_settings), duration = SnackbarDuration.Long,
+                )
+                if (snackbar.showSnackbar(hint) == SnackbarResult.ActionPerformed) {
+                    downloadContext.startActivity(
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, downloadContext.packageName),
+                    )
+                }
+            }
+        }
+    }
+    val offers by downloadAsks.offers.collectAsStateWithLifecycle()
     val copiedText = stringResource(R.string.snackbar_link_copied)
     val onLinkAction = { target: LinkTarget, action: LinkAction ->
         link = null
@@ -556,7 +634,7 @@ fun BrowserScreen(
 
         if (libraryOpen) {
             LibraryScreen(
-                library, settings, snackbar, scope, selectedPrivate, startFolder,
+                library, downloads, settings, snackbar, scope, selectedPrivate, startFolder,
                 onOpen = { url ->
                     engine.load(url)
                     libraryOpen = false
@@ -586,6 +664,12 @@ fun BrowserScreen(
         if (lockShown) PrivateLockScreen(onUnlock = { gate.requestUnlock() })
 
         shownLink?.let { target -> LinkSheet(target, { onLinkAction(target, it) }, onDismiss = { link = null }) }
+
+        // A private file is never asked about over the private lock screen.
+        offers.firstOrNull()?.takeIf { !lockShown }?.let { offer ->
+            val name = remember(offer) { downloads.fileName(offer.url, offer.suggestedName, offer.mimeType) }
+            DownloadAskSheet(offer, name, onDownload = { downloadAsks.confirm(offer) }, onCancel = { downloadAsks.cancel(offer) })
+        }
 
         if (showProtection) {
             val display = displayUrl(state.url)

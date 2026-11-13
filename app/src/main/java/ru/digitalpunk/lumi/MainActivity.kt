@@ -22,7 +22,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -80,6 +82,11 @@ class MainActivity : FragmentActivity() {
         app.tabPersistence.start()
         app.privatePersistence.start()
         app.tabSnapshots.start()
+        val asks = app.downloadAsks
+        asks.start()
+        val requester = { permission: String, code: Int -> ActivityCompat.requestPermissions(this, arrayOf(permission), code) }
+        asks.requester = requester
+        if (savedInstanceState == null) readDownloadsRequest(intent)
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) = app.privatePersistence.onStart()
 
@@ -93,13 +100,14 @@ class MainActivity : FragmentActivity() {
 
             override fun onDestroy(owner: LifecycleOwner) {
                 if (gate.prompter === prompter) gate.prompter = null
+                if (asks.requester === requester) asks.requester = null
             }
         })
         setContent {
             LumiTheme {
                 Surface(Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalSiteIcons provides app.siteIcons) {
-                        BrowserScreen(app.engine, app.settings, app.tabSnapshots, gate, app.library, app.suggestClient)
+                        BrowserScreen(app.engine, app.settings, app.tabSnapshots, gate, app.library, app.suggestClient, app.downloads, asks, app.showDownloads)
                     }
                 }
             }
@@ -115,8 +123,27 @@ class MainActivity : FragmentActivity() {
         if (resultCode == RESULT_OK) gate.onPromptSucceeded() else gate.onPromptEnded()
     }
 
-    private companion object {
-        const val CONFIRM_CREDENTIAL = 1
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        readDownloadsRequest(intent)
+    }
+
+    private fun readDownloadsRequest(intent: Intent?) {
+        if (intent?.action == ACTION_SHOW_DOWNLOADS) (application as LumiApplication).showDownloads.value = true
+    }
+
+    @Deprecated("The platform result path; the ActivityResult API is out, see askCredential in onCreate.")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        @Suppress("DEPRECATION")
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        (application as LumiApplication).downloadAsks.onPermissionResult(requestCode, grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
+    }
+
+    companion object {
+        private const val CONFIRM_CREDENTIAL = 1
+
+        /** A download notification: open the Library on the Downloads tab. */
+        const val ACTION_SHOW_DOWNLOADS = "ru.digitalpunk.lumi.SHOW_DOWNLOADS"
     }
 }
 

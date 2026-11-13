@@ -22,6 +22,7 @@ enum class AddressBarStyle(internal val stored: String) {
 enum class LibraryTab(internal val stored: String) {
     Bookmarks("bookmarks"),
     History("history"),
+    Downloads("downloads"),
 }
 
 private val Context.settingsDataStore by preferencesDataStore("settings")
@@ -87,6 +88,13 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         store.edit { it[SEARCH_SUGGESTIONS] = value }
     }
 
+    /** Lumi asked for the notification permission at a first download; it never asks again. False for a value of another type. */
+    val downloadNotificationsAsked: Flow<Boolean> = store.data.map { it.read(DOWNLOAD_NOTIFICATIONS_ASKED) ?: false }
+
+    suspend fun setDownloadNotificationsAsked() {
+        store.edit { it[DOWNLOAD_NOTIFICATIONS_ASKED] = true }
+    }
+
     private companion object {
         val ADDRESS_BAR_STYLE = stringPreferencesKey("address_bar_style")
         val PROTECTION_OFF_HOSTS = stringSetPreferencesKey("protection_off_hosts")
@@ -95,6 +103,7 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         val START_PAGE_FOLDER = stringPreferencesKey("start_page_folder")
         val SEARCH_ENGINE = stringPreferencesKey("search_engine")
         val SEARCH_SUGGESTIONS = booleanPreferencesKey("search_suggestions")
+        val DOWNLOAD_NOTIFICATIONS_ASKED = booleanPreferencesKey("download_notifications_asked")
     }
 }
 
