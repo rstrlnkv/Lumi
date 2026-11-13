@@ -118,7 +118,16 @@ import ru.digitalpunk.lumi.ui.library.LibraryScreen
 import ru.digitalpunk.lumi.ui.library.deleteWithUndo
 import ru.digitalpunk.lumi.data.library.LibraryIds.FAVORITES
 import ru.digitalpunk.lumi.data.library.LibraryRepository
+import ru.digitalpunk.lumi.data.library.children
+import ru.digitalpunk.lumi.data.library.effectiveStartFolder
 import ru.digitalpunk.lumi.data.library.findBookmarkByUrl
+import ru.digitalpunk.lumi.startpage.backGoesUp
+import ru.digitalpunk.lumi.startpage.focusNewTab
+import ru.digitalpunk.lumi.startpage.navInto
+import ru.digitalpunk.lumi.startpage.navUp
+import ru.digitalpunk.lumi.startpage.reconcile
+import ru.digitalpunk.lumi.startpage.startPageVisible
+import ru.digitalpunk.lumi.ui.startpage.StartPage
 import ru.digitalpunk.lumi.library.canBookmark
 import ru.digitalpunk.lumi.library.folderName
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -135,6 +144,12 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
     val style by settings.addressBarStyle.collectAsStateWithLifecycle<AddressBarStyle?>(null)
     val offHosts by settings.protectionOffHosts.collectAsStateWithLifecycle(emptySet())
     val switchToNewTabs by settings.switchToNewTabs.collectAsStateWithLifecycle(false)
+    // The start page shows the start folder; a new tab focuses the address field only when that folder is empty.
+    val nodes by library.nodes.collectAsStateWithLifecycle(emptyList())
+    val startStored by settings.startPageFolder.collectAsStateWithLifecycle(FAVORITES)
+    val startFolder = effectiveStartFolder(nodes, startStored)
+    val focusNew = focusNewTab(children(nodes, startFolder).size)
+    val icons = LocalSiteIcons.current
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     var editing by remember { mutableStateOf(false) }
@@ -170,6 +185,13 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
             editBookmarkId = null
         }
     }
+    // The start page's open folder, per tab: ids only, so nothing private is saved. Hiding the start page resets it.
+    val startShown = startPageVisible(state.url, state.isLoading, state.isCrashed)
+    var startStack by rememberSaveable(tabsState.selectedId?.value) { mutableStateOf(listOf<String>()) }
+    LaunchedEffect(startShown, nodes, startFolder) { startStack = if (startShown) reconcile(startStack, nodes, startFolder) else emptyList() }
+    // Registered after the grid's and Settings' handlers, so `covered` keeps them first.
+    BackHandler(enabled = backGoesUp(startShown, startStack, editing, coverOpen || lockShown)) { startStack = navUp(startStack) }
+
     // One prompt per lock, on return to a private tab.
     LaunchedEffect(tabsState.privateResume, gate.autoPromptPending) {
         if (tabsState.privateResume && gate.autoPromptPending) {
@@ -183,7 +205,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
         gate.enter({
             engine.newTab(private = true)
             gridOpen = false
-            editing = true
+            editing = focusNew
         }, noScreenLock)
     }
 
@@ -279,7 +301,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
         nextHost = hostOf(tabsState.neighbour(1)),
         newTab = {
             engine.newTab()
-            editing = true
+            editing = focusNew
         },
         newPrivateTab = newPrivateTab,
         openGrid = {
@@ -299,7 +321,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
         switchBy = { engine.switchBy(it) },
         closeTab = {
             tabsState.selectedId?.let {
-                if (closeEffect(engine.closeTab(it)) == CloseEffect.LeaveGridForNewTab) editing = true
+                if (closeEffect(engine.closeTab(it)) == CloseEffect.LeaveGridForNewTab) editing = focusNew
             }
         },
     )
@@ -366,8 +388,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
         }
     }
 
-    // Add bookmark saves at once into the start-page folder (Favorites until M7a2); a saved page offers Edit instead.
-    val nodes by library.nodes.collectAsStateWithLifecycle(emptyList())
+    // Add bookmark saves at once into the start-page folder and fetches the site's icon; a saved page offers Edit instead.
     val savedBookmark = remember(nodes, state.url) { findBookmarkByUrl(nodes, state.url) }
     val favoritesText = stringResource(R.string.folder_favorites)
     val editText = stringResource(R.string.snackbar_action_edit)
@@ -383,8 +404,9 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
                 val url = state.url
                 val title = tabsState.tabs.firstOrNull { it.id == tabsState.selectedId }?.title.orEmpty()
                 scope.launch {
-                    val id = library.addBookmark(FAVORITES, title, url) ?: return@launch
-                    val folder = nodes.firstOrNull { it.id == FAVORITES }?.let { folderName(it, favoritesText) } ?: favoritesText
+                    val id = library.addBookmark(startFolder, title, url) ?: return@launch
+                    if (!selectedPrivate) icons?.request(url)
+                    val folder = nodes.firstOrNull { it.id == startFolder }?.let { folderName(it, favoritesText) } ?: favoritesText
                     val saved = LumiSnackbarVisuals(resources.getString(R.string.snackbar_bookmark_saved, folder), editText, editBookmarkLabel)
                     if (snackbar.showSnackbar(saved) == SnackbarResult.ActionPerformed) editBookmarkId = id
                 }
@@ -410,6 +432,21 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
                 onRelease = { engine.releaseView(it) },
                 modifier = Modifier.fillMaxSize(),
             )
+            if (startShown) {
+                StartPage(
+                    library, nodes, startFolder, startStack, selectedPrivate,
+                    bottomInset = with(density) { expandedPx.toDp() },
+                    snackbar = snackbar,
+                    scope = scope,
+                    onOpenFolder = { startStack = navInto(startStack, it) },
+                    onUp = { startStack = navUp(startStack) },
+                    onOpenUrl = engine::load,
+                    onOpenInTab = { url, action ->
+                        tabsState.selectedId?.let { onLinkAction(LinkTarget(it, url, null, selectedPrivate), action) }
+                    },
+                    onEdit = { editBookmarkId = it },
+                )
+            }
             if (state.isCrashed) {
                 Column(
                     Modifier.fillMaxSize()
@@ -471,6 +508,8 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
 
         if (settingsOpen) {
             SettingsScreen(
+                library, nodes, startFolder,
+                { scope.launch { settings.setStartPageFolder(it) } },
                 switchToNewTabs,
                 { scope.launch { settings.setSwitchToNewTabs(it) } },
                 onBack = { settingsOpen = false },
@@ -480,7 +519,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
 
         if (libraryOpen) {
             LibraryScreen(
-                library, settings, snackbar, scope, selectedPrivate,
+                library, settings, snackbar, scope, selectedPrivate, startFolder,
                 onOpen = { url ->
                     engine.load(url)
                     libraryOpen = false
@@ -498,7 +537,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
             val deleted = stringResource(R.string.snackbar_bookmark_deleted)
             val undo = stringResource(R.string.snackbar_action_undo)
             BookmarkEditorDialog(
-                library, nodes, id,
+                library, nodes, id, selectedPrivate,
                 onDelete = {
                     editBookmarkId = null
                     scope.launch { deleteWithUndo(library, id, snackbar, deleted, undo) }
@@ -547,7 +586,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
                 onClose = {
                     if (closeEffect(engine.closeTab(it)) == CloseEffect.LeaveGridForNewTab) {
                         gridOpen = false
-                        editing = true
+                        editing = focusNew
                     }
                 },
                 onNewTab = {
@@ -556,7 +595,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
                     } else {
                         engine.newTab()
                         gridOpen = false
-                        editing = true
+                        editing = focusNew
                     }
                 },
                 onDone = { gridOpen = false },
@@ -570,7 +609,7 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
                     val replaced = engine.deleteGroup(id)
                     if (closeEffect(replaced) == CloseEffect.LeaveGridForNewTab) {
                         gridOpen = false
-                        editing = true
+                        editing = focusNew
                     }
                     replaced
                 },

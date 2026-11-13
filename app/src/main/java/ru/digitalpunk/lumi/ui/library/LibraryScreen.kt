@@ -92,6 +92,9 @@ import ru.digitalpunk.lumi.library.weekdayDate
 import ru.digitalpunk.lumi.library.withoutScheme
 import ru.digitalpunk.lumi.ui.LinkAction
 import ru.digitalpunk.lumi.ui.LumiDropdownMenu
+import ru.digitalpunk.lumi.ui.SiteIconTile
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
 import ru.digitalpunk.lumi.ui.LumiSnackbarVisuals
 import ru.digitalpunk.lumi.ui.MenuItem
 import ru.digitalpunk.lumi.ui.tabgrid.DISMISS_FRACTION
@@ -121,6 +124,7 @@ fun LibraryScreen(
     snackbar: SnackbarHostState,
     scope: CoroutineScope,
     inPrivateTab: Boolean,
+    startFolder: String,
     onOpen: (String) -> Unit,
     onOpenInTab: (String, LinkAction) -> Unit,
     onEdit: (String) -> Unit,
@@ -247,7 +251,7 @@ fun LibraryScreen(
             }
             when (tab) {
                 LibraryTab.Bookmarks -> BookmarksList(
-                    nodes, folderId,
+                    nodes, folderId, startFolder, inPrivateTab,
                     onOpenFolder = { folderId = it },
                     onOpen = onOpen,
                     bookmarkMenu = { node, expanded, dismiss ->
@@ -352,13 +356,13 @@ private fun FolderMenu(
     }
 }
 
-/** A 40 dp tile with the first letter of [title]; M7a2 puts the site icon here. */
+/** A tile with the first letter of [title]: what a site without a stored icon shows. */
 @Composable
-fun LetterTile(title: String) {
+fun LetterTile(title: String, size: Dp = 40.dp, corner: Dp = 8.dp, style: TextStyle = MaterialTheme.typography.titleMedium) {
     Box(
-        Modifier.size(40.dp).background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(8.dp)),
+        Modifier.size(size).background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(corner)),
         contentAlignment = Alignment.Center,
-    ) { Text(cardInitial(title), color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.titleMedium) }
+    ) { Text(cardInitial(title), color = MaterialTheme.colorScheme.onSecondaryContainer, style = style) }
 }
 
 @Composable
@@ -378,6 +382,8 @@ private fun EmptyState(icon: Int, text: String) {
 private fun BookmarksList(
     nodes: List<BookmarkNodeEntity>,
     folderId: String,
+    startFolder: String,
+    inPrivateTab: Boolean,
     onOpenFolder: (String) -> Unit,
     onOpen: (String) -> Unit,
     bookmarkMenu: @Composable (BookmarkNodeEntity, Boolean, () -> Unit) -> Unit,
@@ -392,8 +398,7 @@ private fun BookmarksList(
             Box {
                 if (node.isFolder) {
                     val count = bookmarkCount(nodes, node.id)
-                    // The start-page folder is Favorites until M7a2 lets the person choose another.
-                    val supporting = pluralStringResource(if (node.id == FAVORITES) R.plurals.bookmarks_count_start else R.plurals.bookmarks_count, count, count)
+                    val supporting = pluralStringResource(if (node.id == startFolder) R.plurals.bookmarks_count_start else R.plurals.bookmarks_count, count, count)
                     ListItem(
                         headlineContent = { Text(folderName(node, favorites), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         supportingContent = { Text(supporting) },
@@ -407,7 +412,7 @@ private fun BookmarksList(
                     ListItem(
                         headlineContent = { Text(node.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         supportingContent = { Text(withoutScheme(url), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        leadingContent = { LetterTile(node.title) },
+                        leadingContent = { SiteIconTile(url, node.title, 40.dp, 8.dp, backfill = !inPrivateTab) },
                         trailingContent = {
                             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more)) }
                         },
@@ -492,7 +497,8 @@ private fun HistoryList(
                         ListItem(
                             headlineContent = { Text(row.title.ifEmpty { host }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             supportingContent = { Text(stringResource(R.string.history_row_support, host, time), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            leadingContent = { LetterTile(row.title.ifEmpty { host }) },
+                            // A stored icon only: browsing history never starts a fetch.
+                            leadingContent = { SiteIconTile(row.url, row.title.ifEmpty { host }, 40.dp, 8.dp, backfill = false) },
                             modifier = Modifier.combinedClickable(onLongClick = { menu = true }) { onOpen(row.url) },
                         )
                         rowMenu(row, menu, { menu = false }, remove)

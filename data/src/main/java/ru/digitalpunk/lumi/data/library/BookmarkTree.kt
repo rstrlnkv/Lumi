@@ -53,6 +53,10 @@ fun subtree(nodes: List<BookmarkNodeEntity>, id: String): List<BookmarkNodeEntit
 
 fun bookmarkCount(nodes: List<BookmarkNodeEntity>, folder: String): Int = descendants(nodes, folder).count { !it.isFolder }
 
+/** The start page's folder: [stored] while it is an existing folder other than the root, otherwise Favorites. */
+fun effectiveStartFolder(nodes: List<BookmarkNodeEntity>, stored: String): String =
+    if (stored != ROOT && nodes.any { it.id == stored && it.isFolder }) stored else FAVORITES
+
 fun canDelete(id: String): Boolean = id != FAVORITES
 
 /** Whether [id] may go into [newParent]: the root or an existing folder, never Favorites itself, never a folder into its own subtree. */

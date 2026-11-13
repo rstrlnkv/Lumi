@@ -1,5 +1,7 @@
 package ru.digitalpunk.lumi
 
+import androidx.compose.runtime.CompositionLocalProvider
+import ru.digitalpunk.lumi.ui.LocalSiteIcons
 import android.app.KeyguardManager
 import android.content.Intent
 import android.os.Build
@@ -96,7 +98,9 @@ class MainActivity : FragmentActivity() {
         setContent {
             LumiTheme {
                 Surface(Modifier.fillMaxSize()) {
-                    BrowserScreen(app.engine, app.settings, app.tabSnapshots, gate, app.library)
+                    CompositionLocalProvider(LocalSiteIcons provides app.siteIcons) {
+                        BrowserScreen(app.engine, app.settings, app.tabSnapshots, gate, app.library)
+                    }
                 }
             }
         }

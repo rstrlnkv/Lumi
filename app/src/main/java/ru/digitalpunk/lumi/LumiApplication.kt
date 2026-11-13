@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import ru.digitalpunk.lumi.data.SettingsStore
+import ru.digitalpunk.lumi.data.icons.SiteIcons
 import ru.digitalpunk.lumi.data.library.LibraryRepository
 import ru.digitalpunk.lumi.data.privatetabs.PrivateTabStore
 import ru.digitalpunk.lumi.data.tabs.SnapshotStore
@@ -41,6 +42,9 @@ class LumiApplication : Application() {
 
     /** Normal tabs' visits go to [library]; private tabs never report any. */
     val historyRecorder by lazy { HistoryRecorder(library, appScope).also { engine.historySink = it } }
+
+    /** Site icons for bookmarks and history, fetched outside Gecko (ADR 008). */
+    val siteIcons by lazy { SiteIcons.create(this, appScope) }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)

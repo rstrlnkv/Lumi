@@ -201,4 +201,10 @@
         <item quantity="many">Папка и %d закладок в ней будут удалены.</item>
         <item quantity="other">Папка и %d закладки в ней будут удалены.</item>
     </plurals>
+    <string name="settings_section_start_page">Стартовая страница</string>
+    <string name="settings_start_page_folder">Папка стартовой страницы</string>
+    <string name="action_open">Открыть</string>
+    <string name="cd_back_to_folder">Назад к «%s»</string>
+    <string name="cd_folder_tile">%1$s, папка, %2$s</string>
+    <string name="cd_change">Изменить</string>
 </resources>

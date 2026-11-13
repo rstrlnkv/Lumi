@@ -71,6 +71,7 @@ import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import kotlinx.coroutines.launch
 import ru.digitalpunk.lumi.R
+import ru.digitalpunk.lumi.ui.LocalSiteIcons
 import ru.digitalpunk.lumi.address.resolveInput
 import ru.digitalpunk.lumi.data.library.BookmarkNodeEntity
 import ru.digitalpunk.lumi.data.library.ClearRange
@@ -115,7 +116,10 @@ fun FolderNameDialog(title: String, parentName: String?, initial: String, confir
     )
 }
 
-/** The folder tree as an indented list; a tap picks a row and closes. "New folder" creates one inside [selected] and picks it. */
+/**
+ * The folder tree as an indented list; a tap picks a row and closes. "New folder" creates one inside [selected] and picks it.
+ * Without [includeRoot] the root row is left out and the folders move one level left.
+ */
 @Composable
 fun FolderPickerDialog(
     library: LibraryRepository,
@@ -125,7 +129,9 @@ fun FolderPickerDialog(
     disabled: Set<String>,
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
+    includeRoot: Boolean = true,
 ) {
+    val dropped = if (includeRoot) 0 else 1
     var creating by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val favorites = stringResource(R.string.folder_favorites)
@@ -136,7 +142,7 @@ fun FolderPickerDialog(
         text = {
             Column {
                 LazyColumn(Modifier.heightIn(max = 400.dp)) {
-                    items(flatten(nodes), key = { it.id }) { row ->
+                    items(flatten(nodes).drop(dropped), key = { it.id }) { row ->
                         val isSelected = row.id == selected
                         val enabled = row.id !in disabled
                         Row(
@@ -144,7 +150,7 @@ fun FolderPickerDialog(
                                 .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(24.dp))
                                 .selectable(isSelected, enabled, Role.RadioButton) { onPick(row.id) }
                                 .alpha(if (enabled) 1f else 0.38f)
-                                .padding(start = (24 * row.depth).dp, end = 16.dp),
+                                .padding(start = (24 * (row.depth - dropped)).dp, end = 16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             val icon = when {
@@ -243,9 +249,13 @@ fun ClearHistoryDialog(onClear: (ClearRange) -> Unit, onDismiss: () -> Unit) {
     )
 }
 
-/** Full-screen editor of bookmark [id]: title, URL (address-bar rules) and folder. Closes by itself if the bookmark is gone. */
+/**
+ * Full-screen editor of bookmark [id]: title, URL (address-bar rules) and folder. Closes by itself if the bookmark is gone.
+ * Saved from a private tab, it fetches no icon (a fetch is a request outside Gecko).
+ */
 @Composable
-fun BookmarkEditorDialog(library: LibraryRepository, nodes: List<BookmarkNodeEntity>, id: String, onDelete: () -> Unit, onDismiss: () -> Unit) {
+fun BookmarkEditorDialog(library: LibraryRepository, nodes: List<BookmarkNodeEntity>, id: String, inPrivateTab: Boolean, onDelete: () -> Unit, onDismiss: () -> Unit) {
+    val icons = LocalSiteIcons.current
     val node = nodes.firstOrNull { it.id == id && !it.isFolder }
     if (node == null) {
         LaunchedEffect(Unit) { onDismiss() }
@@ -276,7 +286,10 @@ fun BookmarkEditorDialog(library: LibraryRepository, nodes: List<BookmarkNodeEnt
                         enabled = resolved != null,
                         onClick = {
                             scope.launch {
-                                if (resolved != null && library.updateBookmark(id, title, resolved, folder)) onDismiss()
+                                if (resolved != null && library.updateBookmark(id, title, resolved, folder)) {
+                                    if (!inPrivateTab) icons?.request(resolved)
+                                    onDismiss()
+                                }
                             }
                         },
                     ) { Text(stringResource(R.string.action_save)) }

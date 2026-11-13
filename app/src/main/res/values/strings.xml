@@ -184,4 +184,10 @@
         <item quantity="one">The folder and the %d bookmark in it will be deleted.</item>
         <item quantity="other">The folder and the %d bookmarks in it will be deleted.</item>
     </plurals>
+    <string name="settings_section_start_page">Start page</string>
+    <string name="settings_start_page_folder">Start page folder</string>
+    <string name="action_open">Open</string>
+    <string name="cd_back_to_folder">Back to %s</string>
+    <string name="cd_folder_tile">%1$s, folder, %2$s</string>
+    <string name="cd_change">Change</string>
 </resources>

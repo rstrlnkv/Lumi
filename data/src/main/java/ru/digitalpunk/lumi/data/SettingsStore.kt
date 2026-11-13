@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import ru.digitalpunk.lumi.data.library.LibraryIds
 
 enum class AddressBarStyle(internal val stored: String) {
     Compact("compact"),
@@ -62,17 +63,28 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         store.edit { it[LIBRARY_TAB] = tab.stored }
     }
 
+    /** The folder the start page shows, by id. [LibraryIds.FAVORITES] when nothing, a blank or over-long id, or another type is stored. */
+    val startPageFolder: Flow<String> = store.data.map { prefs ->
+        prefs.read(START_PAGE_FOLDER)?.takeIf { it.isNotBlank() && it.length <= MAX_FOLDER_ID_LENGTH } ?: LibraryIds.FAVORITES
+    }
+
+    suspend fun setStartPageFolder(id: String) {
+        store.edit { it[START_PAGE_FOLDER] = id }
+    }
+
     private companion object {
         val ADDRESS_BAR_STYLE = stringPreferencesKey("address_bar_style")
         val PROTECTION_OFF_HOSTS = stringSetPreferencesKey("protection_off_hosts")
         val SWITCH_TO_NEW_TABS = booleanPreferencesKey("switch_to_new_tabs")
         val LIBRARY_TAB = stringPreferencesKey("library_tab")
+        val START_PAGE_FOLDER = stringPreferencesKey("start_page_folder")
     }
 }
 
 /** The value under [key], or null when a value of another type is stored there (a corrupt file or a downgrade). */
 private inline fun <reified T> Preferences.read(key: Preferences.Key<T>): T? = asMap()[key] as? T
 
+private const val MAX_FOLDER_ID_LENGTH = 64
 private const val MAX_PROTECTION_OFF_HOSTS = 500
 private const val MAX_HOST_LENGTH = 253
 
