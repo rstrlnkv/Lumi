@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
@@ -286,18 +288,19 @@ fun BrowserScreen(
     LaunchedEffect(showProtection) { if (!showProtection) protectionTab = null }
     val openProtection = { protectionTab = tabsState.selectedId?.value }
 
-    // The bar slides off by `bar.hidden`; Gecko is told how much of the page bottom the bar covers.
+    // The bar slides off by `bar.hidden`; Gecko is told how much of the sliding part still covers the page.
     val bar = remember(style) { BarController(scope) }
     var expandedPx by remember(style) { mutableIntStateOf(0) }
-    val navInsetPx = WindowInsets.navigationBars.getBottom(density)
+    // With the keyboard up, `imePadding()` already lifts everything above the navigation bar.
+    val navInsetPx = WindowInsets.navigationBars.exclude(WindowInsets.ime).getBottom(density)
     val collapsedPx = with(density) {
         CollapsedStripHeight.toPx()
     } + navInsetPx
     LaunchedEffect(bar, expandedPx, collapsedPx) {
         if (expandedPx == 0) return@LaunchedEffect
         bar.setMax(BarGeometry.maxHidden(expandedPx.toFloat(), collapsedPx))
-        engine.setBarMaxHeight(expandedPx)
-        snapshotFlow { BarGeometry.clipping(expandedPx.toFloat(), bar.hidden).roundToInt() }
+        engine.setBarMaxHeight(BarGeometry.maxHidden(expandedPx.toFloat(), collapsedPx).roundToInt())
+        snapshotFlow { BarGeometry.clipping(expandedPx.toFloat(), collapsedPx, bar.hidden).roundToInt() }
             .distinctUntilChanged()
             .collect(engine::setBarVisibleHeight)
     }
@@ -580,7 +583,8 @@ fun BrowserScreen(
         },
     )
 
-    // The page fills the screen under the bar; only the keyboard shrinks it.
+    // The page ends at the collapsed strip's top, which never slides away; only the keyboard shrinks it more.
+    // Gecko scrolls the page end to the bottom of its view, so the view must not reach under the strip.
     // While the grid covers them, the page and the bar are out of TalkBack and keyboard focus.
     val hiddenBehindGrid = if (coverOpen || lockShown) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false } else Modifier
     Box(Modifier.fillMaxSize().imePadding()) {
@@ -592,7 +596,9 @@ fun BrowserScreen(
             AndroidView(
                 factory = { engine.createView(it) },
                 onRelease = { engine.releaseView(it) },
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize()
+                    .background(barScheme(MaterialTheme.colorScheme, selectedPrivate).surface)
+                    .padding(bottom = with(density) { collapsedPx.toDp() }),
             )
             if (startShown) {
                 StartPage(

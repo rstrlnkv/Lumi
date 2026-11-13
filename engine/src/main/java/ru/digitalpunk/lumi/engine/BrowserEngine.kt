@@ -607,8 +607,8 @@ class BrowserEngine(appContext: Context) {
     }
 
     /**
-     * Height in px, measured from the screen bottom, that the address bar covers when fully shown.
-     * Gecko lays out `dvh`/`svh` and bottom-fixed elements against it. Call when it changes.
+     * Height in px of the part of the address bar that slides away; the page view already ends above
+     * the rest of the bar. Gecko lays out `dvh`/`svh` and bottom-fixed elements against it. Call when it changes.
      */
     fun setBarMaxHeight(px: Int) {
         barMaxHeight = px
@@ -619,7 +619,7 @@ class BrowserEngine(appContext: Context) {
         }
     }
 
-    /** Height in px, from the screen bottom, that the address bar covers right now (at most [setBarMaxHeight]). */
+    /** Height in px of the sliding part that still covers the page bottom (0 to [setBarMaxHeight]). */
     fun setBarVisibleHeight(px: Int) {
         barVisibleHeight = px
         view?.setVerticalClipping(px)

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>page end check</title>
+<style>
+  body { margin: 0; font: 16px sans-serif; }
+  .filler { height: 2400px; background: repeating-linear-gradient(#fff, #fff 40px, #eee 40px, #eee 80px); }
+  footer { background: #fd0; border-bottom: 12px solid #d22; padding: 16px; text-align: center; }
+  footer button { font: bold 28px sans-serif; padding: 16px 32px; }
+  #sizes { position: fixed; top: 0; left: 0; background: #000a; color: #fff; padding: 4px 8px; font: 12px monospace; }
+</style>
+</head>
+<body>
+<div id="sizes"></div>
+<div class="filler">Scroll to the very bottom: the yellow footer and its red bottom border must sit just above the address bar.</div>
+<footer><input placeholder="type here: the keyboard must not lift the page twice"><br><button onclick="this.textContent='TAPPED'">LAST LINE</button></footer>
+<script>
+  const out = document.getElementById('sizes');
+  function show() {
+    out.textContent = 'innerHeight ' + innerHeight + ' / visualViewport.height ' +
+      Math.round(visualViewport.height) + ' / scrollY ' + Math.round(scrollY) +
+      ' / max ' + (document.documentElement.scrollHeight - innerHeight);
+  }
+  setInterval(show, 250);
+  show();
+</script>
+</body>
+</html>

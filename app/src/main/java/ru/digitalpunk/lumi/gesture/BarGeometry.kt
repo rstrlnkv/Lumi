@@ -8,10 +8,11 @@ object BarGeometry {
     fun maxHidden(expanded: Float, collapsed: Float) = (expanded - collapsed).coerceAtLeast(0f)
 
     /**
-     * Height the bar covers right now: what Gecko gets as the vertical clipping. If the page ends at
-     * the wrong place on a device, this is the one line to flip.
+     * What Gecko gets as the vertical clipping: how much of the sliding part of the bar still covers the
+     * page. The page view itself ends at the collapsed strip's top, so the strip is never part of it.
+     * Seen on a device: a positive value shrinks `visualViewport` by that much.
      */
-    fun clipping(expanded: Float, hidden: Float) = expanded - hidden
+    fun clipping(expanded: Float, collapsed: Float, hidden: Float) = maxHidden(expanded, collapsed) - hidden
 
     /** Screen y of the top of the bar box, which is where the collapsed strip's tap layer starts. */
     fun stripTop(screenHeight: Float, expanded: Float, hidden: Float) = screenHeight - expanded + hidden
