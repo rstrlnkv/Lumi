@@ -288,7 +288,9 @@ fun BrowserScreen(
     LaunchedEffect(showProtection) { if (!showProtection) protectionTab = null }
     val openProtection = { protectionTab = tabsState.selectedId?.value }
 
-    // The bar slides off by `bar.hidden`; Gecko is told how much of the sliding part still covers the page.
+    // The bar slides off by `bar.hidden`; Gecko is told the whole bar and how much of it slid away.
+    // A web page taller than the screen ends with a strip-high block (the page-end extension), so its end stops
+    // above the strip; pages that lock scrolling are left alone.
     val bar = remember(style) { BarController(scope) }
     var expandedPx by remember(style) { mutableIntStateOf(0) }
     // With the keyboard up, `imePadding()` already lifts everything above the navigation bar.
@@ -299,8 +301,9 @@ fun BrowserScreen(
     LaunchedEffect(bar, expandedPx, collapsedPx) {
         if (expandedPx == 0) return@LaunchedEffect
         bar.setMax(BarGeometry.maxHidden(expandedPx.toFloat(), collapsedPx))
-        engine.setBarMaxHeight(BarGeometry.maxHidden(expandedPx.toFloat(), collapsedPx).roundToInt())
-        snapshotFlow { BarGeometry.clipping(expandedPx.toFloat(), collapsedPx, bar.hidden).roundToInt() }
+        engine.setBarMaxHeight(expandedPx)
+        engine.setPageEndSpacer(collapsedPx.roundToInt())
+        snapshotFlow { BarGeometry.clipping(bar.hidden).roundToInt() }
             .distinctUntilChanged()
             .collect(engine::setBarVisibleHeight)
     }
@@ -583,8 +586,7 @@ fun BrowserScreen(
         },
     )
 
-    // The page ends at the collapsed strip's top, which never slides away; only the keyboard shrinks it more.
-    // Gecko scrolls the page end to the bottom of its view, so the view must not reach under the strip.
+    // The page fills the screen under the bar; only the keyboard shrinks it.
     // While the grid covers them, the page and the bar are out of TalkBack and keyboard focus.
     val hiddenBehindGrid = if (coverOpen || lockShown) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false } else Modifier
     Box(Modifier.fillMaxSize().imePadding()) {
@@ -596,9 +598,7 @@ fun BrowserScreen(
             AndroidView(
                 factory = { engine.createView(it) },
                 onRelease = { engine.releaseView(it) },
-                modifier = Modifier.fillMaxSize()
-                    .background(barScheme(MaterialTheme.colorScheme, selectedPrivate).surface)
-                    .padding(bottom = with(density) { collapsedPx.toDp() }),
+                modifier = Modifier.fillMaxSize(),
             )
             if (startShown) {
                 StartPage(

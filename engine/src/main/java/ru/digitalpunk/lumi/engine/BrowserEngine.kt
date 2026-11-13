@@ -122,6 +122,10 @@ class BrowserEngine(appContext: Context) {
             .build(),
     )
 
+    private val pageEnd = PageEndExtension(runtime).also { it.start() }
+    private var pageEndStripPx = 0
+    private val pageEndWidth = View.OnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> pageEnd.update(pageEndStripPx, v.width) }
+
     /** Sites (see [siteKey]) where the user turned protection off. The app's stored set is the source; Gecko follows it. */
     private val offHosts = HashSet<String>()
     private var view: LumiGeckoView? = null
@@ -607,8 +611,8 @@ class BrowserEngine(appContext: Context) {
     }
 
     /**
-     * Height in px of the part of the address bar that slides away; the page view already ends above
-     * the rest of the bar. Gecko lays out `dvh`/`svh` and bottom-fixed elements against it. Call when it changes.
+     * Height in px, measured from the screen bottom, that the address bar covers when fully shown.
+     * Gecko lays out `dvh`/`svh` and bottom-fixed elements against it. Call when it changes.
      */
     fun setBarMaxHeight(px: Int) {
         barMaxHeight = px
@@ -619,10 +623,22 @@ class BrowserEngine(appContext: Context) {
         }
     }
 
-    /** Height in px of the sliding part that still covers the page bottom (0 to [setBarMaxHeight]). */
+    /**
+     * Gecko's vertical clipping in px: 0 with the bar fully shown, minus the part of the bar that slid away
+     * otherwise (seen on a device: a negative value grows `visualViewport` past the layout viewport).
+     */
     fun setBarVisibleHeight(px: Int) {
         barVisibleHeight = px
         view?.setVerticalClipping(px)
+    }
+
+    /**
+     * Height in px of the collapsed strip, which never slides away. An http(s) page taller than the screen ends
+     * with a block this tall in the page's end colour (the page-end extension), so its last line stops above the strip.
+     */
+    fun setPageEndSpacer(stripPx: Int) {
+        pageEndStripPx = stripPx
+        pageEnd.update(stripPx, view?.width ?: 0)
     }
 
     /** The page. Hand it to an `AndroidView`; give it back with [releaseView]. */
@@ -631,6 +647,7 @@ class BrowserEngine(appContext: Context) {
         it.listener = pageTouchListener
         it.setDynamicToolbarMaxHeight(barMaxHeight)
         it.setVerticalClipping(barVisibleHeight)
+        it.addOnLayoutChangeListener(pageEndWidth)
         view = it
         it.hideFromAccessibility(gridOpen)
     }
@@ -638,6 +655,7 @@ class BrowserEngine(appContext: Context) {
     fun releaseView(view: View) {
         (view as LumiGeckoView).also {
             it.listener = null
+            it.removeOnLayoutChangeListener(pageEndWidth)
             it.releaseSession()
         }
         if (this.view === view) this.view = null

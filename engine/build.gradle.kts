@@ -24,6 +24,11 @@ kotlin {
     jvmToolchain(21)
 }
 
+// PageEndContentScriptTest runs the extension's scripts from the source tree, so they are inputs of the unit tests.
+tasks.withType<Test>().configureEach {
+    inputs.dir("src/main/assets/lumi-page-end").withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 dependencies {
     implementation(libs.geckoview)
     api(libs.kotlinx.coroutines.core)

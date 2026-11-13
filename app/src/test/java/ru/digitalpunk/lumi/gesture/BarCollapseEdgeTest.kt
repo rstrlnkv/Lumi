@@ -85,6 +85,6 @@ class BarCollapseEdgeTest {
 
     @Test fun collapsedStripTallerThanBarGivesZeroMaxHiddenAndNoClipping() {
         assertEquals(0f, BarGeometry.maxHidden(expanded = 120f, collapsed = 200f))
-        assertEquals(0f, BarGeometry.clipping(expanded = 120f, collapsed = 200f, hidden = 0f))
+        assertEquals(0f, BarGeometry.clipping(hidden = 0f))
     }
 }

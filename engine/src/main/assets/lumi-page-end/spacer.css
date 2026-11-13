@@ -1,0 +1,22 @@
+/* The page-end block: a pseudo-element, so no DOM node. content.js places it where the page content ends
+   (--lumi-page-end-top), because pages with `html, body { height: 100% }` (Wikipedia) let content overflow
+   every box, so a block in the flow would land one screen down, not at the end. Placed absolutely on <html>,
+   it is relative to the document and still extends the scroll range. Its height is 0 until content.js sets
+   --lumi-page-end; --lumi-page-end-color is the colour the page ends in, so a gray footer does not end in white. */
+html::after {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  top: var(--lumi-page-end-top, 0px) !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: var(--lumi-page-end, 0px) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: var(--lumi-page-end-color, transparent) !important;
+  pointer-events: none !important;
+}
+@media print {
+  html::after { display: none !important; }
+}

@@ -8,12 +8,9 @@ class BarGeometryTest {
 
     @Test fun maxHiddenNeverNegative() = assertEquals(0f, BarGeometry.maxHidden(expanded = 40f, collapsed = 50f))
 
-    // The page view ends at the strip top, so Gecko is only told about the part of the bar that slides away.
-    @Test fun clippingIsTheSlidingPartWhenNothingIsHidden() =
-        assertEquals(150f, BarGeometry.clipping(expanded = 200f, collapsed = 50f, hidden = 0f))
+    @Test fun clippingIsZeroWhenNothingIsHidden() = assertEquals(0f, BarGeometry.clipping(hidden = 0f))
 
-    @Test fun clippingIsZeroWhenFullyCollapsed() =
-        assertEquals(0f, BarGeometry.clipping(expanded = 200f, collapsed = 50f, hidden = 150f))
+    @Test fun clippingIsMinusTheSlidingPartWhenFullyHidden() = assertEquals(-150f, BarGeometry.clipping(hidden = 150f))
 
     @Test fun progressIsFractionHidden() = assertEquals(0.5f, BarGeometry.progress(hidden = 75f, maxHidden = 150f))
 
