@@ -3,6 +3,7 @@ package ru.digitalpunk.lumi.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
@@ -30,8 +31,15 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         store.edit { it[ADDRESS_BAR_STYLE] = style.stored }
     }
 
+    /** "Switch to new tabs": a link opened in a new tab is shown at once instead of in the background. Off when nothing is stored. */
+    val switchToNewTabs: Flow<Boolean> = store.data.map { it.read(SWITCH_TO_NEW_TABS) ?: false }
+
+    suspend fun setSwitchToNewTabs(value: Boolean) {
+        store.edit { it[SWITCH_TO_NEW_TABS] = value }
+    }
+
     /** Sites where the user turned tracker protection off: bare hosts, never a URL. Empty when nothing is stored. */
-    val protectionOffHosts: Flow<Set<String>> = store.data.map { it[PROTECTION_OFF_HOSTS].orEmpty() }
+    val protectionOffHosts: Flow<Set<String>> = store.data.map { it.read(PROTECTION_OFF_HOSTS).orEmpty() }
 
     /** For a normal tab's site only; a private tab never writes here. */
     suspend fun setProtectionOff(host: String, off: Boolean) {
@@ -41,8 +49,12 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
     private companion object {
         val ADDRESS_BAR_STYLE = stringPreferencesKey("address_bar_style")
         val PROTECTION_OFF_HOSTS = stringSetPreferencesKey("protection_off_hosts")
+        val SWITCH_TO_NEW_TABS = booleanPreferencesKey("switch_to_new_tabs")
     }
 }
+
+/** The value under [key], or null when a value of another type is stored there (a corrupt file or a downgrade). */
+private inline fun <reified T> Preferences.read(key: Preferences.Key<T>): T? = asMap()[key] as? T
 
 private const val MAX_PROTECTION_OFF_HOSTS = 500
 private const val MAX_HOST_LENGTH = 253

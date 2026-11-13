@@ -66,9 +66,15 @@ class BrowserEngine(appContext: Context) {
     /** A fresh picture of a tab's page, after a load or on request ([captureSelected]). */
     val snapshots: SharedFlow<TabSnapshot> = mutableSnapshots
 
+    private val mutableLinks = MutableSharedFlow<LinkTarget>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    /** A long press on an http or https link in the selected tab. Other links and images send nothing. */
+    val linkMenu: SharedFlow<LinkTarget> = mutableLinks
+
     /**
      * While the tab grid covers the page, no automatic snapshot is taken (the page is not on screen) and the page is hidden from accessibility services.
      * Closing the grid makes the group of the tab on screen the current group again, so a new tab opens next to it.
+     * The UI sets it while the Settings screen covers the page too.
      */
     var gridOpen = false
         set(value) {
@@ -137,6 +143,17 @@ class BrowserEngine(appContext: Context) {
                 tabsStore.titleChanged(tab.id, title.orEmpty())
                 mutableChanges.tryEmit(Unit)
             }
+
+            override fun onContextMenu(session: GeckoSession, screenX: Int, screenY: Int, element: GeckoSession.ContentDelegate.ContextElement) {
+                if (tab !== selected) return
+                webLink(element.linkUri)?.let { url ->
+                    mutableLinks.tryEmit(LinkTarget(tab.id, url, linkTitle(element.title, element.linkText), tab.isPrivate))
+                }
+            }
+        }
+        session.historyDelegate = object : GeckoSession.HistoryDelegate {
+            override fun onHistoryStateChange(session: GeckoSession, historyList: GeckoSession.HistoryDelegate.HistoryList) =
+                tab.pageChanged { historyChanged(historyList.map { HistoryEntry(it.title, it.uri) }, historyList.currentIndex) }
         }
         session.progressDelegate = object : GeckoSession.ProgressDelegate {
             override fun onPageStart(session: GeckoSession, url: String) {
@@ -254,16 +271,21 @@ class BrowserEngine(appContext: Context) {
     }
 
     /**
-     * Opens a blank tab and selects it: right after the selected tab if that is in the group, else after the group's last tab.
-     * A [private] tab goes to the private set; a normal one to the current group, or the shared list when that is the private set.
+     * Opens a tab on [url] (a blank page when it is not loadable) and selects it: right after the selected tab if that is
+     * in the group, else after the group's last tab. A [private] tab goes to the private set; a normal one to the current
+     * group, or the shared list when that is the private set. With [select] false the tab opens in the background, after
+     * the selected tab (or the previous background tab opened from it), and gets no session until it is first selected.
      */
-    fun newTab(private: Boolean = false): TabId {
-        val tab = Tab(TabId.random(), PageStateStore(), private)
+    fun newTab(private: Boolean = false, url: String = "about:blank", select: Boolean = true): TabId {
+        val safeUrl = url.takeIf(::isLoadableUrl) ?: "about:blank"
+        val tab = Tab(TabId.random(), PageStateStore(PageState(url = safeUrl)), private)
         records[tab.id] = tab
-        cap = baseCap
-        selected?.session?.setActive(false)
-        tabsStore.add(tab.id, private)
-        show(tab)
+        if (select) {
+            cap = baseCap
+            selected?.session?.setActive(false)
+        }
+        tabsStore.add(tab.id, private, select, safeUrl)
+        if (select) show(tab)
         mutableChanges.tryEmit(Unit)
         return tab.id
     }
@@ -509,6 +531,11 @@ class BrowserEngine(appContext: Context) {
 
     fun stop() {
         selected?.session?.stop()
+    }
+
+    /** Goes to entry [index] of the selected tab's session history; only a back entry of [state]'s history is accepted. */
+    fun gotoHistoryIndex(index: Int) {
+        if (state.value.history.canGoTo(index)) selected?.session?.gotoHistoryIndex(index)
     }
 
     fun goBack() {

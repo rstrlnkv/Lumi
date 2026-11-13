@@ -35,8 +35,11 @@ internal class PageStateStore(initial: PageState = PageState()) {
 
     fun trackerBlocked(count: Int) = mutable.update { if (it.isCrashed) it else it.copy(blockedTrackers = count) }
 
+    fun historyChanged(items: List<HistoryEntry>, currentIndex: Int) =
+        mutable.update { if (it.isCrashed) it else it.copy(history = backHistory(items, currentIndex)) }
+
     fun crashed() = mutable.update {
-        it.copy(isCrashed = true, isLoading = false, progress = 0, canGoBack = false, canGoForward = false)
+        it.copy(isCrashed = true, isLoading = false, progress = 0, canGoBack = false, canGoForward = false, history = BackHistory())
     }
 
     fun recovering() = mutable.update { it.copy(isCrashed = false) }

@@ -14,13 +14,14 @@ internal data class TabList(
     fun idsIn(group: GroupId?): List<TabId> = ids.filter { groupOf[it] == group }
 
     /**
-     * The new tab becomes the selected one. It goes right after the selected tab when that tab is in [group];
-     * else after the last tab of [group]; if the group is empty, right after the selected tab.
+     * The new tab becomes the selected one unless [select] is false. It goes right after [anchor] (the selected tab by
+     * default) when that tab is in [group]; else after the last tab of [group]; if the group is empty, right after [anchor];
+     * with no anchor, at the end.
      */
-    fun add(id: TabId, group: GroupId? = groupOf[selected]): TabList {
-        val last = if (groupOf[selected] == group) selected else idsIn(group).lastOrNull() ?: selected
+    fun add(id: TabId, group: GroupId? = groupOf[selected], select: Boolean = true, anchor: TabId? = selected): TabList {
+        val last = if (groupOf[anchor] == group) anchor else idsIn(group).lastOrNull() ?: anchor
         val at = ids.indexOf(last).let { if (it < 0) ids.size else it + 1 }
-        return TabList(ids.toMutableList().apply { add(at, id) }, id, groupOf.with(id, group))
+        return TabList(ids.toMutableList().apply { add(at, id) }, if (select) id else selected, groupOf.with(id, group))
     }
 
     /**

@@ -111,4 +111,25 @@
     <string name="private_empty_body">Lumi не сохраняет cookie приватных вкладок, а сами вкладки хранит зашифрованными. Они блокируются, когда вы уходите из приложения.</string>
     <string name="cd_private_tab_prefix">"Приватная вкладка. "</string>
     <string name="private_needs_screen_lock">Чтобы использовать приватные вкладки, задайте блокировку экрана в настройках Android.</string>
+    <!-- M5: long-press menus, link sheet, new-tab notice, Settings -->
+    <string name="link_open">Открыть</string>
+    <string name="link_open_new_tab">Открыть в новой вкладке</string>
+    <string name="link_open_private_tab">Открыть в приватной вкладке</string>
+    <string name="link_open_new_private_tab">Открыть в новой приватной вкладке</string>
+    <string name="link_copy">Копировать ссылку</string>
+    <string name="link_share">Поделиться</string>
+    <string name="snackbar_link_copied">Ссылка скопирована</string>
+    <string name="menu_close_tab">Закрыть вкладку</string>
+    <string name="menu_settings">Настройки</string>
+    <string name="snackbar_new_tab_opened">Открыта новая вкладка</string>
+    <string name="snackbar_new_private_tab_opened">Открыта новая приватная вкладка</string>
+    <string name="snackbar_action_open">Открыть</string>
+    <string name="cd_snackbar_open_new_tab">Открыть новую вкладку</string>
+    <string name="cd_long_press_back">Показать историю вкладки</string>
+    <string name="cd_long_press_tab_actions">Действия с вкладками</string>
+    <string name="cd_history_current_item">%1$s, текущая страница</string>
+    <string name="settings_title">Настройки</string>
+    <string name="settings_section_tabs">Вкладки</string>
+    <string name="settings_switch_to_new_tab">Переходить в новые вкладки</string>
+    <string name="settings_switch_to_new_tab_summary">Сразу показывать ссылку, открытую в новой вкладке</string>
 </resources>

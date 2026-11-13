@@ -15,3 +15,6 @@ fun barScheme(base: ColorScheme, private: Boolean): ColorScheme = if (private) P
 
 /** True under the bar of a private tab: the site icon becomes the mask and TalkBack says "Private tab". */
 val LocalPrivateTab = staticCompositionLocalOf { false }
+
+/** The app's own scheme, kept under the private bar's scheme so the bar's menus look the same in every tab. */
+val LocalAppColorScheme = staticCompositionLocalOf<ColorScheme?> { null }

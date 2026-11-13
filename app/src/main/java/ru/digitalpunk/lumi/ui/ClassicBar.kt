@@ -12,9 +12,14 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -35,6 +40,7 @@ fun ClassicBar(
     editing: Boolean,
     onEditingChange: (Boolean) -> Unit,
     onSwitchStyle: () -> Unit,
+    onOpenSettings: () -> Unit,
     progress: () -> Float,
     collapsed: Boolean,
     onExpand: () -> Unit,
@@ -64,11 +70,19 @@ fun ClassicBar(
                 tabs = tabs,
             )
             if (!editing) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    BackButton(state.canGoBack, engine::goBack)
-                    ForwardButton(state.canGoForward, engine::goForward)
-                    TabsButton(tabs.count, tabs.openGrid)
-                    MoreMenu(AddressBarStyle.Classic, tabs, onSwitchStyle)
+                var quickOpen by remember { mutableStateOf(false) }
+                Box(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        BackButton(state.canGoBack, engine::goBack, state.history, engine::gotoHistoryIndex)
+                        ForwardButton(state.canGoForward, engine::goForward)
+                        TabsButton(tabs.count, tabs.openGrid, onLongClick = { quickOpen = true })
+                        MoreMenu(AddressBarStyle.Classic, tabs, onSwitchStyle, onOpenSettings)
+                    }
+                    // The quick actions hang from the right edge, as the Compact bar's do: a menu anchored on the
+                    // mid-row Tabs button would start there instead.
+                    Box(Modifier.align(Alignment.CenterEnd).size(48.dp)) {
+                        QuickActionsMenu(quickOpen, { quickOpen = false }, tabs)
+                    }
                 }
             }
         }

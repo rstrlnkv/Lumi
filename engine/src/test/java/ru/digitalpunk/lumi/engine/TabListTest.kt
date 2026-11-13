@@ -66,3 +66,37 @@ class TabListTest {
         assertEquals(c, result.selected)
     }
 }
+
+class TabListBackgroundAddTest {
+    private val a = TabId("a")
+    private val b = TabId("b")
+    private val c = TabId("c")
+    private val n = TabId("n")
+    private val g = GroupId("g")
+
+    @Test fun addWithoutSelectKeepsTheSelection() {
+        val result = TabList(listOf(a, b, c), a).add(n, select = false)
+        assertEquals(listOf(a, n, b, c), result.ids)
+        assertEquals(a, result.selected)
+    }
+
+    @Test fun addWithAnchorGoesRightAfterTheAnchorInItsGroup() {
+        val result = TabList(listOf(a, b, c), a).add(n, select = false, anchor = b)
+        assertEquals(listOf(a, b, n, c), result.ids)
+        assertEquals(a, result.selected)
+    }
+
+    @Test fun addToAGroupWhoseAnchorIsElsewhereGoesAfterTheGroupsLastTab() {
+        val list = TabList(listOf(a, b, c), a, mapOf(b to g))
+        val result = list.add(n, group = g, select = false, anchor = a)
+        assertEquals(listOf(a, b, n, c), result.ids)
+        assertEquals(g, result.groupOf[n])
+        assertEquals(a, result.selected)
+    }
+
+    @Test fun addWithoutAnchorAppends() {
+        val result = TabList(listOf(a, b), null).add(n, select = false, anchor = null)
+        assertEquals(listOf(a, b, n), result.ids)
+        assertEquals(null, result.selected)
+    }
+}

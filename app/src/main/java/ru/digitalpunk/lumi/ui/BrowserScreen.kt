@@ -18,12 +18,18 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDefaults
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -55,6 +61,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -73,15 +80,24 @@ import ru.digitalpunk.lumi.address.siteStatus
 import ru.digitalpunk.lumi.data.AddressBarStyle
 import ru.digitalpunk.lumi.data.SettingsStore
 import ru.digitalpunk.lumi.engine.BrowserEngine
+import ru.digitalpunk.lumi.engine.LinkTarget
 import ru.digitalpunk.lumi.engine.PRIVATE_GROUP
 import ru.digitalpunk.lumi.engine.PageTouchInfo
 import ru.digitalpunk.lumi.engine.isPrivate
+import ru.digitalpunk.lumi.privacy.LocalAppColorScheme
 import ru.digitalpunk.lumi.privacy.LocalPrivateTab
 import ru.digitalpunk.lumi.privacy.PrivateGate
 import ru.digitalpunk.lumi.privacy.PrivateLockScreen
 import ru.digitalpunk.lumi.privacy.SecureWindow
 import ru.digitalpunk.lumi.privacy.barScheme
 import ru.digitalpunk.lumi.privacy.needsSecureWindow
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.os.PersistableBundle
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 import ru.digitalpunk.lumi.engine.PageTouchListener
@@ -96,6 +112,7 @@ import ru.digitalpunk.lumi.ui.tabgrid.CloseEffect
 import ru.digitalpunk.lumi.ui.tabgrid.TabGrid
 import ru.digitalpunk.lumi.ui.tabgrid.closeEffect
 import ru.digitalpunk.lumi.ui.tabgrid.currentGroupTabCount
+import ru.digitalpunk.lumi.ui.settings.SettingsScreen
 import kotlin.math.roundToInt
 
 private val TouchSlop = 8.dp
@@ -108,26 +125,35 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
     val tabsState by engine.tabs.collectAsStateWithLifecycle()
     val style by settings.addressBarStyle.collectAsStateWithLifecycle<AddressBarStyle?>(null)
     val offHosts by settings.protectionOffHosts.collectAsStateWithLifecycle(emptySet())
+    val switchToNewTabs by settings.switchToNewTabs.collectAsStateWithLifecycle(false)
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     var editing by remember { mutableStateOf(false) }
     var gridOpen by rememberSaveable { mutableStateOf(false) }
+    var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var capturing by remember { mutableStateOf(false) }
     BackHandler(enabled = state.canGoBack && !editing) { engine.goBack() }
-    // After the page-history handler, so it comes first: Back closes the grid before anything else.
+    // After the page-history handler, so it comes first: Back closes the grid or Settings before anything else.
     BackHandler(enabled = gridOpen) { gridOpen = false }
-    LaunchedEffect(gridOpen) { engine.gridOpen = gridOpen }
+    BackHandler(enabled = settingsOpen) { settingsOpen = false }
+    // Settings covers the page as the grid does: no snapshots, and the page is out of TalkBack.
+    LaunchedEffect(gridOpen || settingsOpen) { engine.gridOpen = gridOpen || settingsOpen }
 
     // Private tabs: the bar turns dark, recents and screenshots go blank, and a private tab that was in front when
     // Lumi locked waits behind the lock screen. Back there gives it up and opens the grid.
     val selectedPrivate = tabsState.tabs.any { it.id == tabsState.selectedId && it.isPrivate }
     val lockShown = tabsState.privateResume && !gridOpen
-    SecureWindow(needsSecureWindow(tabsState, gridOpen), darkBar = selectedPrivate && !gridOpen && !lockShown)
+    SecureWindow(needsSecureWindow(tabsState, gridOpen), darkBar = selectedPrivate && !gridOpen && !lockShown && !settingsOpen)
     BackHandler(enabled = lockShown) {
         engine.leavePrivate()
         gridOpen = true
     }
-    LaunchedEffect(lockShown) { if (lockShown) editing = false }
+    LaunchedEffect(lockShown) {
+        if (lockShown) {
+            editing = false
+            settingsOpen = false
+        }
+    }
     // One prompt per lock, on return to a private tab.
     LaunchedEffect(tabsState.privateResume, gate.autoPromptPending) {
         if (tabsState.privateResume && gate.autoPromptPending) {
@@ -255,6 +281,11 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
             }
         },
         switchBy = { engine.switchBy(it) },
+        closeTab = {
+            tabsState.selectedId?.let {
+                if (closeEffect(engine.closeTab(it)) == CloseEffect.LeaveGridForNewTab) editing = true
+            }
+        },
     )
 
     // Private tabs that could not come back are told once, above the bar.
@@ -266,9 +297,57 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
         snackbar.showSnackbar(droppedText)
     }
 
+    // A link opened in the background is told above the bar; a newer one replaces the snackbar, and Open goes to the newest tab.
+    var notice by remember { mutableStateOf<NewTabNotice?>(null) }
+    val openedText = stringResource(R.string.snackbar_new_tab_opened)
+    val openedPrivateText = stringResource(R.string.snackbar_new_private_tab_opened)
+    val openText = stringResource(R.string.snackbar_action_open)
+    LaunchedEffect(notice) {
+        val shown = notice ?: return@LaunchedEffect
+        val result = snackbar.showSnackbar(if (shown.private) openedPrivateText else openedText, openText, duration = SnackbarDuration.Short)
+        if (result == SnackbarResult.ActionPerformed) {
+            val open = {
+                engine.selectTab(shown.tab)
+                gridOpen = false
+            }
+            // A locked private tab cannot be selected: unlock first.
+            if (shown.private) gate.enter(open, noScreenLock) else open()
+        }
+        notice = notice.clearedBy(shown)
+    }
+
+    // The link sheet belongs to the tab it was opened on; plain remember keeps a private URL out of the saved state.
+    var link by remember { mutableStateOf<LinkTarget?>(null) }
+    LaunchedEffect(engine) { engine.linkMenu.collect { link = it } }
+    val shownLink = link?.takeIf { it.tab == tabsState.selectedId && !gridOpen && !lockShown && !settingsOpen }
+    LaunchedEffect(shownLink == null) { if (shownLink == null) link = null }
+    val copiedText = stringResource(R.string.snackbar_link_copied)
+    val onLinkAction = { target: LinkTarget, action: LinkAction ->
+        link = null
+        when (action) {
+            LinkAction.Open -> engine.load(target.url)
+            LinkAction.Copy -> {
+                copyLink(context, target)
+                // Android 13 and later show their own confirmation.
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) scope.launch { snackbar.showSnackbar(copiedText) }
+            }
+            LinkAction.Share -> context.startActivity(
+                Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, target.url), null),
+            )
+            else -> linkOpen(action, switchToNewTabs)?.let { plan ->
+                val open = {
+                    val id = engine.newTab(private = plan.private, url = target.url, select = plan.select)
+                    if (plan.showNotice) notice = NewTabNotice(id, plan.private)
+                    if (plan.select) gridOpen = false
+                }
+                if (plan.needsGate) gate.enter(open, noScreenLock) else open()
+            }
+        }
+    }
+
     // The page fills the screen under the bar; only the keyboard shrinks it.
     // While the grid covers them, the page and the bar are out of TalkBack and keyboard focus.
-    val hiddenBehindGrid = if (gridOpen || lockShown) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false } else Modifier
+    val hiddenBehindGrid = if (gridOpen || lockShown || settingsOpen) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false } else Modifier
     Box(Modifier.fillMaxSize().imePadding()) {
         Box(
             Modifier.fillMaxSize()
@@ -323,21 +402,34 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
         }
         // Draw no bar until the stored style is known, so a Classic user never sees Compact first.
         // A private tab's bar uses the fixed dark private scheme.
-        MaterialTheme(colorScheme = barScheme(MaterialTheme.colorScheme, selectedPrivate)) {
-            CompositionLocalProvider(LocalPrivateTab provides selectedPrivate) {
+        val appScheme = MaterialTheme.colorScheme
+        val openSettings = { settingsOpen = true }
+        MaterialTheme(colorScheme = barScheme(appScheme, selectedPrivate)) {
+            CompositionLocalProvider(LocalPrivateTab provides selectedPrivate, LocalAppColorScheme provides appScheme) {
                 when (style) {
                     null -> Unit
                     AddressBarStyle.Compact -> CompactBar(
-                        state, site, openProtection, engine, tabActions, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
+                        state, site, openProtection, engine, tabActions, editing, { editing = it }, switchStyle, openSettings, progress, fullyCollapsed, bar::expand, barModifier,
                     )
                     AddressBarStyle.Classic -> ClassicBar(
-                        state, site, openProtection, engine, tabActions, editing, { editing = it }, switchStyle, progress, fullyCollapsed, bar::expand, barModifier,
+                        state, site, openProtection, engine, tabActions, editing, { editing = it }, switchStyle, openSettings, progress, fullyCollapsed, bar::expand, barModifier,
                     )
                 }
             }
         }
 
+        if (settingsOpen) {
+            SettingsScreen(
+                switchToNewTabs,
+                { scope.launch { settings.setSwitchToNewTabs(it) } },
+                onBack = { settingsOpen = false },
+                Modifier.fillMaxSize().pointerInput(Unit) {},
+            )
+        }
+
         if (lockShown) PrivateLockScreen(onUnlock = { gate.requestUnlock() })
+
+        shownLink?.let { target -> LinkSheet(target, { onLinkAction(target, it) }, onDismiss = { link = null }) }
 
         if (showProtection) {
             val display = displayUrl(state.url)
@@ -407,8 +499,34 @@ fun BrowserScreen(engine: BrowserEngine, settings: SettingsStore, snapshots: Tab
             )
         }
 
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = with(density) { expandedPx.toDp() }))
+        val openNewTabLabel = stringResource(R.string.cd_snackbar_open_new_tab)
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = with(density) { expandedPx.toDp() })) { data ->
+            val action = data.visuals.actionLabel
+            if (action == null) {
+                Snackbar(data)
+            } else {
+                Snackbar(
+                    modifier = Modifier.padding(12.dp),
+                    action = {
+                        TextButton(
+                            onClick = data::performAction,
+                            colors = ButtonDefaults.textButtonColors(contentColor = SnackbarDefaults.actionColor),
+                            modifier = Modifier.semantics { contentDescription = openNewTabLabel },
+                        ) { Text(action) }
+                    },
+                ) { Text(data.visuals.message) }
+            }
+        }
     }
 }
 
 private const val GRID_FADE_MILLIS = 200
+
+/** Puts the link on the clipboard; from a private tab it is marked sensitive so Android hides its preview. */
+private fun copyLink(context: Context, target: LinkTarget) {
+    val clip = ClipData.newPlainText("link", target.url)
+    if (target.inPrivateTab && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
+    }
+    context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
+}

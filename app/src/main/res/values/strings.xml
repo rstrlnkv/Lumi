@@ -100,4 +100,25 @@
     <string name="private_empty_body">Lumi doesn\'t keep cookies from private tabs, and it stores the tabs encrypted. They lock when you leave the app.</string>
     <string name="cd_private_tab_prefix">"Private tab. "</string>
     <string name="private_needs_screen_lock">Set a screen lock in Android settings to use private tabs.</string>
+    <!-- M5: long-press menus, link sheet, new-tab notice, Settings -->
+    <string name="link_open">Open</string>
+    <string name="link_open_new_tab">Open in new tab</string>
+    <string name="link_open_private_tab">Open in private tab</string>
+    <string name="link_open_new_private_tab">Open in new private tab</string>
+    <string name="link_copy">Copy link</string>
+    <string name="link_share">Share</string>
+    <string name="snackbar_link_copied">Link copied</string>
+    <string name="menu_close_tab">Close tab</string>
+    <string name="menu_settings">Settings</string>
+    <string name="snackbar_new_tab_opened">New tab opened</string>
+    <string name="snackbar_new_private_tab_opened">New private tab opened</string>
+    <string name="snackbar_action_open">Open</string>
+    <string name="cd_snackbar_open_new_tab">Open new tab</string>
+    <string name="cd_long_press_back">Show tab history</string>
+    <string name="cd_long_press_tab_actions">Tab actions</string>
+    <string name="cd_history_current_item">%1$s, current page</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_tabs">Tabs</string>
+    <string name="settings_switch_to_new_tab">Switch to new tabs</string>
+    <string name="settings_switch_to_new_tab_summary">Show a link opened in a new tab at once</string>
 </resources>

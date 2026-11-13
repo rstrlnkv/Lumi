@@ -40,6 +40,9 @@ fun TabsState.neighbour(offset: Int): TabInfo? {
     return inGroup.getOrNull(inGroup.indexOf(selected) + offset)
 }
 
+/** The last tab opened in the background from [parent], per group: a private link between two normal ones keeps the normal chain. */
+internal data class BackgroundChain(val parent: TabId, val last: Map<GroupId?, TabId>)
+
 internal class RestoredTab(val id: TabId, val url: String, val title: String, val groupId: GroupId? = null)
 
 /** The tab list with each tab's page state and title. Pure, so it runs on the JVM. */
@@ -55,6 +58,9 @@ internal class TabsStore {
     /** The private set is in view: the current group is the private one (in front, or the Private chip of the grid). */
     private var privateInView = false
     private var all: List<TabInfo> = emptyList()
+
+    /** The last tabs opened in the background from [BackgroundChain.parent]; the next one in the same group goes after its group's. */
+    private var chain: BackgroundChain? = null
 
     /** The last normal tab that was selected; where a locked or saved private selection falls back to. */
     var lastNormal: TabId? = null
@@ -75,16 +81,30 @@ internal class TabsStore {
 
     fun privateIds(): List<TabId> = list.idsIn(PRIVATE_GROUP)
 
-    /** A private tab goes to the private set; a normal one to the current group, or the shared list from the private set. */
-    fun add(id: TabId, private: Boolean = false) {
+    /**
+     * A private tab goes to the private set; a normal one to the current group, or the shared list from the private set.
+     * With [select] false (a link opened in the background) the selection, current group and private resume stay; the tab
+     * goes to the selected tab's group, after the previous background tab opened from the same tab while it is still there.
+     */
+    fun add(id: TabId, private: Boolean = false, select: Boolean = true, url: String = "about:blank") {
         if (private) {
             if (privateIds().isEmpty()) locked = false
-        } else {
+        } else if (select) {
             resume = null
         }
-        list = list.add(id, if (private) PRIVATE_GROUP else groups.current.takeIf { it != PRIVATE_GROUP })
-        groups = groups.setCurrent(list.groupOf[list.selected])
-        pages[id] = PageState()
+        val group = if (private) PRIVATE_GROUP else (if (select) groups.current else list.groupOf[list.selected]).takeIf { it != PRIVATE_GROUP }
+        if (select) {
+            list = list.add(id, group)
+            groups = groups.setCurrent(list.groupOf[list.selected])
+            chain = null
+        } else {
+            val parent = list.selected
+            val kept = chain?.takeIf { it.parent == parent }?.last.orEmpty()
+            val anchor = kept[group]?.takeIf { it in pages && list.groupOf[it] == group } ?: parent
+            list = list.add(id, group, select = false, anchor = anchor)
+            chain = parent?.let { BackgroundChain(it, kept + (group to id)) }
+        }
+        pages[id] = PageState(url = url)
         titles[id] = ""
         publish()
     }

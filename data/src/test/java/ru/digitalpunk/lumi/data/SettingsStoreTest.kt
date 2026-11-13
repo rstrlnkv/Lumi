@@ -1,6 +1,7 @@
 package ru.digitalpunk.lumi.data
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import java.io.File
@@ -60,5 +61,43 @@ class SettingsStoreTest {
             store.setProtectionOff("a.com", off = false)
         }
         withStore { store, _ -> assertEquals(setOf("b.com"), store.protectionOffHosts.first()) }
+    }
+    @Test fun switchToNewTabsIsOffByDefault() = withStore { store, _ ->
+        assertEquals(false, store.switchToNewTabs.first())
+    }
+
+    @Test fun switchToNewTabsReturnsTheValueThatWasSet() = withStore { store, _ ->
+        store.setSwitchToNewTabs(true)
+        assertEquals(true, store.switchToNewTabs.first())
+        store.setSwitchToNewTabs(false)
+        assertEquals(false, store.switchToNewTabs.first())
+    }
+
+    @Test fun switchToNewTabsSurvivesANewStoreOnTheSameFile() {
+        withStore { store, _ -> store.setSwitchToNewTabs(true) }
+        withStore { store, _ -> assertEquals(true, store.switchToNewTabs.first()) }
+    }
+
+    @Test fun switchToNewTabsDoesNotChangeTheAddressBarStyle() = withStore { store, _ ->
+        store.setAddressBarStyle(AddressBarStyle.Classic)
+        store.setSwitchToNewTabs(true)
+        assertEquals(AddressBarStyle.Classic, store.addressBarStyle.first())
+    }
+
+    @Test fun addressBarStyleDoesNotChangeSwitchToNewTabs() = withStore { store, _ ->
+        store.setSwitchToNewTabs(true)
+        store.setAddressBarStyle(AddressBarStyle.Classic)
+        store.setAddressBarStyle(AddressBarStyle.Compact)
+        assertEquals(true, store.switchToNewTabs.first())
+    }
+
+    @Test fun aWrongTypeStoredUnderTheStyleKeyFallsBackToCompact() = withStore { store, ds ->
+        ds.edit { it[booleanPreferencesKey("address_bar_style")] = true }
+        assertEquals(AddressBarStyle.Compact, store.addressBarStyle.first())
+    }
+
+    @Test fun aWrongTypeStoredUnderTheProtectionKeyFallsBackToEmpty() = withStore { store, ds ->
+        ds.edit { it[stringPreferencesKey("protection_off_hosts")] = "a.com" }
+        assertEquals(emptySet(), store.protectionOffHosts.first())
     }
 }

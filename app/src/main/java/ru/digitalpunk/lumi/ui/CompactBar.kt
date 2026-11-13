@@ -36,6 +36,7 @@ fun CompactBar(
     editing: Boolean,
     onEditingChange: (Boolean) -> Unit,
     onSwitchStyle: () -> Unit,
+    onOpenSettings: () -> Unit,
     progress: () -> Float,
     collapsed: Boolean,
     onExpand: () -> Unit,
@@ -52,7 +53,7 @@ fun CompactBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (!editing) FloatingCircle { BackButton(state.canGoBack, engine::goBack) }
+            if (!editing) FloatingCircle { BackButton(state.canGoBack, engine::goBack, state.history, engine::gotoHistoryIndex) }
             AddressField(
                 state = state,
                 site = site,
@@ -66,7 +67,7 @@ fun CompactBar(
                 modifier = Modifier.weight(1f),
                 tabs = tabs,
             )
-            if (!editing) FloatingCircle { MoreMenu(AddressBarStyle.Compact, tabs, onSwitchStyle) }
+            if (!editing) FloatingCircle { MoreMenu(AddressBarStyle.Compact, tabs, onSwitchStyle, onOpenSettings) }
         }
         CollapsedStrip(
             state.url,

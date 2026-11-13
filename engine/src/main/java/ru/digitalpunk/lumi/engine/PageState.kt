@@ -10,4 +10,6 @@ data class PageState(
     val isCrashed: Boolean = false,
     /** Distinct trackers blocked on this page load; 0 again when a new load starts. */
     val blockedTrackers: Int = 0,
+    /** The tab's back history for the Back long-press menu; empty after a crash. */
+    val history: BackHistory = BackHistory(),
 )
