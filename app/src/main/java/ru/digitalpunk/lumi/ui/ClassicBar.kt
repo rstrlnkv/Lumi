@@ -77,7 +77,7 @@ fun ClassicBar(
                 var quickOpen by remember { mutableStateOf(false) }
                 Box(Modifier.fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        BackButton(state.canGoBack, engine::goBack, state.history, engine::gotoHistoryIndex)
+                        BackButton(state.canGoBack || tabs.returnsToApp, tabs.goBack, state.history, engine::gotoHistoryIndex, returnsToApp = tabs.returnsToApp)
                         ForwardButton(state.canGoForward, engine::goForward)
                         TabsButton(tabs.count, tabs.openGrid, onLongClick = { quickOpen = true })
                         MoreMenu(AddressBarStyle.Classic, tabs, library, onSwitchStyle, onOpenSettings)

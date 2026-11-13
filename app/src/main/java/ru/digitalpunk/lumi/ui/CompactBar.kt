@@ -59,7 +59,7 @@ fun CompactBar(
         ) {
             val nav = navPillState(editing, state.canGoForward)
             if (nav != NavPillState.Hidden) {
-                NavPill(state.canGoBack, nav == NavPillState.BackAndForward, engine::goBack, state.history, engine::gotoHistoryIndex, engine::goForward)
+                NavPill(state.canGoBack || tabs.returnsToApp, nav == NavPillState.BackAndForward, tabs.goBack, state.history, engine::gotoHistoryIndex, engine::goForward, returnsToApp = tabs.returnsToApp)
             }
             AddressField(
                 state = state,

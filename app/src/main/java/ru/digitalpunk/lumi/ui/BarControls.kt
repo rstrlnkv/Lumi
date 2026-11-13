@@ -56,7 +56,7 @@ private fun barIconColors() = IconButtonDefaults.iconButtonColors(
 
 /** Back; a long press lists the tab's back history, and a pick goes to that entry. */
 @Composable
-fun BackButton(enabled: Boolean, onClick: () -> Unit, history: BackHistory, onPick: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun BackButton(enabled: Boolean, onClick: () -> Unit, history: BackHistory, onPick: (Int) -> Unit, modifier: Modifier = Modifier, returnsToApp: Boolean = false) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
         LongPressIconButton(
@@ -64,7 +64,7 @@ fun BackButton(enabled: Boolean, onClick: () -> Unit, history: BackHistory, onPi
             onLongClick = { if (history.hasBack) open = true },
             longClickLabel = stringResource(R.string.cd_long_press_back),
             enabled = enabled,
-        ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
+        ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(if (returnsToApp) R.string.cd_back_to_app else R.string.action_back)) }
         TabHistoryMenu(history, open, { open = false }, onPick)
     }
 }
@@ -137,9 +137,10 @@ fun NavPill(
     onPick: (Int) -> Unit,
     onForward: () -> Unit,
     modifier: Modifier = Modifier,
+    returnsToApp: Boolean = false,
 ) {
     if (!canGoForward) {
-        FloatingCircle(modifier) { BackButton(canGoBack, onBack, history, onPick) }
+        FloatingCircle(modifier) { BackButton(canGoBack, onBack, history, onPick, returnsToApp = returnsToApp) }
         return
     }
     Surface(
@@ -149,7 +150,7 @@ fun NavPill(
         modifier = modifier.height(48.dp),
     ) {
         Row(Modifier.padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            BackButton(canGoBack, onBack, history, onPick, Modifier.size(44.dp, 48.dp))
+            BackButton(canGoBack, onBack, history, onPick, Modifier.size(44.dp, 48.dp), returnsToApp)
             Box(Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outlineVariant))
             ForwardButton(true, onForward, Modifier.size(44.dp, 48.dp))
         }

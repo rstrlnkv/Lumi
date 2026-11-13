@@ -3,6 +3,7 @@ package ru.digitalpunk.lumi
 import androidx.compose.runtime.CompositionLocalProvider
 import ru.digitalpunk.lumi.ui.LocalSiteIcons
 import android.app.KeyguardManager
+import android.app.SearchManager
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -28,6 +29,9 @@ import android.content.pm.PackageManager
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import ru.digitalpunk.lumi.defaultbrowser.DefaultBrowser
+import ru.digitalpunk.lumi.defaultbrowser.launcherStart
+import ru.digitalpunk.lumi.links.incomingIntent
 import ru.digitalpunk.lumi.privacy.UnlockStart
 import ru.digitalpunk.lumi.privacy.authenticators
 import ru.digitalpunk.lumi.privacy.unlockStart
@@ -87,8 +91,17 @@ class MainActivity : FragmentActivity() {
         val requester = { permission: String, code: Int -> ActivityCompat.requestPermissions(this, arrayOf(permission), code) }
         asks.requester = requester
         if (savedInstanceState == null) readDownloadsRequest(intent)
+        if (savedInstanceState == null) readLink(intent)
+        val defaultBrowser = app.defaultBrowser
+        if (launcherStart(savedInstanceState == null, intent.action, intent.categories)) defaultBrowser.countLaunch()
+        @Suppress("DEPRECATION")
+        val starter = { request: Intent, code: Int -> startActivityForResult(request, code) }
+        defaultBrowser.starter = starter
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) = app.privatePersistence.onStart()
+
+            // The person may have changed the default browser in the system settings.
+            override fun onResume(owner: LifecycleOwner) = defaultBrowser.refresh()
 
             override fun onStop(owner: LifecycleOwner) {
                 app.tabSnapshots.captureNow()
@@ -101,13 +114,14 @@ class MainActivity : FragmentActivity() {
             override fun onDestroy(owner: LifecycleOwner) {
                 if (gate.prompter === prompter) gate.prompter = null
                 if (asks.requester === requester) asks.requester = null
+                if (defaultBrowser.starter === starter) defaultBrowser.starter = null
             }
         })
         setContent {
             LumiTheme {
                 Surface(Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalSiteIcons provides app.siteIcons) {
-                        BrowserScreen(app.engine, app.settings, app.tabSnapshots, gate, app.library, app.suggestClient, app.downloads, asks, app.showDownloads)
+                        BrowserScreen(app.engine, app.settings, app.tabSnapshots, gate, app.library, app.suggestClient, app.downloads, asks, app.showDownloads, app.appLinks, defaultBrowser)
                     }
                 }
             }
@@ -118,14 +132,30 @@ class MainActivity : FragmentActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != CONFIRM_CREDENTIAL) return
-        val gate = (application as LumiApplication).privateGate
-        if (resultCode == RESULT_OK) gate.onPromptSucceeded() else gate.onPromptEnded()
+        val app = application as LumiApplication
+        when (requestCode) {
+            CONFIRM_CREDENTIAL -> if (resultCode == RESULT_OK) app.privateGate.onPromptSucceeded() else app.privateGate.onPromptEnded()
+            DefaultBrowser.REQUEST_ROLE -> app.defaultBrowser.onRoleResult(resultCode)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         readDownloadsRequest(intent)
+        readLink(intent)
+    }
+
+    /**
+     * A link or web search from another app goes to the inbox; the browser screen opens it once the tabs are restored.
+     * Not from Recents: that intent is the old one. Capped in [incomingIntent].
+     */
+    private fun readLink(intent: Intent?) {
+        if (intent == null || intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return
+        // A hostile extras bundle can throw when it is unparcelled.
+        val incoming = runCatching {
+            incomingIntent(intent.action, intent.dataString, intent.getStringExtra(SearchManager.QUERY))
+        }.getOrNull() ?: return
+        (application as LumiApplication).appLinks.offer(incoming)
     }
 
     private fun readDownloadsRequest(intent: Intent?) {

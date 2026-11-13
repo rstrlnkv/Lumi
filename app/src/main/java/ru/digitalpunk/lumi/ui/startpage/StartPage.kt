@@ -92,9 +92,14 @@ fun StartPage(
     onOpenUrl: (String) -> Unit,
     onOpenInTab: (String, LinkAction) -> Unit,
     onEdit: (String) -> Unit,
+    showDefaultCard: Boolean,
+    onDefaultNotNow: () -> Unit,
+    onDefaultSet: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val folder = currentFolder(stack, start)
+    // The default-browser card sits above the start folder only, never inside a sub-folder.
+    val card = showDefaultCard && stack.isEmpty()
     val items = tiles(nodes, folder, stringResource(R.string.folder_favorites))
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     var renaming by rememberSaveable { mutableStateOf<String?>(null) }
@@ -119,12 +124,17 @@ fun StartPage(
 
     Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).pointerInput(Unit) {}) {
         // An empty start folder is a plain page: the address field has the focus.
-        if (stack.isNotEmpty() || items.isNotEmpty()) {
+        if (stack.isNotEmpty() || items.isNotEmpty() || card) {
             LazyVerticalGrid(
                 GridCells.Fixed(gridColumns(landscape)),
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomInset),
             ) {
+                if (card) {
+                    item(key = "default_card", span = { GridItemSpan(maxLineSpan) }) {
+                        DefaultBrowserCard(onDefaultNotNow, onDefaultSet, Modifier.padding(top = 16.dp))
+                    }
+                }
                 item(key = "header", span = { GridItemSpan(maxLineSpan) }) {
                     Header(folderLabel(nodes, folder), stack.dropLast(1).lastOrNull() ?: start, nodes, stack.isNotEmpty(), onUp)
                 }

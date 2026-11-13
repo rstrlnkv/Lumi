@@ -315,8 +315,9 @@ class BrowserEngine(appContext: Context) {
      * in the group, else after the group's last tab. A [private] tab goes to the private set; a normal one to the current
      * group, or the shared list when that is the private set. With [select] false the tab opens in the background, after
      * the selected tab (or the previous background tab opened from it), and gets no session until it is first selected.
+     * A [fromApp] tab (a link from another app; [private] must be false) goes to the shared list and is marked [TabInfo.openedByApp].
      */
-    fun newTab(private: Boolean = false, url: String = "about:blank", select: Boolean = true): TabId {
+    fun newTab(private: Boolean = false, url: String = "about:blank", select: Boolean = true, fromApp: Boolean = false): TabId {
         val safeUrl = url.takeIf(::isLoadableUrl) ?: "about:blank"
         val tab = Tab(TabId.random(), PageStateStore(PageState(url = safeUrl)), private)
         records[tab.id] = tab
@@ -324,7 +325,7 @@ class BrowserEngine(appContext: Context) {
             cap = baseCap
             selected?.session?.setActive(false)
         }
-        tabsStore.add(tab.id, private, select, safeUrl)
+        tabsStore.add(tab.id, private, select, safeUrl, fromApp)
         if (select) show(tab)
         mutableChanges.tryEmit(Unit)
         return tab.id

@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -95,6 +96,28 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         store.edit { it[DOWNLOAD_NOTIFICATIONS_ASKED] = true }
     }
 
+    /** Starts from the launcher, for the default-browser card; 0 when nothing, a negative value or another type is stored. */
+    val launchCount: Flow<Int> = store.data.map { it.read(LAUNCH_COUNT)?.coerceAtLeast(0) ?: 0 }
+
+    /** Adds one launch; stops at [MAX_LAUNCH_COUNT]. */
+    suspend fun countLaunch() {
+        store.edit { it[LAUNCH_COUNT] = ((it.read(LAUNCH_COUNT) ?: 0).coerceAtLeast(0) + 1).coerceAtMost(MAX_LAUNCH_COUNT) }
+    }
+
+    /** "Not now" on the default-browser card: it never comes back. False for a value of another type. */
+    val defaultCardDismissed: Flow<Boolean> = store.data.map { it.read(DEFAULT_CARD_DISMISSED) ?: false }
+
+    suspend fun setDefaultCardDismissed() {
+        store.edit { it[DEFAULT_CARD_DISMISSED] = true }
+    }
+
+    /** How often in a row the person refused the system's default-browser dialog, 0..[MAX_ROLE_REFUSALS]; 0 for another type. */
+    val roleRefusals: Flow<Int> = store.data.map { (it.read(ROLE_REFUSALS) ?: 0).coerceIn(0, MAX_ROLE_REFUSALS) }
+
+    suspend fun setRoleRefusals(count: Int) {
+        store.edit { it[ROLE_REFUSALS] = count.coerceIn(0, MAX_ROLE_REFUSALS) }
+    }
+
     private companion object {
         val ADDRESS_BAR_STYLE = stringPreferencesKey("address_bar_style")
         val PROTECTION_OFF_HOSTS = stringSetPreferencesKey("protection_off_hosts")
@@ -104,6 +127,9 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         val SEARCH_ENGINE = stringPreferencesKey("search_engine")
         val SEARCH_SUGGESTIONS = booleanPreferencesKey("search_suggestions")
         val DOWNLOAD_NOTIFICATIONS_ASKED = booleanPreferencesKey("download_notifications_asked")
+        val LAUNCH_COUNT = intPreferencesKey("launch_count")
+        val DEFAULT_CARD_DISMISSED = booleanPreferencesKey("default_card_dismissed")
+        val ROLE_REFUSALS = intPreferencesKey("default_role_refusals")
     }
 }
 
@@ -111,6 +137,9 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
 private inline fun <reified T> Preferences.read(key: Preferences.Key<T>): T? = asMap()[key] as? T
 
 private const val MAX_FOLDER_ID_LENGTH = 64
+private const val MAX_LAUNCH_COUNT = 1_000
+/** After this many refusals in a row the system stops showing its dialog, so Lumi opens the default-apps screen. */
+const val MAX_ROLE_REFUSALS = 2
 private const val MAX_PROTECTION_OFF_HOSTS = 500
 private const val MAX_HOST_LENGTH = 253
 

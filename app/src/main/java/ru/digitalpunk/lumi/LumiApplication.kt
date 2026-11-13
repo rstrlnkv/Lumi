@@ -17,7 +17,9 @@ import ru.digitalpunk.lumi.data.tabs.TabRepository
 import ru.digitalpunk.lumi.downloads.DownloadAsks
 import ru.digitalpunk.lumi.downloads.DownloadManager
 import ru.digitalpunk.lumi.downloads.DownloadNotifier
+import ru.digitalpunk.lumi.defaultbrowser.DefaultBrowser
 import ru.digitalpunk.lumi.engine.BrowserEngine
+import ru.digitalpunk.lumi.links.AppLinkInbox
 import ru.digitalpunk.lumi.library.HistoryRecorder
 import ru.digitalpunk.lumi.privacy.PrivateGate
 import ru.digitalpunk.lumi.privacy.PrivatePersistence
@@ -66,6 +68,12 @@ class LumiApplication : Application() {
 
     /** Set by a download notification or a "Show" action: the Library opens on the Downloads tab. */
     val showDownloads = MutableStateFlow(false)
+
+    /** Links and web searches from other apps, waiting for the restored tabs. */
+    val appLinks = AppLinkInbox()
+
+    /** Whether Lumi is the default browser, and the request for it; the Settings row and the start-page card share it. */
+    val defaultBrowser by lazy { DefaultBrowser(this, settings, appScope) }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)

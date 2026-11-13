@@ -268,4 +268,15 @@
         <item quantity="one">%1$s, downloading, %2$d percent</item>
         <item quantity="other">%1$s, downloading, %2$d percent</item>
     </plurals>
+    <!-- Default browser and links from other apps (M7d) -->
+    <string name="default_card_title">Make Lumi your default browser</string>
+    <string name="default_card_body">Links from other apps will open in Lumi.</string>
+    <string name="default_card_not_now">Not now</string>
+    <string name="default_card_set">Set as default</string>
+    <string name="settings_section_browser">Browser</string>
+    <string name="settings_default_browser">Default browser</string>
+    <string name="settings_default_browser_off">Lumi is not the default. Tap to set it.</string>
+    <string name="settings_default_browser_on">Lumi is the default</string>
+    <string name="link_opened_normal_tab">Opened in a normal tab</string>
+    <string name="cd_back_to_app">Back to previous app</string>
 </resources>

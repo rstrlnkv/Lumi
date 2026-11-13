@@ -2,7 +2,7 @@ package ru.digitalpunk.lumi.ui
 
 import ru.digitalpunk.lumi.engine.TabId
 
-/** What the bars need from the tabs: how many there are, the hosts of the neighbours (null at either end) and five actions. */
+/** What the bars need from the tabs: how many there are, the hosts of the neighbours (null at either end), the Back rule and six actions. */
 class TabActions(
     val selectedId: TabId?,
     val count: Int,
@@ -15,6 +15,10 @@ class TabActions(
     val switchBy: (Int) -> Unit,
     /** Closes the selected tab; the last one leaves a new blank tab. */
     val closeTab: () -> Unit,
+    /** The first page of a tab another app opened: Back closes it and returns to that app. */
+    val returnsToApp: Boolean,
+    /** The bar's Back and the system Back: the page's history, or the return to the app. */
+    val goBack: () -> Unit,
 )
 
 /** What the More menu needs from the library: whether the page on screen is saved, whether it can be, and two actions. */

@@ -12,6 +12,8 @@ data class TabInfo(
     val isCrashed: Boolean,
     /** Null is the shared list. */
     val groupId: GroupId? = null,
+    /** Opened by a link from another app and still on its first page: Back closes it and returns to that app. Never saved. */
+    val openedByApp: Boolean = false,
 )
 
 /**
@@ -62,6 +64,9 @@ internal class TabsStore {
     /** The last tabs opened in the background from [BackgroundChain.parent]; the next one in the same group goes after its group's. */
     private var chain: BackgroundChain? = null
 
+    /** The tabs opened from another app and still on their first page, each with the normal tab that was in front then. */
+    private val appOrigin = HashMap<TabId, TabId?>()
+
     /** The last normal tab that was selected; where a locked or saved private selection falls back to. */
     var lastNormal: TabId? = null
         private set
@@ -85,14 +90,17 @@ internal class TabsStore {
      * A private tab goes to the private set; a normal one to the current group, or the shared list from the private set.
      * With [select] false (a link opened in the background) the selection, current group and private resume stay; the tab
      * goes to the selected tab's group, after the previous background tab opened from the same tab while it is still there.
+     * With [fromApp] (a link from another app) the tab is normal, selected and in the shared list, and keeps the mark
+     * [TabInfo.openedByApp] until its page can go back.
      */
-    fun add(id: TabId, private: Boolean = false, select: Boolean = true, url: String = "about:blank") {
+    fun add(id: TabId, private: Boolean = false, select: Boolean = true, url: String = "about:blank", fromApp: Boolean = false) {
         if (private) {
             if (privateIds().isEmpty()) locked = false
         } else if (select) {
             resume = null
         }
-        val group = if (private) PRIVATE_GROUP else (if (select) groups.current else list.groupOf[list.selected]).takeIf { it != PRIVATE_GROUP }
+        if (fromApp) appOrigin[id] = list.selected?.takeUnless(::isPrivate)
+        val group = if (private) PRIVATE_GROUP else if (fromApp) null else (if (select) groups.current else list.groupOf[list.selected]).takeIf { it != PRIVATE_GROUP }
         if (select) {
             list = list.add(id, group)
             groups = groups.setCurrent(list.groupOf[list.selected])
@@ -234,6 +242,7 @@ internal class TabsStore {
         doomed.forEach {
             pages.remove(it)
             titles.remove(it)
+            appOrigin.remove(it)
         }
         groups = groups.remove(id)
         publish()
@@ -250,9 +259,11 @@ internal class TabsStore {
         return true
     }
 
+    /** Closing a tab opened from another app while it is selected goes back to the normal tab that was in front before it. */
     fun close(id: TabId): Boolean {
+        val origin = appOrigin.remove(id)?.takeIf { id == list.selected && it in pages && !isPrivate(it) }
         val result = list.close(id)
-        list = result.list
+        list = origin?.let(result.list::select) ?: result.list
         pages.remove(id)
         titles.remove(id)
         publish()
@@ -264,6 +275,7 @@ internal class TabsStore {
     fun pageChanged(id: TabId, page: PageState) {
         if (id !in pages) return
         pages[id] = page
+        if (page.canGoBack) appOrigin.remove(id)
         publish()
     }
 
@@ -280,7 +292,7 @@ internal class TabsStore {
         privateInView = inView
         all = list.ids.map {
             val page = pageOf(it)
-            TabInfo(it, titles[it].orEmpty(), page.url, page.isLoading, page.isCrashed, list.groupOf[it])
+            TabInfo(it, titles[it].orEmpty(), page.url, page.isLoading, page.isCrashed, list.groupOf[it], it in appOrigin)
         }
         list.selected?.takeUnless(::isPrivate)?.let { lastNormal = it }
         val count = all.count { it.isPrivate }

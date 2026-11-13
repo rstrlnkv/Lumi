@@ -15,6 +15,7 @@ import ru.digitalpunk.lumi.downloads.DownloadManager
 import ru.digitalpunk.lumi.downloads.showsDownloadSnackbar
 import ru.digitalpunk.lumi.ui.library.openDownload
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -141,6 +142,12 @@ import ru.digitalpunk.lumi.data.library.LibraryRepository
 import ru.digitalpunk.lumi.data.library.children
 import ru.digitalpunk.lumi.data.library.effectiveStartFolder
 import ru.digitalpunk.lumi.data.library.findBookmarkByUrl
+import ru.digitalpunk.lumi.defaultbrowser.DefaultBrowser
+import ru.digitalpunk.lumi.defaultbrowser.showDefaultCard
+import ru.digitalpunk.lumi.links.AppLinkInbox
+import ru.digitalpunk.lumi.links.BackStep
+import ru.digitalpunk.lumi.links.backStep
+import ru.digitalpunk.lumi.links.incomingUrl
 import ru.digitalpunk.lumi.startpage.backGoesUp
 import ru.digitalpunk.lumi.startpage.focusNewTab
 import ru.digitalpunk.lumi.startpage.navInto
@@ -169,6 +176,8 @@ fun BrowserScreen(
     downloads: DownloadManager,
     downloadAsks: DownloadAsks,
     showDownloads: MutableStateFlow<Boolean>,
+    appLinks: AppLinkInbox,
+    defaultBrowser: DefaultBrowser,
 ) {
     val state by engine.state.collectAsStateWithLifecycle()
     val tabsState by engine.tabs.collectAsStateWithLifecycle()
@@ -183,6 +192,10 @@ fun BrowserScreen(
     val startStored by settings.startPageFolder.collectAsStateWithLifecycle(FAVORITES)
     val startFolder = effectiveStartFolder(nodes, startStored)
     val focusNew = focusNewTab(children(nodes, startFolder).size)
+    val launches by settings.launchCount.collectAsStateWithLifecycle(0)
+    // Read as dismissed until known, so the card never flashes.
+    val cardDismissed by settings.defaultCardDismissed.collectAsStateWithLifecycle<Boolean?>(null)
+    val isDefault by defaultBrowser.isDefault.collectAsStateWithLifecycle()
     val icons = LocalSiteIcons.current
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -200,7 +213,20 @@ fun BrowserScreen(
     // Only the id: a bookmark is in the normal store, so nothing private is kept in the saved state.
     var editBookmarkId by rememberSaveable { mutableStateOf<String?>(null) }
     var capturing by remember { mutableStateOf(false) }
-    BackHandler(enabled = state.canGoBack && !editing) { engine.goBack() }
+    // On the first page of a tab another app opened, Back (system or bar) closes it and returns to that app (ADR 011).
+    val activity = LocalActivity.current
+    val step = backStep(state.canGoBack, tabsState.tabs.any { it.id == tabsState.selectedId && it.openedByApp })
+    val goBack: () -> Unit = {
+        when (step) {
+            BackStep.PageBack -> engine.goBack()
+            BackStep.ReturnToApp -> {
+                tabsState.selectedId?.let(engine::closeTab)
+                activity?.moveTaskToBack(true)
+            }
+            BackStep.None -> Unit
+        }
+    }
+    BackHandler(enabled = step != BackStep.None && !editing) { goBack() }
     // After the page-history handler, so it comes first: Back closes the grid or Settings before anything else.
     BackHandler(enabled = gridOpen) { gridOpen = false }
     BackHandler(enabled = settingsOpen) { settingsOpen = false }
@@ -365,6 +391,8 @@ fun BrowserScreen(
                 if (closeEffect(engine.closeTab(it)) == CloseEffect.LeaveGridForNewTab) editing = focusNew
             }
         },
+        returnsToApp = step == BackStep.ReturnToApp,
+        goBack = goBack,
     )
 
     // Private tabs that could not come back are told once, above the bar (or above the Library).
@@ -402,6 +430,25 @@ fun BrowserScreen(
     LaunchedEffect(engine) { engine.linkMenu.collect { press = it } }
     val shownPress = press?.takeIf { it.tab == tabsState.selectedId && !coverOpen && !lockShown }
     LaunchedEffect(shownPress == null) { if (shownPress == null) press = null }
+
+    // Links and web searches from other apps (M7d): taken only now that the tabs are restored, each in a new normal tab.
+    val linkOpenedText = stringResource(R.string.link_opened_normal_tab)
+    val wasPrivate by rememberUpdatedState(selectedPrivate || tabsState.privateResume)
+    LaunchedEffect(appLinks) {
+        appLinks.items.collect { incoming ->
+            val url = incomingUrl(incoming, settings.searchEngine.first().searchPrefix) ?: return@collect
+            // Read before the new tab: selecting it drops the pending private resume.
+            val privateBefore = wasPrivate
+            engine.newTab(url = url, fromApp = true)
+            gridOpen = false
+            settingsOpen = false
+            libraryOpen = false
+            editing = false
+            editBookmarkId = null
+            press = null
+            if (privateBefore) launch { snackbar.showSnackbar(linkOpenedText) }
+        }
+    }
 
     // Downloads (M7c1): "Show" and a download notification open the Library on the Downloads tab.
     val downloadsRequested by showDownloads.collectAsStateWithLifecycle()
@@ -560,6 +607,9 @@ fun BrowserScreen(
                         tabsState.selectedId?.let { onLinkAction(LinkTarget(it, url, null, selectedPrivate), action) }
                     },
                     onEdit = { editBookmarkId = it },
+                    showDefaultCard = showDefaultCard(launches, cardDismissed ?: true, isDefault, selectedPrivate),
+                    onDefaultNotNow = { scope.launch { settings.setDefaultCardDismissed() } },
+                    onDefaultSet = defaultBrowser::request,
                 )
             }
             if (state.isCrashed) {
@@ -641,6 +691,8 @@ fun BrowserScreen(
                 onSearchEngineChange = { scope.launch { settings.setSearchEngine(it) } },
                 searchSuggestions = searchSuggestions ?: true,
                 onSearchSuggestionsChange = { scope.launch { settings.setSearchSuggestions(it) } },
+                defaultBrowser = isDefault,
+                onDefaultBrowser = defaultBrowser::request,
                 onBack = { settingsOpen = false },
                 Modifier.fillMaxSize().pointerInput(Unit) {},
             )

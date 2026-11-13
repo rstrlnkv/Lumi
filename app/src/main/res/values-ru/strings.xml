@@ -291,4 +291,15 @@
         <item quantity="many">%1$s, скачивается, %2$d процентов</item>
         <item quantity="other">%1$s, скачивается, %2$d процента</item>
     </plurals>
+    <!-- Default browser and links from other apps (M7d) -->
+    <string name="default_card_title">Сделайте Lumi браузером по умолчанию</string>
+    <string name="default_card_body">Ссылки из других приложений будут открываться в Lumi.</string>
+    <string name="default_card_not_now">Не сейчас</string>
+    <string name="default_card_set">Назначить по умолчанию</string>
+    <string name="settings_section_browser">Браузер</string>
+    <string name="settings_default_browser">Браузер по умолчанию</string>
+    <string name="settings_default_browser_off">Lumi не назначен браузером по умолчанию. Нажмите, чтобы назначить.</string>
+    <string name="settings_default_browser_on">Lumi — браузер по умолчанию</string>
+    <string name="link_opened_normal_tab">Открыто в обычной вкладке</string>
+    <string name="cd_back_to_app">Назад в предыдущее приложение</string>
 </resources>

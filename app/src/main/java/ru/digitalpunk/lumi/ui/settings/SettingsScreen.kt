@@ -14,6 +14,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -47,7 +48,7 @@ import ru.digitalpunk.lumi.ui.library.FolderPickerDialog
 import ru.digitalpunk.lumi.ui.library.folderLabel
 
 /**
- * The Settings screen over the browser: Search (engine and suggestions), Start page (the start-page folder) and Tabs
+ * The Settings screen over the browser: Browser (the default browser), Search (engine and suggestions), Start page (the start-page folder) and Tabs
  * ("Switch to new tabs"). The engine list opens over it and Back closes the list first.
  * State is the caller's; [startFolder] is the folder in effect, Favorites when the chosen one is gone.
  */
@@ -64,6 +65,8 @@ fun SettingsScreen(
     onSearchEngineChange: (SearchEngine) -> Unit,
     searchSuggestions: Boolean,
     onSearchSuggestionsChange: (Boolean) -> Unit,
+    defaultBrowser: Boolean,
+    onDefaultBrowser: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -87,6 +90,23 @@ fun SettingsScreen(
             },
         ) { padding ->
             Column(Modifier.padding(padding).verticalScroll(rememberScrollState())) {
+                SectionHeader(stringResource(R.string.settings_section_browser))
+                // Always tappable: the system dialog, or the system's default-apps screen when Lumi is the default already.
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_default_browser)) },
+                    supportingContent = {
+                        Text(stringResource(if (defaultBrowser) R.string.settings_default_browser_on else R.string.settings_default_browser_off))
+                    },
+                    leadingContent = { Icon(painterResource(R.drawable.ic_open_in_browser), contentDescription = null) },
+                    trailingContent = {
+                        if (defaultBrowser) Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    },
+                    modifier = Modifier.clickable(
+                        onClickLabel = stringResource(if (defaultBrowser) R.string.cd_change else R.string.default_card_set),
+                        role = Role.Button,
+                        onClick = onDefaultBrowser,
+                    ),
+                )
                 SectionHeader(stringResource(R.string.settings_section_search))
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.settings_search_engine)) },
