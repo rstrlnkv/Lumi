@@ -20,8 +20,8 @@ class IconEdgeTest {
         assertNull(iconTarget("https://a.com:0/"))
         assertNull(iconTarget("https://a.com:-1/"))
         assertNull(iconTarget("https://a.com:99999999999/"))
-        assertEquals("https://a.com:65535/", iconTarget("https://a.com:65535/")?.rootUrl)
-        assertEquals("https://a.com:1/", iconTarget("https://a.com:1/")?.rootUrl)
+        assertEquals("https://a.com/", iconTarget("https://a.com:65535/")?.rootUrl)
+        assertEquals("https://a.com/", iconTarget("https://a.com:1/")?.rootUrl)
     }
 
     @Test fun anUrlOf2048CharactersIsAllowedAndOneMoreIsNot() {
@@ -113,8 +113,8 @@ class IconEdgeTest {
     @Test fun theDefaultTotalDeadlineIsThirtySeconds() = assertEquals(30_000L, TOTAL_TIMEOUT_MS)
 
     @Test fun theNetworkLayerRefusesWithoutConnectingAnythingThatIsNotAnAllowedHttpsHost() = runBlocking<Unit> {
-        val get = UrlConnectionGet()
-        listOf("http://a.com/i.png", "https://127.0.0.1/i.png", "https://localhost/i.png", "https://[::1]/i.png",
+        val get = PinnedHttpsGet()
+        listOf("http://a.com/i.png", "https://a.com:8443/i.png", "https://u:p@a.com/i.png", "https://127.0.0.1/i.png", "https://localhost/i.png", "https://[::1]/i.png",
             "https://192.168.0.1/i.png", "file:///etc/passwd", "ftp://a.com/x", "https://nas.local/i.png").forEach {
             assertNull(get.get(it, IconFetcher.IMAGE), it)
         }

@@ -127,4 +127,53 @@ class SiteIconsRequestTest {
         idle()
         assertEquals(3, calls.get())
     }
+
+    @Test fun forgetDeletesTheFileClearsTheFailedMarkAndAnnouncesAChange() = runBlocking<Unit> {
+        store.write("a.com", byteArrayOf(1))
+        val icons = icons { null }
+        icons.request("https://b.com/")
+        idle()
+        val before = icons.changes.value
+        icons.forget(setOf("a.com", "b.com"))
+        assertNull(store.read("a.com"))
+        assertEquals(before + 1, icons.changes.value)
+        icons.request("https://b.com/", retryFailed = false)
+        idle()
+        assertEquals(2, calls.get())
+    }
+
+    @Test fun forgetOfAHostWithNoFileAnnouncesNothing() {
+        val icons = icons { null }
+        icons.forget(setOf("none.com"))
+        assertEquals(0, icons.changes.value)
+    }
+
+    @Test fun retainOnlyDeletesTheIconsOfOtherHosts() {
+        store.write("a.com", byteArrayOf(1))
+        store.write("b.com", byteArrayOf(2))
+        val icons = icons { null }
+        icons.retainOnly(setOf("b.com"))
+        assertNull(store.read("a.com"))
+        assertEquals(2, store.read("b.com")?.single()?.toInt())
+        assertEquals(1, icons.changes.value)
+    }
+
+    @Test fun anIconFetchedWhileItsHostWasForgottenOrNotRetainedIsNotWritten() = runBlocking<Unit> {
+        val gate = CompletableDeferred<Unit>()
+        val icons = icons { gate.await(); byteArrayOf(1) }
+        icons.request("https://a.com/")
+        icons.request("https://b.com/")
+        icons.request("https://c.com/")
+        delay(50)
+        icons.forget(setOf("a.com"))
+        icons.retainOnly(setOf("c.com"))
+        gate.complete(Unit)
+        idle()
+        assertNull(store.read("a.com"))
+        assertNull(store.read("b.com"))
+        assertTrue(store.read("c.com") != null)
+        icons.request("https://a.com/", retryFailed = false)
+        idle()
+        assertTrue(store.read("a.com") != null)
+    }
 }

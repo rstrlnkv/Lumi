@@ -34,4 +34,17 @@ class SiteIconStore(private val dir: File) {
             false
         }
     }
+
+    /** Deletes the icon of [host] and a leftover temporary file; false when no icon was stored. */
+    fun delete(host: String): Boolean {
+        File(dir, "${name(host)}.tmp").delete()
+        return png(host).delete()
+    }
+
+    /** Deletes every stored icon but those of [hosts]; the number deleted. Other files stay. */
+    fun retainOnly(hosts: Set<String>): Int {
+        val keep = hosts.mapTo(HashSet()) { "${name(it)}.png" }
+        val files = dir.listFiles { f -> f.name.endsWith(".png") && f.name !in keep } ?: return 0
+        return files.count { it.delete() }
+    }
 }

@@ -1,9 +1,13 @@
 package ru.digitalpunk.lumi.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -112,6 +116,44 @@ fun FloatingCircle(modifier: Modifier = Modifier, content: @Composable () -> Uni
         shadowElevation = 3.dp,
         modifier = modifier.size(48.dp),
     ) { Box(contentAlignment = Alignment.Center) { content() } }
+}
+
+/** What the Compact bar shows before the address field: nothing while the address is edited, else Back, with Forward once the tab can go forward. */
+enum class NavPillState { Hidden, Back, BackAndForward }
+
+fun navPillState(editing: Boolean, canGoForward: Boolean): NavPillState = when {
+    editing -> NavPillState.Hidden
+    canGoForward -> NavPillState.BackAndForward
+    else -> NavPillState.Back
+}
+
+/** The Compact bar's round Back, or Back and Forward in one pill (2 + 44 + 1 + 44 + 2 dp) once the tab can go forward. */
+@Composable
+fun NavPill(
+    canGoBack: Boolean,
+    canGoForward: Boolean,
+    onBack: () -> Unit,
+    history: BackHistory,
+    onPick: (Int) -> Unit,
+    onForward: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (!canGoForward) {
+        FloatingCircle(modifier) { BackButton(canGoBack, onBack, history, onPick) }
+        return
+    }
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shadowElevation = 3.dp,
+        modifier = modifier.height(48.dp),
+    ) {
+        Row(Modifier.padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            BackButton(canGoBack, onBack, history, onPick, Modifier.size(44.dp, 48.dp))
+            Box(Modifier.width(1.dp).height(24.dp).background(MaterialTheme.colorScheme.outlineVariant))
+            ForwardButton(true, onForward, Modifier.size(44.dp, 48.dp))
+        }
+    }
 }
 
 /**

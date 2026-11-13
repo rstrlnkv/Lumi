@@ -25,7 +25,9 @@ import ru.digitalpunk.lumi.data.AddressBarStyle
 import ru.digitalpunk.lumi.engine.BrowserEngine
 import ru.digitalpunk.lumi.engine.PageState
 
-/** Back, address pill and More as separate floating controls over the page; no bar background. */
+private val BarSidePadding = 20.dp
+
+/** Back (with Forward once the tab can go forward), address pill and More as separate floating controls over the page; no bar background. */
 @Composable
 fun CompactBar(
     state: PageState,
@@ -50,11 +52,14 @@ fun CompactBar(
                 .inertWhen(collapsed)
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                 .navigationBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = BarSidePadding, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (!editing) FloatingCircle { BackButton(state.canGoBack, engine::goBack, state.history, engine::gotoHistoryIndex) }
+            val nav = navPillState(editing, state.canGoForward)
+            if (nav != NavPillState.Hidden) {
+                NavPill(state.canGoBack, nav == NavPillState.BackAndForward, engine::goBack, state.history, engine::gotoHistoryIndex, engine::goForward)
+            }
             AddressField(
                 state = state,
                 site = site,

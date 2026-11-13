@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -186,7 +187,7 @@ private fun TileCell(tile: Tile, inPrivateTab: Boolean, onOpenUrl: (String) -> U
     val folderDescription = (tile as? Tile.Folder)?.let {
         stringResource(R.string.cd_folder_tile, it.name, pluralStringResource(R.plurals.bookmarks_count, it.count, it.count))
     }
-    Box(Modifier.fillMaxWidth().height(94.dp), contentAlignment = Alignment.TopCenter) {
+    Box(Modifier.fillMaxWidth().heightIn(min = 94.dp), contentAlignment = Alignment.TopCenter) {
         Column(
             Modifier.width(80.dp).clip(RoundedCornerShape(12.dp))
                 .combinedClickable(onLongClickLabel = stringResource(R.string.action_more), onLongClick = { menu = true }) {

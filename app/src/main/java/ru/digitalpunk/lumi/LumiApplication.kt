@@ -38,7 +38,7 @@ class LumiApplication : Application() {
     val tabSnapshots by lazy { TabSnapshots(engine, SnapshotStore.create(this), appScope) }
 
     /** Bookmarks and history, in the same `tabs.db` as the tabs. */
-    val library by lazy { LibraryRepository.create(this) }
+    val library by lazy { LibraryRepository.create(this, siteIcons) }
 
     /** Normal tabs' visits go to [library]; private tabs never report any. */
     val historyRecorder by lazy { HistoryRecorder(library, appScope).also { engine.historySink = it } }

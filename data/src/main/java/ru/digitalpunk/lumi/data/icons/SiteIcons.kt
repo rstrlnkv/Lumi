@@ -32,17 +32,21 @@ class SiteIcons(
     private val io: CoroutineDispatcher,
     private val now: () -> Long,
     private val log: (String, Throwable) -> Unit,
-) {
+) : IconRetention {
     private val lock = Any()
     private val inFlight = HashSet<String>()
     private val failed = HashSet<String>()
+    /** In-flight hosts whose icon was deleted meanwhile: their fetch result is dropped. Guarded by [lock]. */
+    private val dropped = HashSet<String>()
+    /** Held around each file write and delete, so a dropped mark and the file change never interleave. */
+    private val files = Any()
     private val permits = Semaphore(MAX_CONCURRENT_FETCHES)
     private val cache = object : LinkedHashMap<String, SiteIcon>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, SiteIcon>?) = size > CACHE_ENTRIES
     }
     private val changeCount = MutableStateFlow(0)
 
-    /** Goes up by one after each icon written. */
+    /** Goes up by one after each icon written, and after a [forget] or [retainOnly] that deleted any. */
     val changes: StateFlow<Int> = changeCount.asStateFlow()
 
     /**
@@ -67,12 +71,38 @@ class SiteIcons(
                 log("Site icon fetch failed", e)
                 null
             }
-            val written = png != null && store.write(host, png)
+            val written = png != null && synchronized(files) { synchronized(lock) { host !in dropped } && store.write(host, png) }
             synchronized(lock) {
-                if (written) { failed -= host; cache.remove(host) } else failed += host
+                if (written) { failed -= host; cache.remove(host) } else if (host !in dropped) failed += host
             }
             if (written) changeCount.update { it + 1 }
-        }.invokeOnCompletion { synchronized(lock) { inFlight -= host } }
+        }.invokeOnCompletion { synchronized(lock) { inFlight -= host; dropped -= host } }
+    }
+
+    /** Deletes the icons of [hosts], also one still being fetched, and lets a later request fetch them again. Blocking file IO. */
+    override fun forget(hosts: Set<String>) {
+        val deleted = synchronized(files) {
+            synchronized(lock) {
+                hosts.forEach { cache.remove(it) }
+                failed -= hosts
+                dropped += inFlight.intersect(hosts)
+            }
+            hosts.count(store::delete)
+        }
+        if (deleted > 0) changeCount.update { it + 1 }
+    }
+
+    /** Deletes every icon but those of [hosts], also one still being fetched. Blocking file IO. */
+    override fun retainOnly(hosts: Set<String>) {
+        val deleted = synchronized(files) {
+            synchronized(lock) {
+                cache.keys.retainAll(hosts)
+                failed.retainAll(hosts)
+                dropped += inFlight - hosts
+            }
+            store.retainOnly(hosts)
+        }
+        if (deleted > 0) changeCount.update { it + 1 }
     }
 
     /** The decoded icon if it is in memory; no IO. */
@@ -96,7 +126,7 @@ class SiteIcons(
     companion object {
         fun create(context: Context, scope: CoroutineScope) = SiteIcons(
             SiteIconStore(File(context.filesDir, "icons")),
-            IconFetcher(UrlConnectionGet(), BitmapIconCodec())::fetch,
+            IconFetcher(PinnedHttpsGet(), BitmapIconCodec())::fetch,
             scope,
             Dispatchers.IO,
             System::currentTimeMillis,

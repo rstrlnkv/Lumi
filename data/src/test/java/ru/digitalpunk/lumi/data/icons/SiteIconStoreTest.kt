@@ -45,4 +45,31 @@ class SiteIconStoreTest {
         SiteIconStore(dir)
         assertFalse(tmp.exists())
     }
+
+    @Test fun deleteRemovesTheIconAndALeftoverTempFileAndIsFalseWhenNothingIsStored() {
+        val store = SiteIconStore(dir)
+        store.write("a.com", byteArrayOf(1))
+        val name = dir.list()!!.single().removeSuffix(".png")
+        File(dir, "$name.tmp").writeText("half")
+        assertTrue(store.delete("a.com"))
+        assertEquals(emptyList(), dir.list()!!.toList())
+        assertFalse(store.delete("a.com"))
+    }
+
+    @Test fun retainOnlyKeepsListedHostsAndDeletesOtherIconsButNoOtherFiles() {
+        val store = SiteIconStore(dir)
+        listOf("a.com", "b.com", "c.com").forEach { store.write(it, byteArrayOf(1)) }
+        File(dir, "notes.txt").writeText("x")
+        assertEquals(2, store.retainOnly(setOf("b.com", "z.com")))
+        assertNull(store.read("a.com"))
+        assertNull(store.read("c.com"))
+        assertContentEquals(byteArrayOf(1), store.read("b.com"))
+        assertTrue(File(dir, "notes.txt").exists())
+    }
+
+    @Test fun retainOnlyOnAMissingFolderDeletesNothing() {
+        val store = SiteIconStore(dir)
+        dir.deleteRecursively()
+        assertEquals(0, store.retainOnly(emptySet()))
+    }
 }

@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import ru.digitalpunk.lumi.data.icons.IconRetention
+import ru.digitalpunk.lumi.data.icons.bookmarkIconHosts
+import ru.digitalpunk.lumi.data.icons.orphanedIconHosts
 import ru.digitalpunk.lumi.data.library.LibraryIds.FAVORITES
 import ru.digitalpunk.lumi.data.library.LibraryIds.ROOT
 import ru.digitalpunk.lumi.data.tabs.TabDatabase
@@ -20,12 +23,14 @@ import java.util.UUID
 /**
  * Bookmarks and history in `tabs.db`. Writes are serialised; a failure is logged, and a call that returns a value
  * reports it as false or null. Titles are cut to [MAX_TITLE_LENGTH]; a bookmark URL over [MAX_URL_LENGTH] is refused.
+ * A host's site icon goes with its last bookmark (delete or URL edit), and "All time" clears the icons of hosts with none.
  */
 class LibraryRepository(
     private val dao: LibraryDao,
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val now: () -> Long = System::currentTimeMillis,
     private val newId: () -> String = { UUID.randomUUID().toString() },
+    private val icons: IconRetention? = null,
 ) {
     private val mutex = Mutex()
 
@@ -81,6 +86,7 @@ class LibraryRepository(
                 canMoveNode(all, id, parent) -> dao.append(edited.copy(parentId = parent))
                 else -> return@write false
             }
+            forgetIcons(all.map { it.url }, all.map { if (it.id == id) url else it.url })
             true
         }
     }
@@ -98,8 +104,11 @@ class LibraryRepository(
     suspend fun delete(id: String): List<BookmarkNodeEntity>? {
         if (!canDelete(id)) return null
         return write("Deleting a bookmark", null) {
-            val removed = subtree(dao.nodes(), id).ifEmpty { return@write null }
+            val all = dao.nodes()
+            val removed = subtree(all, id).ifEmpty { return@write null }
             removed.map { it.id }.chunked(CHUNK).forEach { dao.deleteNodes(it) }
+            val gone = removed.mapTo(HashSet()) { it.id }
+            forgetIcons(all.map { it.url }, all.filterNot { it.id in gone }.map { it.url })
             removed
         }
     }
@@ -132,7 +141,23 @@ class LibraryRepository(
     suspend fun clearHistory(range: ClearRange, zone: ZoneId) {
         write("Clearing history", Unit) {
             val from = clearFrom(range, Instant.ofEpochMilli(now()), zone)
-            if (from == null) dao.deleteAllVisits() else dao.deleteVisitsSince(from)
+            if (from == null) {
+                dao.deleteAllVisits()
+                icons?.retainOnly(bookmarkIconHosts(dao.nodes().map { it.url }))
+            } else {
+                dao.deleteVisitsSince(from)
+            }
+        }
+    }
+
+    /** After the rows are written: a failure here is logged and never turns a saved change into a failed one. */
+    private fun forgetIcons(before: List<String?>, after: List<String?>) {
+        val hosts = orphanedIconHosts(before, after)
+        if (hosts.isEmpty()) return
+        try {
+            icons?.forget(hosts)
+        } catch (e: Exception) {
+            Log.e(TAG, "Deleting site icons failed", e)
         }
     }
 
@@ -156,6 +181,6 @@ class LibraryRepository(
         private const val CHUNK = 500
         private const val DAY_MILLIS = 24L * 3_600_000
 
-        fun create(context: Context) = LibraryRepository(TabDatabase.get(context).libraryDao())
+        fun create(context: Context, icons: IconRetention? = null) = LibraryRepository(TabDatabase.get(context).libraryDao(), icons = icons)
     }
 }

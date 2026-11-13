@@ -9,7 +9,7 @@ import java.net.URI
 internal const val MAX_BYTES = 1_048_576
 internal const val HTTP_TIMEOUT_MS = 10_000
 internal const val TOTAL_TIMEOUT_MS = 30_000L
-internal const val MAX_REDIRECTS = 3
+internal const val MAX_REDIRECTS = 5
 /** The stored icon is this many pixels square. */
 internal const val ICON_SIZE = 96
 private const val MAX_ATTEMPTS = 4
@@ -29,33 +29,34 @@ private val HOST_CHARS = Regex("[a-z0-9._-]+")
 /**
  * The icon host of a web page: lower case, no user info, port or trailing dot; `www.` is kept.
  * Null for anything but http(s), and for hosts a blind GET must not reach: IP literals, `localhost`,
- * single-label names and `.local`/`.localhost`/`.internal`. An http page maps to the https root.
+ * single-label names and `.local`/`.localhost`/`.internal`. Any page maps to the https root on port 443.
  */
 fun iconTarget(url: String): IconTarget? {
     val match = WEB_URL.find(url.trim()) ?: return null
-    val https = match.groupValues[1].equals("https", ignoreCase = true)
     // The URL spec and Gecko read `\` as `/`, so the user-info split below would pick the wrong host.
     if ('\\' in match.groupValues[2]) return null
     val hostPort = match.groupValues[2].substringAfterLast('@')
     if (hostPort.startsWith("[")) return null
     val portText = hostPort.substringAfterLast(':', "")
-    val port = if (':' in hostPort) portText.toIntOrNull()?.takeIf { it in 1..65535 } ?: return null else null
+    if (':' in hostPort && portText.toIntOrNull()?.takeIf { it in 1..65535 } == null) return null
     val raw = hostPort.substringBefore(':').lowercase().removeSuffix(".")
     val host = try { IDN.toASCII(raw).lowercase() } catch (_: IllegalArgumentException) { return null }
     val labels = host.split('.')
     if (!HOST_CHARS.matches(host) || labels.size < 2 || labels.any { it.isEmpty() } || labels.last().all(Char::isDigit)) return null
     if (host == "localhost" || listOf(".local", ".localhost", ".internal").any { host.endsWith(it) }) return null
-    val portPart = if (https && port != null && port != 443) ":$port" else ""
-    return IconTarget(host, "https://$host$portPart/")
+    return IconTarget(host, "https://$host/")
 }
 
 fun iconHost(url: String): String? = iconTarget(url)?.host
 
-/** An https URL on a host [iconTarget] accepts. */
-internal fun isAllowedIconUrl(url: String): Boolean =
-    url.length <= MAX_URL && url.startsWith("https://", ignoreCase = true) && iconTarget(url) != null
+/** An https URL on port 443, without user info, on a host [iconTarget] accepts. */
+internal fun isAllowedIconUrl(url: String): Boolean {
+    if (url.length > MAX_URL || !url.startsWith("https://", ignoreCase = true) || iconTarget(url) == null) return false
+    val uri = try { URI(url) } catch (_: Exception) { return false }
+    return (uri.port == -1 || uri.port == 443) && uri.rawUserInfo == null
+}
 
-/** The URL of redirect number [hop] from [from] to [location], or null past [MAX_REDIRECTS], off https or to a refused host. */
+/** The URL of redirect number [hop] from [from] to [location], or null past [MAX_REDIRECTS], off https or port 443, with user info or to a refused host. */
 fun resolveRedirect(from: String, location: String, hop: Int): String? {
     if (hop > MAX_REDIRECTS) return null
     val next = try { URI(from).resolve(location.trim()).toString() } catch (_: Exception) { return null }

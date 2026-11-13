@@ -8,8 +8,8 @@ class IconHostTest {
     @Test fun anHttpPageMapsToTheHttpsRootOfItsHost() =
         assertEquals(IconTarget("example.com", "https://example.com/"), iconTarget("http://example.com/a/b?q=1#f"))
 
-    @Test fun aPortIsKeptOnlyForHttpsWithANon443Port() {
-        assertEquals("https://example.com:8443/", iconTarget("https://example.com:8443/x")?.rootUrl)
+    @Test fun aNon443PortIsDroppedFromTheRootUrl() {
+        assertEquals("https://example.com/", iconTarget("https://example.com:8443/x")?.rootUrl)
         assertEquals("https://example.com/", iconTarget("https://example.com:443/x")?.rootUrl)
         assertEquals("https://example.com/", iconTarget("http://example.com:8080/x")?.rootUrl)
     }
@@ -32,10 +32,14 @@ class IconHostTest {
 
     @Test fun httpAndHttpsOfTheSameHostShareOneHost() = assertEquals(iconHost("http://a.com"), iconHost("https://a.com"))
 
-    @Test fun aRedirectIsFollowedOnlyToHttpsOnAPublicHostForAtMostThreeHops() {
+    @Test fun aRedirectIsFollowedOnlyToHttpsOnPort443OfAPublicHostForAtMostFiveHops() {
         assertEquals("https://www.a.com/x", resolveRedirect("https://a.com/", "https://www.a.com/x", 1))
-        assertEquals("https://a.com/next", resolveRedirect("https://a.com/dir/", "/next", 3))
-        assertNull(resolveRedirect("https://a.com/", "https://www.a.com/x", 4))
+        assertEquals("https://a.com/next", resolveRedirect("https://a.com/dir/", "/next", 5))
+        assertEquals("https://www.a.com/x", resolveRedirect("https://a.com/", "https://www.a.com/x", 4))
+        assertEquals("https://a.com:443/x", resolveRedirect("https://a.com/", "https://a.com:443/x", 1))
+        assertNull(resolveRedirect("https://a.com/", "https://www.a.com/x", 6))
+        assertNull(resolveRedirect("https://a.com/", "https://a.com:444/x", 1))
+        assertNull(resolveRedirect("https://a.com/", "https://u@a.com/x", 1))
         assertNull(resolveRedirect("https://a.com/", "http://a.com/", 1))
         assertNull(resolveRedirect("https://a.com/", "https://10.0.0.1/", 1))
         assertNull(resolveRedirect("https://a.com/", "https://localhost/", 1))
@@ -45,7 +49,7 @@ class IconHostTest {
         assertEquals(1_048_576, MAX_BYTES)
         assertEquals(10_000, HTTP_TIMEOUT_MS)
         assertEquals(30_000L, TOTAL_TIMEOUT_MS)
-        assertEquals(3, MAX_REDIRECTS)
+        assertEquals(5, MAX_REDIRECTS)
         assertEquals(96, ICON_SIZE)
     }
 }
