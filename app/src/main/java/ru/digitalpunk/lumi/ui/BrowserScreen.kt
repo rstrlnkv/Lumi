@@ -849,6 +849,20 @@ fun BrowserScreen(
                         }
                     }
                 },
+                // The site of the tap: the delete ends after the sheet is gone.
+                onDeleteData = if (selectedPrivate) null else {
+                    {
+                        val host = siteHost
+                        protectionTab = null
+                        scope.launch {
+                            val done = runCatching { engine.clearSiteData(host) }.isSuccess
+                            if (done) engine.reload()
+                            snackbar.showSnackbar(
+                                if (done) resources.getString(R.string.snackbar_site_data_deleted, host) else resources.getString(R.string.snackbar_data_delete_failed),
+                            )
+                        }
+                    }
+                },
                 onDismiss = { protectionTab = null },
             )
         }

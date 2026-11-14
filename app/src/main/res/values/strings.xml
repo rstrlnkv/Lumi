@@ -369,4 +369,6 @@
     <string name="delete_data_tabs_summary">Normal tabs and groups; private tabs stay</string>
     <string name="snackbar_data_deleted">Browsing data deleted</string>
     <string name="snackbar_data_delete_failed">Some data could not be deleted</string>
+    <string name="shield_delete_site_data">Delete data of this site</string>
+    <string name="snackbar_site_data_deleted">Data of %1$s deleted</string>
 </resources>
