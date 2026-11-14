@@ -619,9 +619,10 @@ class BrowserEngine(appContext: Context) {
      * A GET through Gecko's network stack for site icons and suggestions (ADR 014): the VPN, proxy and DNS apply as for a
      * page, never cookies or credentials, the private context when [private]. Each hop's host must resolve, through Gecko,
      * to public addresses only, before the fetch and again once the body is read, and redirects are followed by hand, at most [MAX_REDIRECTS] (ADR 015). At most [maxBytes]
-     * ([htmlHead]: cut after the head) within 10 s; null for anything but https, a non-2xx answer, an oversized body or any failure.
+     * ([htmlHead]: cut after the head) within 10 s, as [userAgent] when given, else as Gecko; null for anything but https, a non-2xx
+     * answer, an oversized body or any failure.
      */
-    suspend fun fetchBytes(url: String, accept: String, acceptLanguage: String?, maxBytes: Int, htmlHead: Boolean, private: Boolean): FetchedBytes? {
+    suspend fun fetchBytes(url: String, accept: String, acceptLanguage: String?, maxBytes: Int, htmlHead: Boolean, private: Boolean, userAgent: String? = null): FetchedBytes? {
         if (fetchableHost(url) == null) return null
         return try {
             withTimeoutOrNull(FETCH_TIMEOUT_MILLIS) {
@@ -632,7 +633,8 @@ class BrowserEngine(appContext: Context) {
                     val host = fetchableHost(current) ?: return@withTimeoutOrNull null
                     if (refused(host)) return@withTimeoutOrNull null
                     val request = WebRequest.Builder(current).header("Accept", accept)
-                        .apply { if (acceptLanguage != null) header("Accept-Language", acceptLanguage) }.build()
+                        .apply { if (acceptLanguage != null) header("Accept-Language", acceptLanguage) }
+                        .apply { if (userAgent != null) header("User-Agent", userAgent) }.build()
                     val response = withContext(Dispatchers.Main.immediate) { await(executor.fetch(request, fetchFlags(private))) }
                     val body = response.body
                     try {

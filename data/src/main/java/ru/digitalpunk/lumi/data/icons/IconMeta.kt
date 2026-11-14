@@ -5,13 +5,14 @@ import java.util.zip.CRC32
 
 private val SIGNATURE = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
 private const val KEYWORD = "lumi"
-private const val VERSION = 3
+private const val VERSION = 4
 private const val MAX_CHUNKS = 32
 private val TEXT = Regex("v=$VERSION;px=(\\d{1,5});vec=([01]);tc=([0-9a-f]{6})?")
 
 /**
  * What a stored icon was made from, kept in a `tEXt` chunk right after IHDR of the stored PNG (one file, so the write stays
- * atomic); BitmapFactory skips the chunk. A file without it was stored before Icons3 and is fetched again once.
+ * atomic); BitmapFactory skips the chunk. A file without it, or with an older version, is fetched again once (v4: icons asked
+ * for as Safari, and full-bleed icons with clear corners fill the tile).
  */
 data class IconMeta(val srcPx: Int, val vector: Boolean, val themeColor: Int?) {
     val quality get() = IconQuality(srcPx, vector)

@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * A stored icon, decoded. [fillsTile]: fully opaque. [iconClass] and [tileMode] decide how it is drawn; [letter] colours the
+ * A stored icon, decoded. [fillsTile]: full-bleed, clear corners allowed. [iconClass] and [tileMode] decide how it is drawn; [letter] colours the
  * letter tile that stands in for a small icon on the start page.
  */
 class SiteIcon(val bitmap: Bitmap, val fillsTile: Boolean, val lightEdge: Boolean, val iconClass: IconClass, val letter: LetterColours)
@@ -61,7 +61,7 @@ class SiteIcons(
     val changes: StateFlow<Int> = changeCount.asStateFlow()
 
     /**
-     * Fetches the icon of [url]'s host unless it is stored, fresh and has Icons3 meta, already being fetched, or (without
+     * Fetches the icon of [url]'s host unless it is stored, fresh and has current meta, already being fetched, or (without
      * [retryFailed]) failed before in this process. A failure or a worse icon keeps the old one.
      */
     fun request(url: String, retryFailed: Boolean = true) {
@@ -161,7 +161,7 @@ class SiteIcons(
         bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
         val meta = IconMeta.parse(png)
         val letter = letterColours(tileColour(dominantColour(pixels), meta?.themeColor, host))
-        return SiteIcon(bitmap, fillsTile(pixels), hasLightEdge(pixels, bitmap.width), iconClass(meta?.quality), letter)
+        return SiteIcon(bitmap, fillsTile(pixels, bitmap.width), hasLightEdge(pixels, bitmap.width), iconClass(meta?.quality), letter)
     }
 
     companion object {

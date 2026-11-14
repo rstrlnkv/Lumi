@@ -35,7 +35,7 @@ class Icons2UntriedInputsTest {
 
     private class Recording(val pages: Map<String, HttpResponse?>) : HttpGet {
         val asked = mutableListOf<String>()
-        override suspend fun get(url: String, accept: String, maxBytes: Int): HttpResponse? { asked += url; return pages[url] }
+        override suspend fun get(url: String, accept: String, maxBytes: Int, userAgent: String): HttpResponse? { asked += url; return pages[url] }
     }
 
     private val codec = IconCodec { String(it).takeIf { s -> s.startsWith("ok") }?.let { s -> EncodedIcon(s.toByteArray(), IconQuality(s.substringAfterLast('-').toIntOrNull() ?: 192, false)) } }
@@ -58,7 +58,7 @@ class Icons2UntriedInputsTest {
 
     @Test fun aManifestThatNeverAnswersEndsInNullWithinTheTotalDeadlineAndTheCandidatesAreSkipped() = runBlocking<Unit> {
         val http = object : HttpGet {
-            override suspend fun get(url: String, accept: String, maxBytes: Int): HttpResponse? =
+            override suspend fun get(url: String, accept: String, maxBytes: Int, userAgent: String): HttpResponse? =
                 if (url == "https://a.com/") HttpResponse(url, """<link rel="manifest" href="/m.json">""".toByteArray()) else kotlinx.coroutines.awaitCancellation()
         }
         val t0 = System.nanoTime()
@@ -196,7 +196,7 @@ class Icons2UntriedInputsTest {
     @Test fun eachRequestAsksForItsOwnKindOfBody() = runBlocking<Unit> {
         val accepts = mutableMapOf<String, String>()
         val http = object : HttpGet {
-            override suspend fun get(url: String, accept: String, maxBytes: Int): HttpResponse? {
+            override suspend fun get(url: String, accept: String, maxBytes: Int, userAgent: String): HttpResponse? {
                 accepts[url] = accept
                 return when (url) {
                     "https://a.com/" -> HttpResponse(url, """<link rel="manifest" href="/m.json">""".toByteArray())

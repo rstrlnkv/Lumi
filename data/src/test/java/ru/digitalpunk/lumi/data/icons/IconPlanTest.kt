@@ -39,9 +39,10 @@ class IconPlanTest {
         assertEquals(IconPlan(0, 0, 300, 100, 8, 66, 176, 59), planIcon(300, 100, opaque = false))
     }
 
-    @Test fun fillsTileOnlyWhenEveryPixelIsFullyOpaque() {
-        assertTrue(fillsTile(IntArray(9) { 0xFF336699.toInt() }))
-        assertFalse(fillsTile(IntArray(9) { 0xFF336699.toInt() }.also { it[4] = 0xFE336699.toInt() }))
+    @Test fun fillsTileWhenOpaqueOutsideTheCornersAndNotWithAClearPixelThere() {
+        assertTrue(fillsTile(IntArray(16) { 0xFF336699.toInt() }, 4))
+        assertTrue(fillsTile(IntArray(16) { 0xFF336699.toInt() }.also { it[0] = 0 }, 4))
+        assertFalse(fillsTile(IntArray(16) { 0xFF336699.toInt() }.also { it[5] = 0x80336699.toInt() }, 4))
     }
 
     @Test fun aWhiteEdgeIsLightAndAColouredEdgeIsNot() {

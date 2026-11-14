@@ -8,7 +8,7 @@ internal const val MAX_BYTES = 1_048_576
 internal const val TOTAL_TIMEOUT_MS = 30_000L
 /** The stored icon is this many pixels square. */
 internal const val ICON_SIZE = 192
-/** An opaque source at least this large is cropped to fill the square: GitHub's 120 px root touch icon fills it. */
+/** A full-bleed source at least this large is cropped to fill the square: GitHub's 120 px root touch icon fills it. */
 private const val FILL_MIN = GOOD_PX
 internal const val MAX_URL = 2048
 private const val MAX_LINK_TAGS = 50
@@ -135,8 +135,8 @@ data class IconPlan(
 )
 
 /**
- * An opaque source of at least [FILL_MIN] px is centre-cropped to fill the square. Anything else is fitted into 176 px and
- * centred, so a transparent margin of at least 8 px remains and the stored file never reads as opaque. Under 16 px is no icon.
+ * A full-bleed ([fillsTile]) source of at least [FILL_MIN] px is centre-cropped to fill the square. Anything else is fitted into 176 px and
+ * centred, so a transparent margin of at least 8 px remains and the stored file never reads as full-bleed. Under 16 px is no icon.
  */
 fun planIcon(srcW: Int, srcH: Int, opaque: Boolean): IconPlan? {
     val min = minOf(srcW, srcH)
@@ -148,8 +148,22 @@ fun planIcon(srcW: Int, srcH: Int, opaque: Boolean): IconPlan? {
     return IconPlan(0, 0, srcW, srcH, (ICON_SIZE - w) / 2, (ICON_SIZE - h) / 2, w, h)
 }
 
-/** Every pixel fully opaque (ARGB). */
-fun fillsTile(pixels: IntArray): Boolean = pixels.all { it ushr 24 == 0xFF }
+/**
+ * A full-bleed icon (ARGB, [width] px wide): every pixel outside the four corner squares of a quarter edge has alpha 248 or
+ * more. The corners may be clear: a touch icon often cuts its own rounded corners, and the tile clips its corners anyway.
+ */
+fun fillsTile(pixels: IntArray, width: Int): Boolean {
+    if (width <= 0) return false
+    val height = pixels.size / width
+    val cornerW = width / 4
+    val cornerH = height / 4
+    return pixels.indices.all { i ->
+        val x = i % width
+        val y = i / width
+        val inCorner = (x < cornerW || x >= width - cornerW) && (y < cornerH || y >= height - cornerH)
+        inCorner || pixels[i] ushr 24 >= 0xF8
+    }
+}
 
 /** The mean luminance of the square's outer ring is at least 0.92: the tile needs a border to stand out. */
 fun hasLightEdge(pixels: IntArray, size: Int): Boolean {
