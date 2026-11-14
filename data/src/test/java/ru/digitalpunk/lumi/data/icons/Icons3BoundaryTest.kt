@@ -56,7 +56,7 @@ class Icons3BoundaryTest {
 
     private class Http(val pages: Map<String, ByteArray>) : HttpGet {
         val asked = mutableListOf<String>()
-        override suspend fun get(url: String, accept: String, maxBytes: Int): HttpResponse? { asked += url; return pages[url]?.let { HttpResponse(url, it) } }
+        override suspend fun get(url: String, accept: String, maxBytes: Int, userAgent: String): HttpResponse? { asked += url; return pages[url]?.let { HttpResponse(url, it) } }
     }
     /** "ok-<px>" is a raster of that size, "ok-svg" a vector. */
     private val codec = IconCodec { b ->
@@ -99,7 +99,7 @@ class Icons3BoundaryTest {
     }
 
     private class HangingHttp(val pages: Map<String, ByteArray>, val hang: Set<String>) : HttpGet {
-        override suspend fun get(url: String, accept: String, maxBytes: Int): HttpResponse? {
+        override suspend fun get(url: String, accept: String, maxBytes: Int, userAgent: String): HttpResponse? {
             if (url in hang) kotlinx.coroutines.awaitCancellation()
             return pages[url]?.let { HttpResponse(url, it) }
         }
@@ -198,13 +198,17 @@ class Icons3BoundaryTest {
     private val sig = fakePng().copyOf(8)
     private val ihdr = fakePng().copyOfRange(8, 33)
     private fun text(t: String) = chunk("tEXt", t.toByteArray(Charsets.ISO_8859_1))
-    private val good = "lumi\u0000v=3;px=57;vec=0;tc=336699"
+    private val good = "lumi\u0000v=4;px=57;vec=0;tc=336699"
 
     @Test fun aFivedigitSizeRoundTripsAndASixDigitOrFiveHexColourIsRefused() {
         assertEquals(IconMeta(12345, false, null), IconMeta.parse(IconMeta.insert(fakePng(), IconMeta(12345, false, null))!!))
-        assertNull(IconMeta.parse(sig + ihdr + text("lumi\u0000v=3;px=123456;vec=0;tc=")))
-        assertNull(IconMeta.parse(sig + ihdr + text("lumi\u0000v=3;px=57;vec=0;tc=33669")))
+        assertNull(IconMeta.parse(sig + ihdr + text("lumi\u0000v=4;px=123456;vec=0;tc=")))
+        assertNull(IconMeta.parse(sig + ihdr + text("lumi\u0000v=4;px=57;vec=0;tc=33669")))
         assertEquals(IconMeta(57, false, 0xFF336699.toInt()), IconMeta.parse(sig + ihdr + text(good)))
+    }
+
+    @Test fun aMetaOfVersion3IsNotCurrentSoTheIconIsFetchedAgainOnce() {
+        assertNull(IconMeta.parse(sig + ihdr + text("lumi\u0000v=3;px=57;vec=0;tc=336699")))
     }
 
     @Test fun aChunkMissingTheLastByteOfItsCrcIsRefusedWithoutAnException() {

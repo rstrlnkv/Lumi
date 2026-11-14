@@ -10,10 +10,10 @@ import ru.digitalpunk.lumi.engine.BrowserEngine
  * Null while the engine is not started, so a background icon request never starts Gecko.
  */
 class GeckoHttp(private val engine: Lazy<BrowserEngine>) : HttpGet, SuggestGet {
-    override suspend fun get(url: String, accept: String, maxBytes: Int): HttpResponse? {
+    override suspend fun get(url: String, accept: String, maxBytes: Int, userAgent: String): HttpResponse? {
         if (!engine.isInitialized()) return null
         // An icon is stored on disk, so it is never fetched for a private tab (ADR 008, 014).
-        return engine.value.fetchBytes(url, accept, null, maxBytes, htmlHead = accept.startsWith("text/html"), private = false)
+        return engine.value.fetchBytes(url, accept, null, maxBytes, htmlHead = accept.startsWith("text/html"), private = false, userAgent = userAgent)
             ?.let { HttpResponse(it.finalUrl, it.body) }
     }
 

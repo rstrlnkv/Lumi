@@ -22,6 +22,8 @@ class GeckoHttpWiringTest {
     @Test fun anIconFetchNeverUsesThePrivateContextAndASuggestionFollowsTheTab() {
         val http = src("net/GeckoHttp.kt")
         assertTrue("private = false" in http.substringAfter("override suspend fun get(").substringBefore("override"))
+        // The fetcher asks as Safari (Google and YouTube list touch icons only to it); Gecko must send that user agent.
+        assertTrue("userAgent = userAgent" in http.substringAfter("override suspend fun get(").substringBefore("override"))
         assertTrue("client.suggest(e, q, language, private)" in src("ui/SuggestionLayer.kt"))
         assertTrue("private = selectedPrivate" in src("ui/BrowserScreen.kt"))
     }

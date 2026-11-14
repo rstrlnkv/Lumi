@@ -15,7 +15,7 @@ class IconFetcherTest {
     private class FakeHttp(val pages: Map<String, HttpResponse?>, val hang: Set<String> = emptySet(), val fail: Set<String> = emptySet()) : HttpGet {
         val asked = mutableListOf<String>()
         val caps = mutableListOf<Int>()
-        override suspend fun get(url: String, accept: String, maxBytes: Int): HttpResponse? {
+        override suspend fun get(url: String, accept: String, maxBytes: Int, userAgent: String): HttpResponse? {
             asked += url
             caps += maxBytes
             if (url in hang) awaitCancellation()
@@ -82,7 +82,7 @@ class IconFetcherTest {
     }
 
     @Test fun cancellationOfTheCallerIsNotSwallowed() = runBlocking<Unit> {
-        val http = object : HttpGet { override suspend fun get(url: String, accept: String, maxBytes: Int): HttpResponse? = throw CancellationException("gone") }
+        val http = object : HttpGet { override suspend fun get(url: String, accept: String, maxBytes: Int, userAgent: String): HttpResponse? = throw CancellationException("gone") }
         val result = runCatching { IconFetcher(http, codec).fetch(target) }
         assertEquals(true, result.exceptionOrNull() is CancellationException)
     }

@@ -74,7 +74,7 @@ class IconEdgeTest {
     }
 
     @Test fun theTotalDeadlineIsReallyAboutTheGivenTimeNotJustAnyNull() = runBlocking<Unit> {
-        val http = object : HttpGet { override suspend fun get(url: String, accept: String, maxBytes: Int): HttpResponse? = kotlinx.coroutines.awaitCancellation() }
+        val http = object : HttpGet { override suspend fun get(url: String, accept: String, maxBytes: Int, userAgent: String): HttpResponse? = kotlinx.coroutines.awaitCancellation() }
         val codec = IconCodec { null }
         val t0 = System.nanoTime()
         assertNull(IconFetcher(http, codec, totalTimeoutMs = 100).fetch(IconTarget("a.com", base)))

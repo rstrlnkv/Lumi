@@ -26,7 +26,7 @@ class BitmapIconCodec : IconCodec {
         try {
             val pixels = IntArray(src.width * src.height)
             src.getPixels(pixels, 0, src.width, 0, 0, src.width, src.height)
-            val plan = planIcon(src.width, src.height, fillsTile(pixels)) ?: return null
+            val plan = planIcon(src.width, src.height, fillsTile(pixels, src.width)) ?: return null
             val out = Bitmap.createBitmap(ICON_SIZE, ICON_SIZE, Bitmap.Config.ARGB_8888)
             try {
                 Canvas(out).drawBitmap(
