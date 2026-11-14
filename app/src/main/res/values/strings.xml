@@ -342,4 +342,14 @@
     <string name="settings_card_title">Lumi is not the default browser</string>
     <string name="settings_card_body">Links from other apps will open in Lumi</string>
     <string name="settings_card_button">Make default</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_wallpaper_colors">Wallpaper colours</string>
+    <string name="settings_wallpaper_colors_on">Colours from your wallpaper</string>
+    <string name="settings_wallpaper_colors_off">Off: monochrome Lumi palette</string>
+    <string name="settings_address_bar">Address bar</string>
+    <string name="settings_address_bar_classic">Classic</string>
+    <string name="settings_address_bar_compact">Compact</string>
 </resources>

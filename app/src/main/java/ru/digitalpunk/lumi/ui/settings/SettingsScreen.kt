@@ -107,7 +107,7 @@ fun SettingsScreen(
                 SettingsPage.Tabs -> TabsSettings(settings, library, scope, back, full)
                 SettingsPage.Updates -> UpdatesSettings(settings, scope, back, full)
                 SettingsPage.About -> AboutHost(onBack = back, onOpenUrl = onOpenUrl, modifier = full)
-                SettingsPage.Appearance -> SettingsPageScaffold(stringResource(R.string.settings_appearance), back, full) {}
+                SettingsPage.Appearance -> AppearanceSettings(settings, scope, back, full)
                 SettingsPage.Privacy -> SettingsPageScaffold(stringResource(R.string.settings_privacy), back, full) {}
                 SettingsPage.Sites, SettingsPage.SiteData, SettingsPage.Unprotected, SettingsPage.LocalNetwork ->
                     SettingsPageScaffold(stringResource(R.string.settings_sites), back, full) {}

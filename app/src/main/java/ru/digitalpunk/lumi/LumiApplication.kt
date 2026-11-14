@@ -8,6 +8,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import ru.digitalpunk.lumi.data.ThemeChoice
+import ru.digitalpunk.lumi.engine.PageTheme
 import ru.digitalpunk.lumi.data.SettingsStore
 import ru.digitalpunk.lumi.data.downloads.DownloadRepository
 import ru.digitalpunk.lumi.data.downloads.DownloadStorage
@@ -123,6 +125,25 @@ class LumiApplication : Application() {
         followingUpdateSwitch = true
         appScope.launch(Dispatchers.Default) {
             settings.updatesOn.distinctUntilChanged().collect { on -> runCatching { UpdateSchedule.sync(this@LumiApplication, on) } }
+        }
+    }
+
+    private var followingTheme = false
+
+    /** Pages follow Lumi's theme; from the first activity on, like [followUpdateSwitch]. */
+    fun followTheme() {
+        if (followingTheme) return
+        followingTheme = true
+        appScope.launch {
+            settings.theme.distinctUntilChanged().collect { theme ->
+                engine.setPageTheme(
+                    when (theme) {
+                        ThemeChoice.System -> PageTheme.System
+                        ThemeChoice.Light -> PageTheme.Light
+                        ThemeChoice.Dark -> PageTheme.Dark
+                    },
+                )
+            }
         }
     }
 

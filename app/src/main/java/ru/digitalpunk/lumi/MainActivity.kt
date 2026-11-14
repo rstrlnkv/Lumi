@@ -87,6 +87,7 @@ class MainActivity : FragmentActivity() {
         app.privatePersistence.start()
         app.tabSnapshots.start()
         app.followUpdateSwitch()
+        app.followTheme()
         val asks = app.downloadAsks
         asks.start()
         val requester = { permission: String, code: Int -> ActivityCompat.requestPermissions(this, arrayOf(permission), code) }

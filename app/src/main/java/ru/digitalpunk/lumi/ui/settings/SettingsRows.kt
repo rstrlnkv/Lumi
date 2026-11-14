@@ -121,6 +121,19 @@ private fun SettingsRowFrame(
     )
 }
 
+/** A row whose value is a choice of two or three: the headline, then [ChoiceButtons] in the same cell. */
+@Composable
+fun SettingsChoiceRow(headline: String, icon: Painter, options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceBright)) {
+        ListItem(
+            headlineContent = { Text(headline) },
+            leadingContent = { Icon(icon, contentDescription = null) },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        )
+        ChoiceButtons(options, selected, onSelect, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp))
+    }
+}
+
 /**
  * A connected group of two or three buttons, one selected: the selected one is `primary` with a check and full corners,
  * the others `surfaceContainerHighest` with 8 dp inner corners. Material 3 1.4.0 has no ButtonGroup, so it is drawn here.

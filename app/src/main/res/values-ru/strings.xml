@@ -365,4 +365,14 @@
     <string name="settings_card_title">Lumi — не браузер по умолчанию</string>
     <string name="settings_card_body">Ссылки из других приложений откроются в Lumi</string>
     <string name="settings_card_button">Сделать основным</string>
+    <string name="settings_theme">Тема</string>
+    <string name="settings_theme_system">Система</string>
+    <string name="settings_theme_light">Светлая</string>
+    <string name="settings_theme_dark">Тёмная</string>
+    <string name="settings_wallpaper_colors">Цвета из обоев</string>
+    <string name="settings_wallpaper_colors_on">Цвета из ваших обоев</string>
+    <string name="settings_wallpaper_colors_off">Выкл.: монохромная палитра Lumi</string>
+    <string name="settings_address_bar">Адресная строка</string>
+    <string name="settings_address_bar_classic">Классическая</string>
+    <string name="settings_address_bar_compact">Компактная</string>
 </resources>

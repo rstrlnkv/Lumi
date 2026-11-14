@@ -700,6 +700,11 @@ class BrowserEngine(appContext: Context) {
     /** Tells Gecko of a configuration change, so `prefers-color-scheme` follows a switch between light and dark. */
     fun configurationChanged(config: Configuration) = runtime.configurationChanged(config)
 
+    /** Lumi's theme for pages; [PageTheme.System] leaves it to the device (and [configurationChanged]). */
+    fun setPageTheme(theme: PageTheme) {
+        runtime.settings.preferredColorScheme = geckoColorScheme(theme)
+    }
+
     /** The stored sites with protection off. Call it before [restoreTabs], so the first page already follows them. */
     fun setProtectionOffHosts(hosts: Set<String>) {
         offHosts.clear()
