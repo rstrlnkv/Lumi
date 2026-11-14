@@ -6,6 +6,14 @@ All notable changes to Lumi are written here. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+### Added
+- Once a day Lumi checks GitHub for a newer build and shows a notification; a tap opens the release.
+  “Check for updates” and “Update channel” (Stable, Beta, DEV) are in Settings → Updates.
+- About Lumi shows the update channel, when updates were last checked, and a “Check now” button.
+
+### Changed
+- The version line reads “0.1.0 DEV (Build N)”: the version, the channel and the build number.
+
 ## [0.1.0-dev.1] - 2026-11-14
 
 ### Added
