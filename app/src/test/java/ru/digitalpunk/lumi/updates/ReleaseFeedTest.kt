@@ -24,6 +24,11 @@ class ReleaseFeedTest {
         assertEquals(base + "v0.1.0", list[1].url)
     }
 
+    @Test fun `GitHub's own spelling of the repository name is accepted`() {
+        val page = "https://github.com/rstrlnkv/Lumi/releases/tag/v0.1.0.DEV.3613543"
+        assertEquals(listOf(page), parseReleases(feed(release("v0.1.0.DEV.3613543", url = page)))!!.map { it.url })
+    }
+
     @Test fun `drafts and unknown tags are skipped`() =
         assertEquals(emptyList(), parseReleases(feed(release("v0.2.0.DEV.1", draft = true), release("v0.1.0-dev.1"), release("nightly"))))
 

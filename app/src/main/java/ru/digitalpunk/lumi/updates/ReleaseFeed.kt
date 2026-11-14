@@ -19,7 +19,8 @@ fun parseReleases(json: String): List<Release>? = try {
         if (item.opt("draft") == true) return@mapNotNull null
         val name = item.opt("tag_name") as? String ?: return@mapNotNull null
         val tag = parseTag(name) ?: return@mapNotNull null
-        val url = (item.opt("html_url") as? String)?.takeIf { it == RELEASE_PAGE + name } ?: return@mapNotNull null
+        // GitHub names are case-insensitive, and html_url spells the repository "Lumi".
+        val url = (item.opt("html_url") as? String)?.takeIf { it.equals(RELEASE_PAGE + name, ignoreCase = true) } ?: return@mapNotNull null
         Release(tag, name, url)
     }
 } catch (_: JSONException) {
