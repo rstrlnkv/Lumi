@@ -4,7 +4,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -23,8 +22,10 @@ import androidx.compose.ui.unit.dp
 import ru.digitalpunk.lumi.R
 import ru.digitalpunk.lumi.engine.GroupId
 import ru.digitalpunk.lumi.engine.TabGroup
+import ru.digitalpunk.lumi.ui.LumiDropdownMenu
+import ru.digitalpunk.lumi.ui.menuItemShape
 
-/** The menu of a card. Level 1 has Move to group; level 2 lists the shared list and the groups. [startAtGroups] opens level 2 straight away. */
+/** The menu of a card, 240 dp of rows plus 16 dp of shadow room and group padding (see `LumiGroupedMenu`). Level 1 has Move to group; level 2 lists the shared list and the groups. [startAtGroups] opens level 2 straight away. */
 @Composable
 fun CardMenu(
     expanded: Boolean,
@@ -37,13 +38,14 @@ fun CardMenu(
 ) {
     var level by remember(expanded, startAtGroups) { mutableIntStateOf(if (startAtGroups) 2 else 1) }
     val current = stringResource(R.string.state_current_group)
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, modifier = Modifier.width(240.dp)) {
+    LumiDropdownMenu(expanded, onDismiss, Modifier.width(256.dp)) {
         if (level == 1) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.action_move_to_group)) },
                 leadingIcon = { Icon(painterResource(R.drawable.ic_drive_file_move), contentDescription = null) },
                 trailingIcon = { Icon(painterResource(R.drawable.ic_arrow_right), contentDescription = null) },
                 onClick = { level = 2 },
+                modifier = Modifier.menuItemShape(),
             )
         } else {
             val moveLabel = stringResource(R.string.action_move_to_group)
@@ -52,6 +54,7 @@ fun CardMenu(
                 text = { Text(moveLabel) },
                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) },
                 onClick = { level = 1 },
+                modifier = Modifier.menuItemShape(),
             )
             moveRows(groups, tabGroup).forEach { row ->
                 DropdownMenuItem(
@@ -67,7 +70,7 @@ fun CardMenu(
                         onDismiss()
                         onMove(row.group?.id)
                     },
-                    modifier = if (row.isCurrent) Modifier.semantics { stateDescription = current } else Modifier,
+                    modifier = Modifier.menuItemShape().then(if (row.isCurrent) Modifier.semantics { stateDescription = current } else Modifier),
                 )
             }
             DropdownMenuItem(
@@ -77,6 +80,7 @@ fun CardMenu(
                     onDismiss()
                     onNewGroup()
                 },
+                modifier = Modifier.menuItemShape(),
             )
         }
     }

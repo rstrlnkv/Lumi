@@ -16,7 +16,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -179,46 +178,50 @@ fun MoreMenu(style: AddressBarStyle, tabs: TabActions, library: LibraryActions, 
                 modifier = if (style == AddressBarStyle.Compact) Modifier.rotate(90f) else Modifier,
             )
         }
-        LumiDropdownMenu(expanded = open, onDismiss = { open = false }) {
-            MenuItem(stringResource(R.string.menu_new_tab), { Icon(Icons.Filled.Add, null) }) {
-                open = false
-                tabs.newTab()
-            }
-            MenuItem(stringResource(R.string.menu_new_private_tab), { Icon(painterResource(R.drawable.ic_domino_mask), null) }) {
-                open = false
-                tabs.newPrivateTab()
-            }
-            if (compact) {
-                MenuItem(stringResource(R.string.menu_all_tabs, tabs.count), { Icon(painterResource(R.drawable.ic_tab), null) }) {
+        LumiGroupedMenu(expanded = open, onDismiss = { open = false }) {
+            group {
+                MenuItem(stringResource(R.string.menu_new_tab), { Icon(Icons.Filled.Add, null) }) {
                     open = false
-                    tabs.openGrid()
+                    tabs.newTab()
+                }
+                MenuItem(stringResource(R.string.menu_new_private_tab), { Icon(painterResource(R.drawable.ic_domino_mask), null) }) {
+                    open = false
+                    tabs.newPrivateTab()
+                }
+                if (compact) {
+                    MenuItem(stringResource(R.string.menu_all_tabs, tabs.count), { Icon(painterResource(R.drawable.ic_tab), null) }) {
+                        open = false
+                        tabs.openGrid()
+                    }
                 }
             }
-            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
-            if (library.canBookmark) {
+            group {
+                if (library.canBookmark) {
+                    MenuItem(
+                        stringResource(if (library.bookmarked) R.string.menu_edit_bookmark else R.string.menu_add_bookmark),
+                        { Icon(painterResource(if (library.bookmarked) R.drawable.ic_bookmark_added else R.drawable.ic_bookmark_add), null) },
+                    ) {
+                        open = false
+                        library.addOrEditBookmark()
+                    }
+                }
+                MenuItem(stringResource(R.string.menu_library), { Icon(painterResource(R.drawable.ic_book_2), null) }) {
+                    open = false
+                    library.openLibrary()
+                }
+            }
+            group {
                 MenuItem(
-                    stringResource(if (library.bookmarked) R.string.menu_edit_bookmark else R.string.menu_add_bookmark),
-                    { Icon(painterResource(if (library.bookmarked) R.drawable.ic_bookmark_added else R.drawable.ic_bookmark_add), null) },
+                    stringResource(if (compact) R.string.menu_use_classic_bar else R.string.menu_use_compact_bar),
+                    { Icon(painterResource(R.drawable.ic_swap_vert), null) },
                 ) {
                     open = false
-                    library.addOrEditBookmark()
+                    onSwitchStyle()
                 }
-            }
-            MenuItem(stringResource(R.string.menu_library), { Icon(painterResource(R.drawable.ic_book_2), null) }) {
-                open = false
-                library.openLibrary()
-            }
-            HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
-            MenuItem(
-                stringResource(if (compact) R.string.menu_use_classic_bar else R.string.menu_use_compact_bar),
-                { Icon(painterResource(R.drawable.ic_swap_vert), null) },
-            ) {
-                open = false
-                onSwitchStyle()
-            }
-            MenuItem(stringResource(R.string.menu_settings), { Icon(Icons.Filled.Settings, null) }) {
-                open = false
-                onOpenSettings()
+                MenuItem(stringResource(R.string.menu_settings), { Icon(Icons.Filled.Settings, null) }) {
+                    open = false
+                    onOpenSettings()
+                }
             }
         }
         if (compact) QuickActionsMenu(quickOpen, { quickOpen = false }, tabs)
