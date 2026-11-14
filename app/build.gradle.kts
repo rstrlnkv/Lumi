@@ -104,6 +104,8 @@ tasks.withType<Test>().configureEach {
     // ReleaseBuildPinsTest reads both build scripts.
     inputs.file("build.gradle.kts").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file(rootProject.file("build.gradle.kts")).withPathSensitivity(PathSensitivity.RELATIVE)
+    // BuildNumberScriptTest and BuildNumberEdgeTest run gradle/build-number.sh.
+    inputs.file(rootProject.file("gradle/build-number.sh")).withPathSensitivity(PathSensitivity.RELATIVE)
     // LicenseCompletenessTest reads the debug license export: generate it first and rerun the tests when it changes.
     inputs.files(tasks.named("prepareLibraryDefinitionsDebug")).withPathSensitivity(PathSensitivity.RELATIVE)
 }

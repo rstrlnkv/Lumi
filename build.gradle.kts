@@ -7,7 +7,7 @@ plugins {
     alias(libs.plugins.aboutlibraries) apply false
 }
 
-// The build number counts the distinct commits of origin/dev, origin/beta, origin/main and HEAD (Core standard "versioning", rule 2);
+// The build number counts the distinct commits of origin/dev and HEAD (Core standard "versioning", rule 2, project exception: only dev for now);
 // gradle/build-number.sh makes it. Refuse at configuration time, before anything compiles, when it cannot be exact; there is no fallback number.
 fun refuse(why: String): Nothing = throw GradleException("Lumi build refused: $why")
 
@@ -31,7 +31,7 @@ val lumiVersionCode: Int = run {
     script.standardOutput.asText.get().trim().toIntOrNull() ?: refuse("gradle/build-number.sh printed no build number")
 }
 
-// The channel comes from the branch, not the tree: a fast-forward puts the same commit on dev, beta and main.
+// The channel comes from the branch, not the tree: a fast-forward puts the same commit on dev, beta and main once those branches exist.
 val lumiChannel: String = when (git("rev-parse", "--abbrev-ref", "HEAD").second) {
     "main" -> "STABLE"
     "beta" -> "BETA"

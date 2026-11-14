@@ -1,6 +1,7 @@
 #!/bin/bash
-# Prints the build number (Core standard "versioning", rule 2): the count of the distinct commits of origin/dev,
-# origin/beta, origin/main and HEAD after a fetch, or the number in the DEV/BETA tag on HEAD (a rebuild).
+# Prints the build number (Core standard "versioning", rule 2, project exception: only dev is long-lived for now, see
+# ADR 013): the count of the distinct commits of origin/dev and HEAD after a fetch, or the number in the DEV/BETA tag
+# on HEAD (a rebuild).
 # Run it in the project root. It refuses, with a reason on stderr and exit code 1, whenever the number cannot be exact;
 # there is no fallback number. build.gradle.kts runs it before anything compiles.
 refuse() { echo "$1" >&2; exit 1; }
@@ -21,12 +22,10 @@ grafts=$(g rev-parse --path-format=absolute --git-path info/grafts) || refuse "c
 
 # The fetch uses the person's own git config: GitHub credentials live there.
 GIT_TERMINAL_PROMPT=0 git fetch -q --prune origin >/dev/null || refuse "git fetch origin failed; the count needs the current branches"
-for b in dev beta main; do
-  g rev-parse --verify -q "refs/remotes/origin/$b^{commit}" >/dev/null || refuse "origin/$b is missing"
-done
+g rev-parse --verify -q "refs/remotes/origin/dev^{commit}" >/dev/null || refuse "origin/dev is missing"
 
 # A rebuild of a DEV or BETA tag keeps the tag's number (the same commit, the same build).
 tagged=$(g tag --points-at HEAD | sed -nE 's/^v[0-9]+\.[0-9]+\.[0-9]+\.(DEV|BETA)\.([0-9]+)$/\2/p' | sort -n | tail -1)
-count=${tagged:-$(g rev-list --count refs/remotes/origin/dev refs/remotes/origin/beta refs/remotes/origin/main HEAD)}
+count=${tagged:-$(g rev-list --count refs/remotes/origin/dev HEAD)}
 [ "$count" -ge 1 ] 2>/dev/null && [ "$count" -le 2100000000 ] || refuse "build number '$count' is not a positive Int"
 echo "$count"

@@ -40,13 +40,12 @@ class BuildNumberEdgeTest {
         git(work, "add", name); git(work, "commit", "-q", "-m", name)
     }
 
-    /** main = a, beta = a, dev = a+b; work is on branch feature = a+b+c. Expected count: 3. */
+    /** origin has only dev = a+b; work is on branch feature = a+b+c. Expected count: 3. */
     private fun fixture() {
-        origin.mkdirs(); git(origin, "init", "-q", "--bare", "-b", "main")
-        work.mkdirs(); git(work, "init", "-q", "-b", "main")
+        origin.mkdirs(); git(origin, "init", "-q", "--bare", "-b", "dev")
+        work.mkdirs(); git(work, "init", "-q", "-b", "dev")
         git(work, "remote", "add", "origin", origin.path)
-        commit("a"); git(work, "push", "-q", "origin", "main"); git(work, "push", "-q", "origin", "main:beta")
-        git(work, "checkout", "-q", "-b", "dev"); commit("b"); git(work, "push", "-q", "origin", "dev")
+        commit("a"); commit("b"); git(work, "push", "-q", "origin", "dev")
         git(work, "checkout", "-q", "-b", "feature"); commit("c")
     }
 
@@ -73,25 +72,36 @@ class BuildNumberEdgeTest {
         assertEquals(1, r.first, r.toString()); assertTrue("replace" in r.third, r.third)
     }
 
-    @Test fun `refuses when a branch was deleted on origin and only a stale tracking ref is left`() {
+    @Test fun `refuses when dev was deleted on origin and only a stale tracking ref is left`() {
         fixture()
+        git(work, "push", "-q", "origin", "dev:keep")
         git(work, "fetch", "-q", "origin")
-        git(origin, "branch", "-q", "-D", "beta")
+        git(origin, "branch", "-q", "-D", "dev")
         val r = number()
-        assertEquals(1, r.first, "origin has no beta, but the stale origin/beta was counted: $r")
+        assertEquals(1, r.first, "origin has no dev, but the stale origin/dev was counted: $r")
+    }
+
+    @Test fun `refuses a tagged HEAD when origin dev is missing, the tag does not bypass the check`() {
+        fixture()
+        git(work, "tag", "v0.1.0.DEV.7")
+        git(work, "push", "-q", "origin", "dev:keep")
+        git(origin, "branch", "-q", "-D", "dev")
+        val r = number()
+        assertEquals(1, r.first, "origin has no dev, but the tag set the number: $r")
+        assertTrue(r.third.contains("origin/dev is missing"), r.third)
     }
 
     @Test fun `a local branch named like a remote branch does not change the count`() {
         fixture()
         git(work, "branch", "origin/dev", "feature") // refs/heads/origin/dev shadows refs/remotes/origin/dev in rev-list
-        git(work, "checkout", "-q", "main")
-        // origin/dev really holds a, b: the count of {a (main/beta), b (dev), HEAD = a} is 2
+        git(work, "checkout", "-q", "dev~1")
+        // origin/dev really holds a, b: the count of {a, b (dev), HEAD = a} is 2
         assertEquals("2", number().second)
     }
 
     @Test fun `a tag named like a remote branch does not change the count`() {
         fixture()
-        git(work, "tag", "origin/main", "feature")
+        git(work, "tag", "origin/dev", "feature")
         git(work, "checkout", "-q", "dev")
         assertEquals("2", number().second)
     }

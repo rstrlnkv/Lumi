@@ -8,8 +8,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Rule 2 of the versioning standard: the build number counts the distinct commits of origin/dev, origin/beta, origin/main
- * and HEAD after a fetch. `gradle/build-number.sh` makes it; these tests run it on temporary repositories whose "origin"
+ * Project exception to rule 2 of the versioning standard (only dev is long-lived for now): the build number counts the
+ * distinct commits of origin/dev and HEAD after a fetch; origin/beta and origin/main are ignored. `gradle/build-number.sh` makes it; these tests run it on temporary repositories whose "origin"
  * is a local folder, so no network is used.
  */
 class BuildNumberScriptTest {
@@ -45,31 +45,43 @@ class BuildNumberScriptTest {
         git(dir, "add", name); git(dir, "commit", "-q", "-m", name)
     }
 
-    /** origin has main (1 commit), dev (+1) and beta (= main); `work` is a clone on a branch with its own commit. */
-    private fun fixture(withBeta: Boolean = true) {
+    /** origin has dev (2 commits); `work` is a clone on a branch with its own commit. `strayBranches` adds beta and main with a commit dev lacks. */
+    private fun fixture(withDev: Boolean = true, strayBranches: Boolean = false) {
         origin.mkdirs()
-        git(origin, "init", "-q", "--bare", "-b", "main")
+        git(origin, "init", "-q", "--bare", "-b", "dev")
         work.mkdirs()
-        git(work, "init", "-q", "-b", "main")
+        git(work, "init", "-q", "-b", "dev")
         git(work, "remote", "add", "origin", origin.path)
         commit(work, "a")
-        git(work, "push", "-q", "origin", "main")
-        if (withBeta) git(work, "push", "-q", "origin", "main:beta")
-        git(work, "checkout", "-q", "-b", "dev")
         commit(work, "b")
-        git(work, "push", "-q", "origin", "dev")
+        if (withDev) git(work, "push", "-q", "origin", "dev") else git(work, "push", "-q", "origin", "dev:other")
         git(work, "checkout", "-q", "-b", "feature")
         commit(work, "c")
+        if (strayBranches) {
+            git(work, "checkout", "-q", "-b", "stray", "dev"); commit(work, "x")
+            git(work, "push", "-q", "origin", "stray:beta", "stray:main")
+            git(work, "checkout", "-q", "feature")
+        }
     }
 
     private fun number(dir: File = work, env: Map<String, String> = emptyMap()) = run(dir, "bash", script, env = env)
 
-    @Test fun `counts the distinct commits of the three branches and HEAD`() {
+    @Test fun `counts the distinct commits of origin dev and HEAD`() {
         fixture()
-        assertEquals(Triple(0, "3", ""), number()) // a (main, beta), b (dev), c (HEAD)
+        assertEquals(Triple(0, "3", ""), number()) // a, b (dev), c (HEAD)
     }
 
-    @Test fun `a commit on several branches counts once`() {
+    @Test fun `ignores origin beta and origin main`() {
+        fixture(strayBranches = true)
+        assertEquals(Triple(0, "3", ""), number()) // x on beta and main is not counted
+    }
+
+    @Test fun `does not refuse when origin has no beta and no main`() {
+        fixture()
+        assertEquals(0, number().first)
+    }
+
+    @Test fun `a commit on origin dev and HEAD counts once`() {
         fixture()
         git(work, "checkout", "-q", "dev")
         assertEquals("2", number().second) // a, b; HEAD is dev
@@ -102,9 +114,9 @@ class BuildNumberScriptTest {
         assertTrue(why in result.third, "expected '$why' in: ${result.third}")
     }
 
-    @Test fun `refuses when a long-lived branch is missing on origin`() {
-        fixture(withBeta = false)
-        assertRefused(number(), "origin/beta")
+    @Test fun `refuses when origin dev is missing`() {
+        fixture(withDev = false)
+        assertRefused(number(), "origin/dev")
     }
 
     @Test fun `refuses when the fetch fails`() {
