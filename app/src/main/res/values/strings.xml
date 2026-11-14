@@ -298,4 +298,15 @@
     <string name="cd_open_author_page">Open GitHub profile</string>
     <string name="cd_expand">Expand</string>
     <string name="cd_collapse">Collapse</string>
+    <!-- Local network access (ADR 015): a site asks to reach the LAN or this device. -->
+    <string name="lna_title">%1$s wants to</string>
+    <string name="lna_network">Look for and connect to any device on your local network</string>
+    <string name="lna_device">Access other apps and services on this device</string>
+    <string name="lna_via">via %1$s</string>
+    <string name="lna_block">Block</string>
+    <string name="lna_allow">Allow</string>
+    <string name="cd_lna_sheet">Local network access request</string>
+    <string name="lna_error_title">Local network access is blocked</string>
+    <string name="lna_error_body">This page tried to reach a device on your local network. Allow it in the prompt, or turn on Nearby devices for Lumi in Android settings.</string>
+    <string name="lna_error_retry">Try again</string>
 </resources>

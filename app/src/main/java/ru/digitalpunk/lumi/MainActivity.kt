@@ -90,6 +90,9 @@ class MainActivity : FragmentActivity() {
         asks.start()
         val requester = { permission: String, code: Int -> ActivityCompat.requestPermissions(this, arrayOf(permission), code) }
         asks.requester = requester
+        val localNetwork = app.localNetworkAsks
+        localNetwork.requester = requester
+        app.resetLnaDenialsOnce()
         if (savedInstanceState == null) readDownloadsRequest(intent)
         if (savedInstanceState == null) readLink(intent)
         val defaultBrowser = app.defaultBrowser
@@ -114,6 +117,7 @@ class MainActivity : FragmentActivity() {
             override fun onDestroy(owner: LifecycleOwner) {
                 if (gate.prompter === prompter) gate.prompter = null
                 if (asks.requester === requester) asks.requester = null
+                if (localNetwork.requester === requester) localNetwork.requester = null
                 if (defaultBrowser.starter === starter) defaultBrowser.starter = null
             }
         })
@@ -166,7 +170,9 @@ class MainActivity : FragmentActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         @Suppress("DEPRECATION")
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        (application as LumiApplication).downloadAsks.onPermissionResult(requestCode, grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
+        val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+        (application as LumiApplication).downloadAsks.onPermissionResult(requestCode, granted)
+        (application as LumiApplication).localNetworkAsks.onPermissionResult(requestCode, granted)
     }
 
     companion object {

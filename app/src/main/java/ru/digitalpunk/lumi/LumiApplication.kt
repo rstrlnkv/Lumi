@@ -22,6 +22,10 @@ import ru.digitalpunk.lumi.defaultbrowser.DefaultBrowser
 import ru.digitalpunk.lumi.engine.BrowserEngine
 import ru.digitalpunk.lumi.links.AppLinkInbox
 import ru.digitalpunk.lumi.net.GeckoHttp
+import ru.digitalpunk.lumi.net.LocalNetworkAsks
+import ru.digitalpunk.lumi.net.lnaErrorHtml
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import ru.digitalpunk.lumi.library.HistoryRecorder
 import ru.digitalpunk.lumi.privacy.PrivateGate
 import ru.digitalpunk.lumi.privacy.PrivatePersistence
@@ -30,7 +34,12 @@ import ru.digitalpunk.lumi.tabs.TabSnapshots
 
 class LumiApplication : Application() {
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val engineHolder = lazy { BrowserEngine(this) }
+    private val engineHolder = lazy {
+        BrowserEngine(this).also {
+            it.localNetworkAsker = localNetworkAsks::ask
+            it.lnaErrorPage = { uri -> lnaErrorHtml(getString(R.string.lna_error_title), getString(R.string.lna_error_body), getString(R.string.lna_error_retry), uri) }
+        }
+    }
 
     /** Process scope: GeckoRuntime allows one instance, and rotation must not reload the page. */
     val engine by engineHolder
@@ -67,6 +76,16 @@ class LumiApplication : Application() {
 
     /** Files waiting for the ask sheet, and the permission requests of a "Download" tap. */
     val downloadAsks by lazy { DownloadAsks(this, engine, downloads, settings, appScope) }
+
+    /** Gecko's asks for the Android 17 local network permission (ADR 015). */
+    val localNetworkAsks by lazy { LocalNetworkAsks(this) }
+
+    /** Once per install: the local network denials GeckoView stored before Lumi asked become askable again (ADR 015). */
+    fun resetLnaDenialsOnce() {
+        appScope.launch {
+            if (!settings.lnaDenialsReset.first()) engine.resetLnaDenials { appScope.launch { settings.setLnaDenialsReset() } }
+        }
+    }
 
     /** Set by a download notification or a "Show" action: the Library opens on the Downloads tab. */
     val showDownloads = MutableStateFlow(false)

@@ -7,9 +7,12 @@ import java.io.InputStream
 /** A body fetched through Gecko and the URL it came from after redirects. */
 class FetchedBytes(val finalUrl: String, val body: ByteArray)
 
-/** Never cookies or credentials (ADR 014); a private tab's request also runs in Gecko's private context. */
+/**
+ * Never cookies or credentials (ADR 014) and no automatic redirect, so each hop's address is checked first (ADR 015); a
+ * private tab's request also runs in Gecko's private context.
+ */
 internal fun fetchFlags(private: Boolean): Int =
-    GeckoWebExecutor.FETCH_FLAGS_ANONYMOUS or (if (private) GeckoWebExecutor.FETCH_FLAGS_PRIVATE else GeckoWebExecutor.FETCH_FLAGS_NONE)
+    GeckoWebExecutor.FETCH_FLAGS_ANONYMOUS or GeckoWebExecutor.FETCH_FLAGS_NO_REDIRECTS or (if (private) GeckoWebExecutor.FETCH_FLAGS_PRIVATE else GeckoWebExecutor.FETCH_FLAGS_NONE)
 
 /**
  * Reads at most [max] bytes. Without [htmlHead] a body over [max] gives null; with it the body is cut at [max] and the read

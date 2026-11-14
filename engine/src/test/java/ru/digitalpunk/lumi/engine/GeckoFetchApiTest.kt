@@ -18,8 +18,9 @@ class GeckoFetchApiTest {
         assertEquals(GeckoResult::class.java, GeckoResult::class.java.getMethod("cancel").returnType)
     }
 
-    @Test fun iconsAndSuggestionsNeverSendCookiesAndAPrivateTabUsesThePrivateContext() {
-        assertEquals(GeckoWebExecutor.FETCH_FLAGS_ANONYMOUS, fetchFlags(private = false))
-        assertEquals(GeckoWebExecutor.FETCH_FLAGS_ANONYMOUS or GeckoWebExecutor.FETCH_FLAGS_PRIVATE, fetchFlags(private = true))
+    @Test fun iconsAndSuggestionsNeverSendCookiesFollowNoRedirectAndAPrivateTabUsesThePrivateContext() {
+        val own = GeckoWebExecutor.FETCH_FLAGS_ANONYMOUS or GeckoWebExecutor.FETCH_FLAGS_NO_REDIRECTS
+        assertEquals(own, fetchFlags(private = false))
+        assertEquals(own or GeckoWebExecutor.FETCH_FLAGS_PRIVATE, fetchFlags(private = true))
     }
 }

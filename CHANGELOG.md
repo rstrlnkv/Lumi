@@ -8,13 +8,19 @@ All notable changes to Lumi are written here. The format follows [Keep a Changel
 - A fresh Lumi starts with ten popular sites in Favorites (Google, YouTube, Wikipedia, Gmail,
   Amazon, Reddit, X, Instagram, GitHub and Netflix), so the start page is not empty. Delete the
   ones you do not want; they do not come back.
+- Sites now ask before they look for or connect to devices on your home network or on your phone.
+  You can allow or block each site.
+- Lumi asks Android for the local network permission when a site needs it.
+- A clear page when local network access is blocked.
 
 ### Changed
 - Favorites icons are larger (64 dp) and sharper (192 px), and use the site's touch icon or web app
   manifest icon. Icons saved before refresh once.
+- Site icons and search suggestions no longer reach devices on your own network.
 
 ### Fixed
 - Site icons and search suggestions now load with a VPN or proxy that gives fake addresses.
+- Sites you blocked from your local network before can ask again.
 
 ## [0.1.0-dev.1] - 2026-11-14
 

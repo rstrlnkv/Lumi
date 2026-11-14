@@ -111,6 +111,7 @@ import ru.digitalpunk.lumi.privacy.LocalAppColorScheme
 import ru.digitalpunk.lumi.privacy.LocalPrivateTab
 import ru.digitalpunk.lumi.privacy.PrivateGate
 import ru.digitalpunk.lumi.privacy.PrivateLockScreen
+import ru.digitalpunk.lumi.engine.LnaAnswer
 import ru.digitalpunk.lumi.privacy.SecureWindow
 import ru.digitalpunk.lumi.privacy.barScheme
 import ru.digitalpunk.lumi.privacy.needsSecureWindow
@@ -535,6 +536,7 @@ fun BrowserScreen(
         }
     }
     val offers by downloadAsks.offers.collectAsStateWithLifecycle()
+    val lnaPrompt by engine.lnaPrompt.collectAsStateWithLifecycle()
     val copiedText = stringResource(R.string.snackbar_link_copied)
     val imageCopiedText = stringResource(R.string.snackbar_image_address_copied)
     // The image items reach here with a LinkTarget made from the image's URL.
@@ -806,6 +808,15 @@ fun BrowserScreen(
         offers.firstOrNull()?.takeIf { !lockShown }?.let { offer ->
             val name = remember(offer) { downloads.fileName(offer.url, offer.suggestedName, offer.mimeType) }
             DownloadAskSheet(offer, name, onDownload = { downloadAsks.confirm(offer) }, onCancel = { downloadAsks.cancel(offer) })
+        }
+
+        // Nothing about a private site shows while the private tabs are locked: its request ends unanswered (ADR 015).
+        lnaPrompt?.let { prompt ->
+            if (prompt.key.private && tabsState.privateLocked) {
+                LaunchedEffect(prompt) { engine.answerLna(prompt.key, LnaAnswer.Dismiss) }
+            } else {
+                LnaSheet(prompt, Modifier.align(Alignment.BottomCenter).padding(bottom = with(density) { expandedPx.toDp() })) { engine.answerLna(prompt.key, it) }
+            }
         }
 
         if (showProtection) {

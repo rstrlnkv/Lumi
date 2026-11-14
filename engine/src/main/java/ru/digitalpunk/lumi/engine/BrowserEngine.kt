@@ -21,6 +21,7 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.mozilla.geckoview.ContentBlocking
@@ -31,6 +32,7 @@ import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoWebExecutor
 import org.mozilla.geckoview.WebRequest
+import org.mozilla.geckoview.WebRequestError
 import org.mozilla.geckoview.WebResponse
 import org.mozilla.geckoview.GeckoSession.PermissionDelegate.ContentPermission
 
@@ -95,6 +97,18 @@ class BrowserEngine(appContext: Context) {
     /** Receives the visits and titles of normal tabs; read at event time, so it may be set after tabs exist. */
     var historySink: HistorySink? = null
 
+    private val lnaQueue = LnaQueue<GeckoResult<Int>>()
+    private val mutableLnaPrompt = MutableStateFlow<LnaPrompt?>(null)
+
+    /** The local network request to ask about now (ADR 015); answer it with [answerLna]. Requests wait until then. */
+    val lnaPrompt: StateFlow<LnaPrompt?> = mutableLnaPrompt
+
+    /** Asks Android for [ACCESS_LOCAL_NETWORK] and answers true if granted; null (no activity) refuses. Set by the app. */
+    var localNetworkAsker: ((permissions: List<String>, answer: (Boolean) -> Unit) -> Unit)? = null
+
+    /** The page shown for a load Gecko refused for local network access, from its URL; null keeps Gecko's page. */
+    var lnaErrorPage: ((uri: String) -> String)? = null
+
     /**
      * While the tab grid covers the page, no automatic snapshot is taken (the page is not on screen) and the page is hidden from accessibility services.
      * Closing the grid makes the group of the tab on screen the current group again, so a new tab opens next to it.
@@ -124,6 +138,9 @@ class BrowserEngine(appContext: Context) {
                     .strictSocialTrackingProtection(true)
                     .build(),
             )
+            // Gecko's defaults already, set here so an upgrade cannot turn local network access off unnoticed (ADR 015).
+            .setLnaEnabled(true)
+            .setLnaBlocking(true)
             .build(),
     )
 
@@ -207,6 +224,7 @@ class BrowserEngine(appContext: Context) {
         }
         session.progressDelegate = object : GeckoSession.ProgressDelegate {
             override fun onPageStart(session: GeckoSession, url: String) {
+                cancelLna(tab.id)
                 tab.blocked.reset()
                 tab.pageChanged { pageStarted(url) }
             }
@@ -250,6 +268,27 @@ class BrowserEngine(appContext: Context) {
             override fun onCanGoBack(session: GeckoSession, canGoBack: Boolean) = tab.pageChanged { canGoBackChanged(canGoBack) }
 
             override fun onCanGoForward(session: GeckoSession, canGoForward: Boolean) = tab.pageChanged { canGoForwardChanged(canGoForward) }
+
+            override fun onLoadError(session: GeckoSession, uri: String?, error: WebRequestError): GeckoResult<String>? {
+                if (error.code != WebRequestError.ERROR_LOCAL_NETWORK_ACCESS_DENIED) return null
+                return lnaErrorPage?.invoke(uri.orEmpty())?.let { GeckoResult.fromValue(htmlDataUrl(it)) }
+            }
+        }
+        session.permissionDelegate = object : GeckoSession.PermissionDelegate {
+            // Null for every other type: Gecko then answers PROMPT, as the default method does, and stores nothing.
+            override fun onContentPermissionRequest(session: GeckoSession, perm: ContentPermission): GeckoResult<Int>? {
+                val kind = lnaKind(perm.permission) ?: return null
+                val result = GeckoResult<Int>()
+                lnaQueue.offer(tab.id, lnaPrompt(perm.uri, perm.thirdPartyOrigin, kind, perm.privateMode), result)
+                mutableLnaPrompt.value = lnaQueue.head
+                return result
+            }
+
+            override fun onAndroidPermissionsRequest(session: GeckoSession, permissions: Array<String>?, callback: GeckoSession.PermissionDelegate.Callback) {
+                val ask = localNetworkAsker
+                if (permissions == null || !asksOnlyLocalNetwork(permissions) || ask == null) return callback.reject()
+                ask(permissions.toList()) { granted -> if (granted) callback.grant() else callback.reject() }
+            }
         }
         session.contentBlockingDelegate = object : ContentBlocking.Delegate {
             override fun onContentBlocked(session: GeckoSession, event: ContentBlocking.BlockEvent) {
@@ -298,6 +337,7 @@ class BrowserEngine(appContext: Context) {
     }
 
     private fun evict(tab: Tab) {
+        cancelLna(tab.id)
         tab.session?.close()
         tab.session = null
         tab.trackingPermission = null
@@ -383,6 +423,7 @@ class BrowserEngine(appContext: Context) {
         if (ids.isEmpty()) return
         if (selected?.isPrivate == true) view?.releaseSession()
         ids.forEach { id ->
+            cancelLna(id)
             records.remove(id)?.session?.close()
             live.remove(id)
         }
@@ -403,6 +444,7 @@ class BrowserEngine(appContext: Context) {
     fun closeTab(id: TabId): Boolean {
         val wasSelected = id == tabs.value.selectedId
         val tab = records.remove(id) ?: return false
+        cancelLna(id)
         if (wasSelected) view?.releaseSession()
         tab.session?.close()
         live.remove(id)
@@ -559,37 +601,78 @@ class BrowserEngine(appContext: Context) {
 
     /**
      * A GET through Gecko's network stack for site icons and suggestions (ADR 014): the VPN, proxy and DNS apply as for a
-     * page, never cookies or credentials, the private context when [private]. At most [maxBytes] ([htmlHead]: cut after the
-     * head) within 10 s; null for anything but https, a non-2xx answer, an oversized body or any failure.
+     * page, never cookies or credentials, the private context when [private]. Each hop's host must resolve, through Gecko,
+     * to public addresses only, before the fetch and again once the body is read, and redirects are followed by hand, at most [MAX_REDIRECTS] (ADR 015). At most [maxBytes]
+     * ([htmlHead]: cut after the head) within 10 s; null for anything but https, a non-2xx answer, an oversized body or any failure.
      */
     suspend fun fetchBytes(url: String, accept: String, acceptLanguage: String?, maxBytes: Int, htmlHead: Boolean, private: Boolean): FetchedBytes? {
-        if (!url.startsWith("https://", ignoreCase = true)) return null
-        val request = WebRequest.Builder(url).header("Accept", accept)
-            .apply { if (acceptLanguage != null) header("Accept-Language", acceptLanguage) }.build()
+        if (fetchableHost(url) == null) return null
         return try {
             withTimeoutOrNull(FETCH_TIMEOUT_MILLIS) {
-                val response = withContext(Dispatchers.Main.immediate) {
-                    suspendCancellableCoroutine { c ->
-                        val result = executor.fetch(request, fetchFlags(private))
-                        c.invokeOnCancellation { runCatching { result.cancel() } }
-                        result.accept({ c.resume(it!!) }, { c.resumeWithException(it ?: IOException("Fetch failed")) })
+                var current = url
+                suspend fun refused(host: String) = refuseFetch(withContext(Dispatchers.Main.immediate) { await(executor.resolve(host)) }.map { it.address })
+                repeat(MAX_REDIRECTS + 1) {
+                    // Gecko resolves the name again for the fetch: a hostile DNS server can still rebind in between.
+                    val host = fetchableHost(current) ?: return@withTimeoutOrNull null
+                    if (refused(host)) return@withTimeoutOrNull null
+                    val request = WebRequest.Builder(current).header("Accept", accept)
+                        .apply { if (acceptLanguage != null) header("Accept-Language", acceptLanguage) }.build()
+                    val response = withContext(Dispatchers.Main.immediate) { await(executor.fetch(request, fetchFlags(private))) }
+                    val body = response.body
+                    try {
+                        val header = { name: String -> response.headers.entries.firstOrNull { it.key.equals(name, ignoreCase = true) }?.value?.trim() }
+                        if (response.statusCode in REDIRECT_CODES) {
+                            current = nextHop(current, header("Location")) ?: return@withTimeoutOrNull null
+                            return@repeat
+                        }
+                        val length = header("Content-Length")?.toLongOrNull()
+                        if (response.statusCode !in 200..299 || body == null || (!htmlHead && length != null && length > maxBytes)) return@withTimeoutOrNull null
+                        // Interrupted on the deadline; the stream is closed below either way, so a stalled read cannot outlive it.
+                        val bytes = runInterruptible(Dispatchers.IO) { readCapped(body, maxBytes, htmlHead) } ?: return@withTimeoutOrNull null
+                        // Narrows the rebinding gap, does not close it: the body is kept only if the name is still public now.
+                        return@withTimeoutOrNull if (refused(host)) null else FetchedBytes(current, bytes)
+                    } finally {
+                        runCatching { body?.close() }
                     }
                 }
-                val body = response.body
-                try {
-                    val length = response.headers.entries.firstOrNull { it.key.equals("Content-Length", ignoreCase = true) }?.value?.trim()?.toLongOrNull()
-                    if (response.statusCode !in 200..299 || body == null || (!htmlHead && length != null && length > maxBytes)) return@withTimeoutOrNull null
-                    // Interrupted on the deadline; the stream is closed below either way, so a stalled read cannot outlive it.
-                    runInterruptible(Dispatchers.IO) { readCapped(body, maxBytes, htmlHead) }?.let { FetchedBytes(response.uri, it) }
-                } finally {
-                    runCatching { body?.close() }
-                }
+                null
             }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
             null
         }
+    }
+
+    private suspend fun <T> await(result: GeckoResult<T>): T = suspendCancellableCoroutine { c ->
+        c.invokeOnCancellation { runCatching { result.cancel() } }
+        result.accept({ c.resume(it!!) }, { c.resumeWithException(it ?: IOException("Fetch failed")) })
+    }
+
+    /** Answers every request merged under [key]; Block is stored by Gecko (for a private tab, until its session ends). */
+    fun answerLna(key: LnaKey, answer: LnaAnswer) {
+        val value = lnaValue(answer)
+        lnaQueue.answer(key).forEach { it.complete(value) }
+        mutableLnaPrompt.value = lnaQueue.head
+    }
+
+    /** The tab's page went away: its requests end unanswered (PROMPT, nothing stored). */
+    private fun cancelLna(tab: TabId) {
+        lnaQueue.cancelTab(tab).forEach { it.complete(ContentPermission.VALUE_PROMPT) }
+        mutableLnaPrompt.value = lnaQueue.head
+    }
+
+    /**
+     * Before Lumi had a permission delegate, GeckoView denied every local network request and stored it per site: those
+     * denials become PROMPT so the sites can ask (ADR 015). [done] runs only after the list was read.
+     */
+    fun resetLnaDenials(done: () -> Unit) {
+        val storage = runtime.storageController
+        storage.allPermissions.accept({ list ->
+            list.orEmpty().filter { isStoredLnaDenial(it.permission, it.value, it.privateMode) }
+                .forEach { storage.setPermission(it, ContentPermission.VALUE_PROMPT) }
+            done()
+        }, {})
     }
 
     /** [level] is a `ComponentCallbacks2.TRIM_MEMORY_*` value. The cap returns to normal on the next tab switch. */

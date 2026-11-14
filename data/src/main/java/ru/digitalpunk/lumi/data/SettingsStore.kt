@@ -125,6 +125,13 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         store.edit { it[FAVORITES_SEEDED] = true }
     }
 
+    /** GeckoView's stored local network denials from before Lumi asked were reset once (ADR 015); false for another type. */
+    val lnaDenialsReset: Flow<Boolean> = store.data.map { it.read(LNA_DENIALS_RESET) ?: false }
+
+    suspend fun setLnaDenialsReset() {
+        store.edit { it[LNA_DENIALS_RESET] = true }
+    }
+
     private companion object {
         val ADDRESS_BAR_STYLE = stringPreferencesKey("address_bar_style")
         val PROTECTION_OFF_HOSTS = stringSetPreferencesKey("protection_off_hosts")
@@ -138,6 +145,7 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         val DEFAULT_CARD_DISMISSED = booleanPreferencesKey("default_card_dismissed")
         val ROLE_REFUSALS = intPreferencesKey("default_role_refusals")
         val FAVORITES_SEEDED = booleanPreferencesKey("favorites_seeded")
+        val LNA_DENIALS_RESET = booleanPreferencesKey("lna_denials_reset")
     }
 }
 

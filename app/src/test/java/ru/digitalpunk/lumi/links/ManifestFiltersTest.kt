@@ -38,6 +38,11 @@ class ManifestFiltersTest {
         assertTrue(filters.none { "android.intent.action.SEND" in it.names("action") })
     }
 
+    @Test fun lumiDeclaresTheAndroid17LocalNetworkPermission() {
+        val manifest = activity.ownerDocument.documentElement
+        assertTrue("android.permission.ACCESS_LOCAL_NETWORK" in manifest.names("uses-permission"))
+    }
+
     private companion object {
         const val ANDROID = "http://schemas.android.com/apk/res/android"
     }

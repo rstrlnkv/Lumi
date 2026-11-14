@@ -321,4 +321,15 @@
     <string name="cd_open_author_page">Открыть профиль на GitHub</string>
     <string name="cd_expand">Развернуть</string>
     <string name="cd_collapse">Свернуть</string>
+    <!-- Local network access (ADR 015): a site asks to reach the LAN or this device. -->
+    <string name="lna_title">%1$s хочет</string>
+    <string name="lna_network">Искать любые устройства в вашей локальной сети и подключаться к ним</string>
+    <string name="lna_device">Получать доступ к другим приложениям и службам на этом устройстве</string>
+    <string name="lna_via">через %1$s</string>
+    <string name="lna_block">Блокировать</string>
+    <string name="lna_allow">Разрешить</string>
+    <string name="cd_lna_sheet">Запрос доступа к локальной сети</string>
+    <string name="lna_error_title">Доступ к локальной сети заблокирован</string>
+    <string name="lna_error_body">Страница пыталась подключиться к устройству в вашей локальной сети. Разрешите это в запросе или включите для Lumi доступ к устройствам поблизости в настройках Android.</string>
+    <string name="lna_error_retry">Повторить</string>
 </resources>
