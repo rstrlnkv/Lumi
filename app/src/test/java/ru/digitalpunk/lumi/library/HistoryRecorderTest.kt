@@ -25,6 +25,7 @@ private class VisitsDao : LibraryDao {
     override suspend fun insertAll(nodes: List<BookmarkNodeEntity>) = error("unused")
     override suspend fun update(node: BookmarkNodeEntity) = error("unused")
     override suspend fun deleteNodes(ids: List<String>) = error("unused")
+    override suspend fun childCount(parent: String) = nodes.count { it.parentId == parent }
     override suspend fun nextPosition(parent: String) = 0
     override suspend fun insertVisit(entry: HistoryEntity): Long { visits = visits + entry.copy(id = next++); return next - 1 }
     override suspend fun titleLatest(url: String, title: String) {

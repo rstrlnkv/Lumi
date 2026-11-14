@@ -37,6 +37,17 @@ interface LibraryDao {
         insertAll(listOf(node.copy(position = nextPosition(node.parentId))))
     }
 
+    @Query("SELECT COUNT(*) FROM bookmark_node WHERE parentId = :parent")
+    suspend fun childCount(parent: String): Int
+
+    /** Counts Favorites and inserts [rows] in one transaction when [seedAction] says so; returns what it decided. */
+    @Transaction
+    suspend fun seedFavorites(marked: Boolean, rows: List<BookmarkNodeEntity>): SeedAction {
+        val action = seedAction(marked, childCount(LibraryIds.FAVORITES))
+        if (action == SeedAction.Seed) rows.forEach { insertIfAbsent(it) }
+        return action
+    }
+
     @Insert
     suspend fun insertVisit(entry: HistoryEntity): Long
 

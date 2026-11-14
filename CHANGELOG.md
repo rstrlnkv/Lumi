@@ -4,6 +4,11 @@ All notable changes to Lumi are written here. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+### Added
+- A fresh Lumi starts with ten popular sites in Favorites (Google, YouTube, Wikipedia, Gmail,
+  Amazon, Reddit, X, Instagram, GitHub and Netflix), so the start page is not empty. Delete the
+  ones you do not want; they do not come back.
+
 ## [0.1.0-dev.1] - 2026-11-14
 
 ### Added

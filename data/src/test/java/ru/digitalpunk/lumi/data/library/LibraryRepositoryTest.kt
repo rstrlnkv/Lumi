@@ -38,6 +38,7 @@ internal class FakeLibraryDao : LibraryDao {
     override suspend fun deleteNodes(ids: List<String>) {
         nodeRows.value = nodeRows.value.filterNot { it.id in ids }
     }
+    override suspend fun childCount(parent: String) = nodeRows.value.count { it.parentId == parent }
     override suspend fun nextPosition(parent: String) = (nodeRows.value.filter { it.parentId == parent }.maxOfOrNull { it.position } ?: -1) + 1
 
     override suspend fun insertVisit(entry: HistoryEntity): Long {

@@ -118,6 +118,13 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         store.edit { it[ROLE_REFUSALS] = count.coerceIn(0, MAX_ROLE_REFUSALS) }
     }
 
+    /** Favorites got its first-run sites (or already had items); false for a value of another type. */
+    val favoritesSeeded: Flow<Boolean> = store.data.map { it.read(FAVORITES_SEEDED) ?: false }
+
+    suspend fun setFavoritesSeeded() {
+        store.edit { it[FAVORITES_SEEDED] = true }
+    }
+
     private companion object {
         val ADDRESS_BAR_STYLE = stringPreferencesKey("address_bar_style")
         val PROTECTION_OFF_HOSTS = stringSetPreferencesKey("protection_off_hosts")
@@ -130,6 +137,7 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         val LAUNCH_COUNT = intPreferencesKey("launch_count")
         val DEFAULT_CARD_DISMISSED = booleanPreferencesKey("default_card_dismissed")
         val ROLE_REFUSALS = intPreferencesKey("default_role_refusals")
+        val FAVORITES_SEEDED = booleanPreferencesKey("favorites_seeded")
     }
 }
 

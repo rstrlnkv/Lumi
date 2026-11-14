@@ -2,13 +2,18 @@ package ru.digitalpunk.lumi.data.library
 
 import android.content.Context
 import android.util.Log
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import ru.digitalpunk.lumi.data.SettingsStore
 import ru.digitalpunk.lumi.data.icons.IconRetention
 import ru.digitalpunk.lumi.data.icons.bookmarkIconHosts
 import ru.digitalpunk.lumi.data.icons.orphanedIconHosts
@@ -24,6 +29,7 @@ import java.util.UUID
  * Bookmarks and history in `tabs.db`. Writes are serialised; a failure is logged, and a call that returns a value
  * reports it as false or null. Titles are cut to [MAX_TITLE_LENGTH]; a bookmark URL over [MAX_URL_LENGTH] is refused.
  * A host's site icon goes with its last bookmark (delete or URL edit), and "All time" clears the icons of hosts with none.
+ * With a [seedMarker], the first [open] fills an empty Favorites with [FAVORITES_SEED] once (see [seedAction]).
  */
 class LibraryRepository(
     private val dao: LibraryDao,
@@ -31,18 +37,30 @@ class LibraryRepository(
     private val now: () -> Long = System::currentTimeMillis,
     private val newId: () -> String = { UUID.randomUUID().toString() },
     private val icons: IconRetention? = null,
+    private val seedMarker: SeedMarker? = null,
 ) {
     private val mutex = Mutex()
+    private val ready = CompletableDeferred<Unit>()
 
-    val nodes: Flow<List<BookmarkNodeEntity>> = dao.observeNodes().catch { Log.e(TAG, "Reading bookmarks failed", it) }
+    /** Waits for [open], so the start page never reads Favorites before the seed. */
+    val nodes: Flow<List<BookmarkNodeEntity>> = flow { ready.await(); emitAll(dao.observeNodes()) }
+        .catch { Log.e(TAG, "Reading bookmarks failed", it) }
     val history: Flow<List<HistoryEntity>> = dao.observeHistory(HISTORY_LIMIT).catch { Log.e(TAG, "Reading history failed", it) }
 
-    /** Seeds Favorites if it is missing and prunes visits older than [HISTORY_KEEP_DAYS]. */
+    /** Creates Favorites if it is missing, seeds it once, and prunes visits older than [HISTORY_KEEP_DAYS]. */
     suspend fun open() {
-        write("Opening the library", Unit) {
-            dao.insertIfAbsent(BookmarkNodeEntity(FAVORITES, ROOT, BookmarkNodeEntity.FOLDER, "", null, 0, 0))
-            dao.pruneVisits(now() - HISTORY_KEEP_DAYS * DAY_MILLIS)
+        try {
+            write("Opening the library", Unit) {
+                dao.insertIfAbsent(BookmarkNodeEntity(FAVORITES, ROOT, BookmarkNodeEntity.FOLDER, "", null, 0, 0))
+            }
+            write("Seeding Favorites", Unit) {
+                val marker = seedMarker ?: return@write
+                if (dao.seedFavorites(marker.isSet(), seedNodes(now())) != SeedAction.Nothing) marker.set()
+            }
+        } finally {
+            ready.complete(Unit)
         }
+        write("Pruning history", Unit) { dao.pruneVisits(now() - HISTORY_KEEP_DAYS * DAY_MILLIS) }
     }
 
     /** The new bookmark's id, at the end of [parent]; null for an empty URL. A blank title becomes the host. */
@@ -201,6 +219,15 @@ class LibraryRepository(
         private const val CHUNK = 500
         private const val DAY_MILLIS = 24L * 3_600_000
 
-        fun create(context: Context, icons: IconRetention? = null) = LibraryRepository(TabDatabase.get(context).libraryDao(), icons = icons)
+        fun create(context: Context, icons: IconRetention? = null, settings: SettingsStore? = null) = LibraryRepository(
+            TabDatabase.get(context).libraryDao(),
+            icons = icons,
+            seedMarker = settings?.let {
+                object : SeedMarker {
+                    override suspend fun isSet() = it.favoritesSeeded.first()
+                    override suspend fun set() = it.setFavoritesSeeded()
+                }
+            },
+        )
     }
 }
