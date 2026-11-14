@@ -140,6 +140,7 @@ private fun AboutScreen(onBack: () -> Unit, onOpenUrl: (String) -> Unit, onPage:
                     Text(
                         stringResource(R.string.about_dev_badge),
                         fontSize = 12.sp,
+                        lineHeight = 16.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.padding(top = badgeTop).background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)

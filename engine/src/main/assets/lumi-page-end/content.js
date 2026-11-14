@@ -1,6 +1,6 @@
 // Sets --lumi-page-end on <html> so spacer.css ends a scrollable page with a block as tall as Lumi's strip.
-// It also tells the app whether the page has an opaque bar stuck to the screen bottom (so the app draws a solid band
-// under its own bar; a see-through one counts as none) and, as "#rrggbb", that bar's colour and a colour for the status bar (the page's theme-color, else a header
+// It also tells the app whether the page has a painted bar stuck to the screen bottom (so the app draws a solid band
+// under its own bar; a translucent one is blended over the page behind it, only a fully clear one counts as none) and, as "#rrggbb", that bar's colour and a colour for the status bar (the page's theme-color, else a header
 // stuck to the top). It also sends the page's origin and its icon links (https only: URL, kind, size, type), its manifest link
 // and theme-color, which the app takes for bookmarked sites in normal tabs only. It reads only layout, style, the
 // theme-color meta and <link> tags, and sends nothing else anywhere.
@@ -94,10 +94,10 @@
     return "#" + [c.r, c.g, c.b].map(v => Math.round(v).toString(16).padStart(2, "0")).join("");
   }
 
-  // The colour [el] shows: its background blended over its ancestors' up to the first opaque one, looking no higher
-  // than [last] (default: up to <html>). Null when an image or gradient is in the way or a colour cannot be read
-  // (opaque, colour unknown); false when no layer on the way is opaque (see-through).
-  function surfaceColor(el, last) {
+  // The colour [el] shows: its background blended over its ancestors' up to the first opaque one, and over the canvas
+  // when none is: white, unless the page sets a color-scheme (the canvas may then be dark). Null when an image or
+  // gradient is in the way or a colour cannot be read (painted, colour unknown).
+  function surfaceColor(el) {
     const layers = [];
     for (let i = 0; el && i < 32; el = el.parentElement, i++) {
       const s = getComputedStyle(el);
@@ -105,10 +105,13 @@
       const c = parseRgb(s.backgroundColor);
       if (!c) return null;
       if (c.a > 0) layers.push(c);
-      if (c.a >= 0.999 || el === last) break;
+      if (c.a >= 0.999) break;
+    }
+    if (!layers.length || layers[layers.length - 1].a < 0.999) {
+      if (!/^(normal)?$/.test(getComputedStyle(root).colorScheme || "")) return null;
+      layers.push({ r: 255, g: 255, b: 255, a: 1 });
     }
     const color = layers.pop();
-    if (!color || color.a < 0.999) return false;
     for (let l; (l = layers.pop());) {
       for (const k of ["r", "g", "b"]) color[k] = l[k] * l.a + color[k] * (1 - l.a);
     }
@@ -141,10 +144,10 @@
   }
 
   function snapshot() {
-    // The bar is judged on its own layers only: a see-through bar over a white page is no bar, not a white one.
+    // A translucent bar shows the page through it: its colour is blended over the page behind it.
     const bar = stuck(false);
-    const bottom = bar && surfaceColor(bar.paint, bar.box);
-    const msg = { bottomBar: !!bar && bottom !== false };
+    const bottom = bar && surfaceColor(bar.paint);
+    const msg = { bottomBar: !!bar };
     if (bottom) msg.bottomColor = bottom;
     let status = themeColor();
     if (!status) { const header = stuck(true); status = header && surfaceColor(header.paint); }

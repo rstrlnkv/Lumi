@@ -56,19 +56,28 @@ class PageEndSiteColorTest {
     @Test fun aClearBarWithAnOpaqueChildOnTheHitPathTakesTheChildsColour() =
         assertEquals("true b#ff0000", onLoad(""""nav":${nav(""","bg":"$clear","childBg":"rgb(255, 0, 0)"""")}"""))
 
-    // Owner's rule: the bar is judged on its own layers (the hit element up to the stuck box), never on the page behind.
-    // A bar with no opaque layer of its own is reported as no bar, so the Compact bar stays as on a page without one.
-    @Test fun aTranslucentBarOverAnOpaquePageIsNoBar() {
-        assertEquals("false", onLoad(""""nav":${nav(""","bg":"rgba(0, 0, 0, 0.5)"""")},"bodyBg":"$white""""))
-        assertEquals("false", onLoad(""""nav":${nav(""","bg":"rgba(0, 0, 0, 0.5)"""")},"htmlBg":"$white""""))
-        assertEquals("false", onLoad(""""nav":${nav(""","bg":"rgba(0 0 0 / 0%)","childBg":"rgb(255 0 0 / 50%)"""")},"bodyBg":"$white""""))
+    // Owner's rule (2026-11-14): a translucent bar is still a bar. Its colour is what the eye sees over a plain page:
+    // its layers blended over the page behind it, up to the first opaque layer.
+    @Test fun aTranslucentBarIsBlendedOverThePageBehindIt() {
+        assertEquals("true b#808080", onLoad(""""nav":${nav(""","bg":"rgba(0, 0, 0, 0.5)"""")},"bodyBg":"$white""""))
+        assertEquals("true b#808080", onLoad(""""nav":${nav(""","bg":"rgba(0, 0, 0, 0.5)"""")},"htmlBg":"$white""""))
+        assertEquals("true b#ff8080", onLoad(""""nav":${nav(""","bg":"rgba(0 0 0 / 0%)","childBg":"rgb(255 0 0 / 50%)"""")},"bodyBg":"$white""""))
+        assertEquals("true b#000080", onLoad(""""nav":${nav(""","bg":"rgba(0, 0, 255, 0.5)"""")},"bodyBg":"rgb(0, 0, 0)""""))
     }
 
     @Test fun aClearBarOverAWhitePageIsNoBar() =
         assertEquals("false", onLoad(""""nav":${nav(""","bg":"$clear"""")},"bodyBg":"$white","htmlBg":"$white""""))
 
-    @Test fun aBarWithNothingOpaqueBelowItIsNoBar() =
-        assertEquals("false", onLoad(""""nav":${nav(""","bg":"rgba(0, 0, 0, 0.5)"""")}"""))
+    // A page with no background of its own shows the canvas: white unless the page sets a color-scheme.
+    @Test fun aTranslucentBarOverAPageWithoutABackgroundIsBlendedOverWhite() =
+        assertEquals("true b#808080", onLoad(""""nav":${nav(""","bg":"rgba(0, 0, 0, 0.5)"""")}"""))
+
+    // With a color-scheme the canvas may be dark, and its colour cannot be read: a bar, colour unknown.
+    @Test fun aTranslucentBarOverACanvasOfUnknownColourIsABarWithoutAColour() {
+        assertEquals("true", onLoad(""""nav":${nav(""","bg":"rgba(0, 0, 0, 0.5)"""")},"htmlScheme":"dark""""))
+        assertEquals("true", onLoad(""""nav":${nav(""","bg":"rgba(0, 0, 0, 0.5)"""")},"htmlScheme":"light dark""""))
+        assertEquals("true b#808080", onLoad(""""nav":${nav(""","bg":"rgba(0, 0, 0, 0.5)"""")},"htmlScheme":"normal""""))
+    }
 
     @Test fun anOpaqueBarIsNotTintedByAPageColourBehindIt() =
         assertEquals("true b#0b57d0", onLoad(""""nav":${nav()},"bodyBg":"rgb(255, 0, 0)""""))
@@ -192,9 +201,9 @@ class PageEndSiteColorTest {
         assertEquals("true b#404040", onLoad(""""nav":${nav(""","bg":"$white","childBg":"rgba(0, 0, 0, 0.75)"""")}"""))
     }
 
-    // Two translucent layers of the bar itself stay see-through even over an opaque page.
-    @Test fun twoTranslucentLayersOverAnOpaquePageAreNoBar() =
-        assertEquals("false", onLoad(
+    // Two translucent layers are blended in order: black at 0.25 over white, then red at 0.5 over that.
+    @Test fun twoTranslucentLayersAreBlendedOverAnOpaquePage() =
+        assertEquals("true b#df6060", onLoad(
             """"nav":${nav(""","bg":"rgba(0, 0, 0, 0.25)","childBg":"rgba(255, 0, 0, 0.5)"""")},"bodyBg":"$white"""",
         ))
 

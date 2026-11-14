@@ -46,6 +46,9 @@
     <string name="action_create">Создать</string>
     <string name="action_delete">Удалить</string>
     <string name="action_cancel">Отмена</string>
+    <string name="app_link_title">Открыть в другом приложении?</string>
+    <string name="app_link_open">Открыть</string>
+    <string name="app_link_no_app">Нет приложения, которое откроет эту ссылку</string>
     <string name="group_delete_body">Группа «%1$s» и её вкладки закроются. Это нельзя отменить.</string>
     <string name="action_move_to_group">Переместить в группу</string>
     <string name="action_move_to_tabs">Переместить во «Вкладки»</string>

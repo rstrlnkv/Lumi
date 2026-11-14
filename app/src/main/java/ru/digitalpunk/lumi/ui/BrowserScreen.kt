@@ -101,7 +101,11 @@ import ru.digitalpunk.lumi.data.search.SearchEngine
 import ru.digitalpunk.lumi.suggest.LocalIndex
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import ru.digitalpunk.lumi.engine.AppLink
 import ru.digitalpunk.lumi.engine.BrowserEngine
+import ru.digitalpunk.lumi.links.appIntent
+import ru.digitalpunk.lumi.links.fallbackUrl
+import ru.digitalpunk.lumi.links.startApp
 import ru.digitalpunk.lumi.engine.ContextTarget
 import ru.digitalpunk.lumi.engine.LinkTarget
 import ru.digitalpunk.lumi.engine.PRIVATE_GROUP
@@ -457,6 +461,22 @@ fun BrowserScreen(
     val shownPress = press?.takeIf { it.tab == tabsState.selectedId && !coverOpen && !lockShown }
     LaunchedEffect(shownPress == null) { if (shownPress == null) press = null }
 
+    // A page that opens another app (a bank, the dialer): asked first, only on the tab on screen; plain remember keeps
+    // a private tab's link out of the saved state.
+    var appLink by remember { mutableStateOf<AppLink?>(null) }
+    LaunchedEffect(engine) { engine.appLinks.collect { appLink = it } }
+    val shownAppLink = appLink?.takeIf { it.tab == tabsState.selectedId && !coverOpen && !lockShown }
+    LaunchedEffect(shownAppLink == null) { if (shownAppLink == null) appLink = null }
+    val noAppText = stringResource(R.string.app_link_no_app)
+    val openAppLink = { link: AppLink ->
+        appLink = null
+        val intent = appIntent(link.url, context.packageName)
+        if (intent == null || !context.startApp(intent)) {
+            val fallback = intent?.fallbackUrl()
+            if (fallback != null) engine.load(fallback) else scope.launch { snackbar.showSnackbar(noAppText) }
+        }
+    }
+
     // Links and web searches from other apps (M7d): taken only now that the tabs are restored, each in a new normal tab.
     val linkOpenedText = stringResource(R.string.link_opened_normal_tab)
     val wasPrivate by rememberUpdatedState(selectedPrivate || tabsState.privateResume)
@@ -803,6 +823,7 @@ fun BrowserScreen(
         if (lockShown) PrivateLockScreen(onUnlock = { gate.requestUnlock() })
 
         shownPress?.let { target -> LinkSheet(target, { onContextAction(target, it) }, onDismiss = { press = null }) }
+        shownAppLink?.let { link -> AppLinkDialog(link.url, onOpen = { openAppLink(link) }, onDismiss = { appLink = null }) }
 
         // A private file is never asked about over the private lock screen.
         offers.firstOrNull()?.takeIf { !lockShown }?.let { offer ->

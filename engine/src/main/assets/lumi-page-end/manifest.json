@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Lumi page end",
-  "version": "1.8",
+  "version": "1.9",
   "description": "Adds a block the height of Lumi's bottom strip at the end of every page that scrolls.",
   "browser_specific_settings": { "gecko": { "id": "page-end@lumi.digitalpunk.ru" } },
   "permissions": ["geckoViewAddons", "nativeMessaging", "nativeMessagingFromContent", "storage"],
