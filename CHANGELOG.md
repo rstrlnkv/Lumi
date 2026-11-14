@@ -21,12 +21,22 @@ All notable changes to Lumi are written here. The format follows [Keep a Changel
 - Once a day Lumi checks GitHub for a newer build and shows a notification; a tap opens the release.
   “Check for updates” and “Update channel” (Stable, Beta, DEV) are in Settings → Updates.
 - About Lumi shows the update channel, when updates were last checked, and a “Check now” button.
+- Settings are redesigned into categories: Appearance, Privacy, Sites and more. Appearance has Theme (System, Light,
+  Dark, in Lumi's own colours), Wallpaper colours (off gives a monochrome palette) and the Address bar style.
+- Settings → Privacy → Delete browsing data lets you choose what to delete: History, Cookies and site data, Cache,
+  and Close all tabs. Private tabs stay.
+- Settings → Sites: “Site data” lists the sites from your history so you can delete their data, “Sites without
+  tracker protection” lists your exceptions, and “Local network access” shows and changes your answers.
+- The shield sheet has “Delete data of this site”.
+- “Downloads” in the More menu opens your downloads.
+- Drag a tile on the start page to reorder your Favorites.
 
 ### Changed
 - Favorites icons are larger (64 dp) and sharper (192 px), and use the site's touch icon or web app
   manifest icon. Icons saved before refresh once.
 - Site icons and search suggestions no longer reach devices on your own network.
 - The version line reads “0.1.0 DEV (Build N)”: the version, the channel and the build number.
+- Menus are redesigned as rounded Material 3 groups.
 
 ### Fixed
 - Site icons and search suggestions now load with a VPN or proxy that gives fake addresses.
@@ -35,6 +45,10 @@ All notable changes to Lumi are written here. The format follows [Keep a Changel
 - Links that open another app, such as a bank's payment button or a phone number, work again: Lumi asks
   before it opens the app.
 - The DEV badge on About Lumi has the size and place from the design.
+- Missing and tiny site icons now show correctly for sites such as Google, YouTube, Amazon, Netflix and Instagram.
+- A bottom bar that a site paints with its page decoration, as on netflix.com, now colours the strip under the
+  Compact bar, and a new strip appears in the site's colour at once, without a white first frame.
+- Icons on the bars are correct again after you change the theme.
 
 ## [0.1.0-dev.1] - 2026-11-14
 
