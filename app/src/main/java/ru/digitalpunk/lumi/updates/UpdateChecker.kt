@@ -1,11 +1,11 @@
 package ru.digitalpunk.lumi.updates
 
-import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import ru.digitalpunk.lumi.BuildConfig
 import ru.digitalpunk.lumi.about.Channel
+import ru.digitalpunk.lumi.about.installedChannel
 import ru.digitalpunk.lumi.data.SettingsStore
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -42,9 +42,6 @@ fun shouldNotify(result: CheckResult, notifiedTag: String?): Release? =
 
 /** Asks GitHub for a build newer than this one in the chosen channel; the daily job and "Check now" share it. */
 class UpdateChecker(private val settings: SettingsStore, private val notifier: UpdateNotifier) {
-    /** The installed build's channel, the default choice in Settings. */
-    val installedChannel: Channel = Channel.of(BuildConfig.CHANNEL)
-
     suspend fun check(): CheckResult = withContext(Dispatchers.IO) {
         val installed = installedTag(BuildConfig.VERSION_NAME, installedChannel, BuildConfig.VERSION_CODE.toLong())
             ?: return@withContext CheckResult.Failed

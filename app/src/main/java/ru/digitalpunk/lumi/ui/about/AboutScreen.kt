@@ -71,9 +71,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.pm.PackageInfoCompat
 import kotlinx.coroutines.launch
 import ru.digitalpunk.lumi.R
-import ru.digitalpunk.lumi.BuildConfig
 import ru.digitalpunk.lumi.about.AppVersion
 import ru.digitalpunk.lumi.about.Channel
+import ru.digitalpunk.lumi.about.installedChannel
 import ru.digitalpunk.lumi.about.showCopiedSnackbar
 
 private const val AUTHOR_URL = "https://github.com/rstrlnkv"
@@ -84,7 +84,7 @@ fun rememberAppVersion(): AppVersion {
     val context = LocalContext.current
     return remember(context) {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
-        AppVersion(info.versionName.orEmpty(), PackageInfoCompat.getLongVersionCode(info), Channel.of(BuildConfig.CHANNEL))
+        AppVersion(info.versionName.orEmpty(), PackageInfoCompat.getLongVersionCode(info), installedChannel)
     }
 }
 
@@ -174,6 +174,7 @@ private fun AboutScreen(onBack: () -> Unit, onOpenUrl: (String) -> Unit, onPage:
                 modifier = Modifier.heightIn(min = 72.dp).combinedClickable(onClick = copy, onLongClick = copy)
                     .semantics(mergeDescendants = true) { contentDescription = copyLabel },
             )
+            UpdateBlock(onOpenUrl)
             ListItem(
                 headlineContent = { Text(stringResource(R.string.about_author)) },
                 supportingContent = { Text(stringResource(R.string.about_contact)) },

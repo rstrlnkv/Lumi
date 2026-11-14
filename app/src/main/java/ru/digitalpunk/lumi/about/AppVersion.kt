@@ -1,5 +1,7 @@
 package ru.digitalpunk.lumi.about
 
+import ru.digitalpunk.lumi.BuildConfig
+
 /** The build's release channel (versioning standard). */
 enum class Channel {
     DEV, BETA, STABLE;
@@ -9,6 +11,9 @@ enum class Channel {
         fun of(name: String): Channel = entries.firstOrNull { it.name == name } ?: DEV
     }
 }
+
+/** This build's channel, from the branch it was built on. */
+val installedChannel: Channel get() = Channel.of(BuildConfig.CHANNEL)
 
 /** The running app's version name, build number and channel, as the About screen shows them. */
 data class AppVersion(val name: String, val code: Long, val channel: Channel) {
