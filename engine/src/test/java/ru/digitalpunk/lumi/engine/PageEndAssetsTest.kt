@@ -27,8 +27,10 @@ class PageEndAssetsTest {
     @Test fun permissionsAreOnlyNativeMessagingAndStorage() =
         assertTrue(manifest.contains("\"permissions\": [\"geckoViewAddons\", \"nativeMessaging\", \"nativeMessagingFromContent\", \"storage\"]"))
 
-    // Gecko keeps an installed built-in extension until its version changes.
-    @Test fun theVersionIsRaisedForTheIconLinksAndTheTranslucentBarRule() = assertTrue(manifest.contains("\"version\": \"1.9\""))
+    // Gecko keeps an installed built-in extension until its version changes. 1.10 carries the pseudo-element paint
+    // (a bar painted by its ::before or ::after counts as a bar and gives its colour); 1.9 had the icon links and the
+    // translucent-bar rule.
+    @Test fun theVersionIsRaisedForThePseudoElementPaint() = assertTrue(manifest.contains("\"version\": \"1.10\""))
 
     // Lumi refuses file: pages (UrlGuard), so the extension does not ask for them.
     @Test fun onlyTopFramesOfWebPagesAreMatched() {

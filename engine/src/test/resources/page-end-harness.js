@@ -4,6 +4,7 @@
 // scrollHeight like in a browser. "delayGet" holds the initial storage read until a step sets "resolveGet".
 // A change to <html style> reaches the MutationObserver after the frame unless the script took the records first;
 // frames that keep scheduling frames make the harness fail; "loopFrames" adds such a frame.
+// "nav" may also carry "pseudo": {"::before"|"::after": {content, bg, bgImage}} for getComputedStyle(nav, pseudo).
 // "nav" is an element stuck at the bottom ({position, width, height, bottom, bg, bgImage, visibility, opacity} and an
 // optional "childBg": the hit is then its static child with that background). "advance" moves the fake clock by ms and
 // runs the due timers. "prop":"observed" prints the MutationObserver targets (<html>, <body>) and option names. "noHit" makes elementFromPoint return null. "prop":"sent" prints the bottom-bar reports sent since the last such step, joined by commas;
@@ -107,7 +108,13 @@ function elementFromPoint(x, y) {
   }
   return S.hasBody ? body : root;
 }
-function style(el) {
+function style(el, pseudo) {
+  // "pseudo": {"::before": {content, bg, bgImage}, "::after": {...}} on the nav gives its generated boxes; unset is content: none.
+  if (el === nav && (pseudo === "::before" || pseudo === "::after")) {
+    const p = (S.nav.pseudo || {})[pseudo] || {};
+    return { content: p.content === undefined ? "none" : p.content, position: "absolute",
+      backgroundColor: p.bg || "rgba(0, 0, 0, 0)", backgroundImage: p.bgImage || "none", display: "block" };
+  }
   if (el === nav) return { position: S.nav.position, backgroundColor: S.nav.bg, backgroundImage: S.nav.bgImage,
     visibility: S.nav.visibility, opacity: S.nav.opacity, display: "block", overflowY: "visible" };
   if (el === header) return { position: S.header.position, backgroundColor: S.header.bg, backgroundImage: S.header.bgImage,
@@ -132,7 +139,7 @@ const ctx = vm.createContext({
   }),
   get innerHeight() { return S.innerHeight; },
   get innerWidth() { return S.clientWidth; },
-  getComputedStyle: (el, pseudo) => (styles++, style(el)) || (pseudo ? { height: applied() ? applied() + "px" : "auto" }
+  getComputedStyle: (el, pseudo) => (styles++, style(el, pseudo)) || (pseudo ? { height: applied() ? applied() + "px" : "auto" }
     : { overflowY: el === root ? S.overflowRoot : S.overflowBody, display: "block", position: "static",
         backgroundColor: el === end ? S.endBg : el === body ? S.bodyBg : el === root ? S.htmlBg : "rgba(0, 0, 0, 0)",
         colorScheme: el === root ? S.htmlScheme : "normal" }),

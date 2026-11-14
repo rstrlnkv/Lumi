@@ -59,7 +59,7 @@
         let paint = null;
         for (let el = document.elementFromPoint(innerWidth * fx, top ? dy : h - dy), i = 0; el && el !== root && i < 32; el = el.parentElement, i++) {
           const s = getComputedStyle(el);
-          if (!paint && (colored(s.backgroundColor) || (!!s.backgroundImage && s.backgroundImage !== "none"))) paint = el;
+          if (!paint && (colored(s.backgroundColor) || (!!s.backgroundImage && s.backgroundImage !== "none") || pseudoPaints(el).length)) paint = el;
           if (s.position !== "fixed" && s.position !== "sticky") continue;
           const r = el.getBoundingClientRect();
           const edge = top ? r.top >= -1 && r.top <= 4 : r.bottom >= h - 4 && r.bottom <= h + 1;
@@ -69,6 +69,21 @@
       }
     }
     return null;
+  }
+
+  // The styles of el's ::after and ::before (top first) that are generated (content not none) and paint a colour or image.
+  function pseudoPaints(el) {
+    return ["::after", "::before"].map(p => getComputedStyle(el, p)).filter(s => s && s.content && !/^(none|normal)$/.test(s.content)
+      && (colored(s.backgroundColor) || (!!s.backgroundImage && s.backgroundImage !== "none")));
+  }
+
+  // The colour a top-to-bottom linear-gradient ends in at its bottom edge, as {r, g, b, a}; null for any other image
+  // (another direction, several images, a last stop that is not a plain rgb colour).
+  function gradientEnd(image) {
+    const m = /^linear-gradient\(\s*((?:to bottom|180deg)\s*,)?([^]*?)\)$/.exec(image);
+    if (!m || /gradient\(|url\(|image\(/.test(m[2]) || (!m[1] && /^\s*(to |-?[\d.]+(deg|turn|rad|grad))/.test(m[2]))) return null;
+    const end = /(rgba?\([^()]*\))\s*[\d.]*(?:%|px)?\s*$/.exec(m[2]);
+    return end && parseRgb(end[1]);
   }
 
   // A colour with alpha above 0, or one in a form parseRgb does not read ("rgb(255, 0, 0)" is red, not transparent).
@@ -95,12 +110,22 @@
   }
 
   // The colour [el] shows: its background blended over its ancestors' up to the first opaque one, and over the canvas
-  // when none is: white, unless the page sets a color-scheme (the canvas may then be dark). Null when an image or
-  // gradient is in the way or a colour cannot be read (painted, colour unknown).
+  // when none is: white, unless the page sets a color-scheme (the canvas may then be dark). Each element's ::before and
+  // ::after are layers above it; a pseudo with an image ignores its colour, and an opaque top-to-bottom gradient gives
+  // its end colour. Null when any other image or gradient is in the way or a colour cannot be read (painted, colour
+  // unknown).
   function surfaceColor(el) {
     const layers = [];
     for (let i = 0; el && i < 32; el = el.parentElement, i++) {
       const s = getComputedStyle(el);
+      for (const ps of pseudoPaints(el)) {
+        const image = ps.backgroundImage && ps.backgroundImage !== "none";
+        const pc = image ? gradientEnd(ps.backgroundImage) : parseRgb(ps.backgroundColor);
+        if (!pc || (image && pc.a < 0.999)) return null;
+        if (pc.a > 0) layers.push(pc);
+        if (pc.a >= 0.999) break;
+      }
+      if (layers.length && layers[layers.length - 1].a >= 0.999) break;
       if (s.backgroundImage && s.backgroundImage !== "none") return null;
       const c = parseRgb(s.backgroundColor);
       if (!c) return null;
