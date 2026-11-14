@@ -8,21 +8,21 @@ A Material 3 web browser for Android with a bottom address bar, gestures, tab gr
 
 ## Install
 
-Download `Lumi-<version>.apk` from the [Releases](https://github.com/rstrlnkv/lumi/releases) page and
-open it on the phone; Android asks once to allow installs from the app you opened it with. Each release
+Download `Lumi-X.Y.Z.DEV.N.apk` (or the `BETA` or plain `Lumi-X.Y.Z.apk` of your channel) from the latest pre-release on the
+[Releases](https://github.com/rstrlnkv/lumi/releases) page and open it on the phone; Android asks once to allow installs from the app you opened it with. Each release
 lists the file's SHA-256 under **Assets**, so you can check the download first:
 
 ```bash
-shasum -a 256 Lumi-0.1.0-dev.1.apk
+shasum -a 256 Lumi-X.Y.Z.DEV.N.apk
 ```
 
 To install from a computer, connect the phone with USB debugging on and run:
 
 ```bash
-adb install Lumi-0.1.0-dev.1.apk
+adb install Lumi-X.Y.Z.DEV.N.apk
 ```
 
-There is no store listing yet. Builds marked `-dev.N` are prereleases for daily testing.
+There is no store listing yet. `DEV` builds (`X.Y.Z.DEV.N`, where `N` is the build number) are pre-releases of the `dev` branch for daily testing; `BETA` builds (`X.Y.Z.BETA.N`) are pre-releases for wider testing; `STABLE` builds (`X.Y.Z`) are full releases.
 
 ## Features
 
