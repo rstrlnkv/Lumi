@@ -9,10 +9,10 @@ import kotlin.test.assertTrue
 class VersionScriptTest {
     private val script = File("../build.gradle.kts").readText()
 
-    @Test fun `the build number is minutes since 2020 from the committer time`() {
-        assertTrue("\"--format=%ct\"" in script, "no committer time")
-        assertTrue("- 1577836800) / 60" in script, "not minutes since 2020-01-01 UTC")
-        assertFalse("\"rev-list\", \"--count\"" in script, "still the commit count")
+    @Test fun `the build number comes from the commit count script, not from the committer time`() {
+        assertTrue("gradle/build-number.sh" in script, "the root build does not run the build-number script")
+        assertFalse("%ct" in script, "still the committer time")
+        assertFalse("1577836800" in script, "still minutes since 2020")
     }
 
     @Test fun `the channel comes from the branch`() {

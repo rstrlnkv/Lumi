@@ -33,6 +33,12 @@ class ReleaseTagTest {
         assertTrue(tag("v0.1.0.DEV.5") > tag("v0.1.0.DEV.4"))
     }
 
+    // Build numbers are commit counts (a few dozen to thousands), compared as numbers, not as text.
+    @Test fun `a commit count of two digits is above one of one digit and the installed build is compared with it`() {
+        assertTrue(tag("v0.1.0.DEV.51") > tag("v0.1.0.DEV.9"))
+        assertTrue(tag("v0.1.0.DEV.51") > installedTag("0.1.0", Channel.DEV, 50)!!)
+    }
+
     @Test fun `display reads as the About screen writes it`() {
         assertEquals("0.1.0 DEV (Build 3613543)", tag("v0.1.0.DEV.3613543").display)
         assertEquals("1.2.3", tag("v1.2.3").display)

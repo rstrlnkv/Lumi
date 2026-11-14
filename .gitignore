@@ -24,6 +24,7 @@ Thumbs.db
 # From the stack generator
 .gradle/
 build/
+!app/src/test/**/build/
 local.properties
 .kotlin/
 *.apk
