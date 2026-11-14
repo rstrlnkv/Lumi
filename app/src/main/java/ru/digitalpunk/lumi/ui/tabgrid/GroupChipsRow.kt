@@ -26,7 +26,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -62,6 +61,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import ru.digitalpunk.lumi.R
 import ru.digitalpunk.lumi.engine.GroupId
+import ru.digitalpunk.lumi.ui.LumiDropdownMenu
+import ru.digitalpunk.lumi.ui.menuItemShape
 
 /** The shared list, one chip per group and a "+" chip, in a row that scrolls sideways. A tap shows that group's tabs; a long press on a group chip opens Rename and Delete. */
 @Composable
@@ -183,7 +184,7 @@ private fun GroupChip(chip: ChipModel, selected: Boolean, onClick: () -> Unit, o
                 }
             },
         )
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+        LumiDropdownMenu(menu, { menu = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.action_rename)) },
                 leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
@@ -191,6 +192,7 @@ private fun GroupChip(chip: ChipModel, selected: Boolean, onClick: () -> Unit, o
                     menu = false
                     onRename()
                 },
+                modifier = Modifier.menuItemShape(),
             )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.action_delete_group)) },
@@ -203,6 +205,7 @@ private fun GroupChip(chip: ChipModel, selected: Boolean, onClick: () -> Unit, o
                     menu = false
                     onDelete()
                 },
+                modifier = Modifier.menuItemShape(),
             )
         }
     }
