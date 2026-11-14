@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.ContentBlocking
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
@@ -79,6 +80,11 @@ class BrowserEngine(appContext: Context) {
 
     /** A long press on an http or https link or image in the selected tab. Other links and images send nothing. */
     val linkMenu: SharedFlow<ContextTarget> = mutableLinks
+
+    private val mutableAppLinks = MutableSharedFlow<AppLink>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    /** The selected tab tried to open another app (`intent:`, `tel:`, a bank's own scheme); Gecko never loads such a link. */
+    val appLinks: SharedFlow<AppLink> = mutableAppLinks
 
     // Unlimited: a dropped offer would leak its open stream.
     private val downloadOffers = Channel<DownloadOffer>(Channel.UNLIMITED)
@@ -241,6 +247,13 @@ class BrowserEngine(appContext: Context) {
                     tab.correctedSite = site
                     session.reload()
                 }
+            }
+
+            // Gecko cannot load an app's scheme; the app asks the person before it opens the other app.
+            override fun onLoadRequest(session: GeckoSession, request: GeckoSession.NavigationDelegate.LoadRequest): GeckoResult<AllowOrDeny>? {
+                if (!isAppScheme(request.uri)) return null
+                if (tab === selected) appLink(request.uri)?.let { mutableAppLinks.tryEmit(AppLink(tab.id, it)) }
+                return GeckoResult.deny()
             }
 
             override fun onCanGoBack(session: GeckoSession, canGoBack: Boolean) = tab.pageChanged { canGoBackChanged(canGoBack) }

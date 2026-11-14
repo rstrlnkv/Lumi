@@ -6,6 +6,12 @@ All notable changes to Lumi are written here. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+### Fixed
+- A site's translucent bar at the bottom of the screen now colours the strip under the address bar too.
+- Links that open another app, such as a bank's payment button or a phone number, work again: Lumi asks
+  before it opens the app.
+- The DEV badge on About Lumi has the size and place from the design.
+
 ## [0.1.0-dev.1] - 2026-11-14
 
 ### Added
