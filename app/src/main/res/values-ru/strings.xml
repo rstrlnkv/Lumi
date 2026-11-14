@@ -172,6 +172,9 @@
     <string name="folder_name">Название</string>
     <string name="action_move">Переместить</string>
     <string name="action_edit">Изменить</string>
+    <string name="action_edit_order">Изменить порядок</string>
+    <string name="action_move_left">Сдвинуть влево</string>
+    <string name="action_move_right">Сдвинуть вправо</string>
     <string name="delete_folder_title">Удалить «%1$s»?</string>
     <string name="folder_empty">Здесь пока нет закладок</string>
     <string name="history_today">Сегодня</string>

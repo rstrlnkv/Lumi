@@ -161,6 +161,9 @@
     <string name="folder_name">Name</string>
     <string name="action_move">Move</string>
     <string name="action_edit">Edit</string>
+    <string name="action_edit_order">Edit order</string>
+    <string name="action_move_left">Move left</string>
+    <string name="action_move_right">Move right</string>
     <string name="delete_folder_title">Delete “%1$s”?</string>
     <string name="folder_empty">No bookmarks here</string>
     <string name="history_today">Today</string>
