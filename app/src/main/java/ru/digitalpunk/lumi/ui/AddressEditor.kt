@@ -20,6 +20,9 @@ class AddressEditor {
     /** Bookmarks and history for this edit; null while loading or when not editing. */
     var index by mutableStateOf<LocalIndex?>(null)
 
+    /** The URL text this edit started with; while the text is still this (or blank), the start page shows. */
+    var initial by mutableStateOf("")
+
     /** The chosen engine's search prefix, for Enter on text that is not an address. */
     var searchPrefix by mutableStateOf(DEFAULT_SEARCH_URL)
 

@@ -73,7 +73,7 @@ class DownloadNotifier(context: Context) {
         manager.createNotificationChannel(
             NotificationChannelCompat.Builder(CHANNEL, NotificationManagerCompat.IMPORTANCE_LOW).setName(context.getString(R.string.notification_channel_downloads)).build(),
         )
-        return NotificationCompat.Builder(context, CHANNEL).setSmallIcon(R.drawable.ic_stat_download).setGroup(GROUP)
+        return NotificationCompat.Builder(context, CHANNEL).setSmallIcon(R.drawable.ic_stat_lumi).setGroup(GROUP)
     }
 
     private fun post(item: DownloadItem, builder: NotificationCompat.Builder) {

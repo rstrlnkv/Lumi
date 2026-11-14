@@ -37,6 +37,12 @@ fun controlsAlpha(progress: Float) = (1f - 2f * progress).coerceIn(0f, 1f)
 
 fun stripAlpha(progress: Float) = (2f * progress - 1f).coerceIn(0f, 1f)
 
+enum class FieldTap { Expand, Set }
+
+/** A request to start editing while the bar is not fully expanded only expands it; leaving edit mode always passes. */
+fun fieldTap(wantEditing: Boolean, barExpanded: Boolean): FieldTap =
+    if (wantEditing && !barExpanded) FieldTap.Expand else FieldTap.Set
+
 /** Site status icon (no count) and domain of the page; a tap shows the whole bar again once it is fully collapsed. */
 @Composable
 fun CollapsedStrip(

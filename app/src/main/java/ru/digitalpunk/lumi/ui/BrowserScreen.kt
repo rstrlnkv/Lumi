@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -85,7 +86,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -128,6 +128,9 @@ import ru.digitalpunk.lumi.engine.TabInfo
 import ru.digitalpunk.lumi.engine.neighbour
 import ru.digitalpunk.lumi.engine.siteKey
 import ru.digitalpunk.lumi.gesture.BarGeometry
+import ru.digitalpunk.lumi.gesture.MIN_REFRESH_MILLIS
+import ru.digitalpunk.lumi.gesture.awaitRefreshEnd
+import ru.digitalpunk.lumi.gesture.pageSettled
 import ru.digitalpunk.lumi.gesture.PageGestureTracker
 import ru.digitalpunk.lumi.gesture.pullFraction
 import ru.digitalpunk.lumi.tabs.TabSnapshots
@@ -150,7 +153,9 @@ import ru.digitalpunk.lumi.links.AppLinkInbox
 import ru.digitalpunk.lumi.links.BackStep
 import ru.digitalpunk.lumi.links.backStep
 import ru.digitalpunk.lumi.links.incomingUrl
+import ru.digitalpunk.lumi.startpage.EditLayer
 import ru.digitalpunk.lumi.startpage.backGoesUp
+import ru.digitalpunk.lumi.startpage.editLayer
 import ru.digitalpunk.lumi.startpage.focusNewTab
 import ru.digitalpunk.lumi.startpage.navInto
 import ru.digitalpunk.lumi.startpage.navUp
@@ -164,7 +169,6 @@ import androidx.compose.foundation.text.input.clearText
 import kotlin.math.roundToInt
 
 private val TouchSlop = 8.dp
-private const val MIN_REFRESH_MILLIS = 600L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -206,7 +210,10 @@ fun BrowserScreen(
     LaunchedEffect(searchEngine) { editor.searchPrefix = (searchEngine ?: SearchEngine.Google).searchPrefix }
     // Loaded once per edit; nothing typed is stored, in any tab, nor kept once the bar closes.
     LaunchedEffect(editing) {
-        if (!editing) editor.text.clearText()
+        if (!editing) {
+            editor.text.clearText()
+            editor.initial = ""
+        }
         editor.index = if (editing) library.suggestionPages().let { withContext(Dispatchers.Default) { LocalIndex(it) } } else null
     }
     var gridOpen by rememberSaveable { mutableStateOf(false) }
@@ -235,7 +242,6 @@ fun BrowserScreen(
     // The Library installs its own Back handler (search, folder levels, then close).
     // Settings and the Library cover the page as the grid does: no snapshots, and the page is out of TalkBack.
     val coverOpen = gridOpen || settingsOpen || libraryOpen
-    LaunchedEffect(coverOpen) { engine.gridOpen = coverOpen }
 
     // Private tabs: the bar turns dark, recents and screenshots go blank, and a private tab that was in front when
     // Lumi locked waits behind the lock screen. Back there gives it up and opens the grid.
@@ -260,6 +266,14 @@ fun BrowserScreen(
     LaunchedEffect(startShown, nodes, startFolder) { startStack = if (startShown) reconcile(startStack, nodes, startFolder) else emptyList() }
     // Registered after the grid's and Settings' handlers, so `covered` keeps them first.
     BackHandler(enabled = backGoesUp(startShown, startStack, editing, coverOpen || lockShown)) { startStack = navUp(startStack) }
+    // The start page over the focused bar (M8a) keeps its own folder stack, dropped when the edit ends.
+    var focusStack by remember { mutableStateOf(listOf<String>()) }
+    LaunchedEffect(editing, nodes, startFolder) { focusStack = if (editing) reconcile(focusStack, nodes, startFolder) else emptyList() }
+    val layer = if (coverOpen || lockShown) EditLayer.None
+        else editLayer(editing, editor.text.text.toString(), editor.initial, children(nodes, startFolder).size)
+    // The grid, Settings, the Library and the focus start page cover the page: no snapshots, and the page is out of TalkBack.
+    val pageCovered = coverOpen || layer == EditLayer.StartPage
+    LaunchedEffect(pageCovered) { engine.gridOpen = pageCovered }
 
     // One prompt per lock, on return to a private tab.
     LaunchedEffect(tabsState.privateResume, gate.autoPromptPending) {
@@ -317,10 +331,10 @@ fun BrowserScreen(
     val current by rememberUpdatedState(state)
     LaunchedEffect(refreshing) {
         if (!refreshing) return@LaunchedEffect
-        delay(MIN_REFRESH_MILLIS)
-        snapshotFlow { current }.first { !it.isLoading || it.isCrashed }
+        awaitRefreshEnd(MIN_REFRESH_MILLIS, snapshotFlow { pageSettled(current.isLoading, current.isCrashed) })
         refreshing = false
-        pullState.animateToHidden()
+        // In the screen's scope: this effect is keyed on `refreshing` and is cancelled by the line above.
+        scope.launch { pullState.animateToHidden() }
     }
     val thresholdPx = with(density) { PullToRefreshDefaults.PositionalThreshold.toPx() }
     val tracker = remember(bar, thresholdPx) {
@@ -588,12 +602,26 @@ fun BrowserScreen(
 
     // The page fills the screen under the bar; only the keyboard shrinks it.
     // While the grid covers them, the page and the bar are out of TalkBack and keyboard focus.
-    val hiddenBehindGrid = if (coverOpen || lockShown) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false } else Modifier
+    // The focus start page hides only the page: the bar under it stays reachable.
+    fun hiddenWhen(hidden: Boolean) = if (hidden) Modifier.clearAndSetSemantics {}.focusProperties { canFocus = false } else Modifier
+    val hiddenBehindGrid = hiddenWhen(coverOpen || lockShown)
+    val focusManager = LocalFocusManager.current
+    // Also set directly: a field that never got focus reports no focus loss.
+    val endEditing = {
+        focusManager.clearFocus()
+        editing = false
+    }
+    val onEditingChange: (Boolean) -> Unit = { want ->
+        when (fieldTap(want, bar.isExpanded)) {
+            FieldTap.Expand -> bar.expand()
+            FieldTap.Set -> editing = want
+        }
+    }
     Box(Modifier.fillMaxSize().imePadding()) {
         Box(
             Modifier.fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top))
-                .then(hiddenBehindGrid),
+                .then(hiddenWhen(coverOpen || lockShown || layer == EditLayer.StartPage)),
         ) {
             AndroidView(
                 factory = { engine.createView(it) },
@@ -645,14 +673,40 @@ fun BrowserScreen(
             PullToRefreshDefaults.Indicator(state = pullState, isRefreshing = refreshing, modifier = Modifier.align(Alignment.TopCenter))
         }
 
-        if (editing && !coverOpen && !lockShown) {
-            SuggestionLayer(
+        when (layer) {
+            EditLayer.StartPage -> Box(
+                Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)),
+            ) {
+                StartPage(
+                    library, nodes, startFolder, focusStack, selectedPrivate,
+                    bottomInset = with(density) { expandedPx.toDp() },
+                    snackbar = snackbar,
+                    scope = scope,
+                    onOpenFolder = { focusStack = navInto(focusStack, it) },
+                    onUp = { focusStack = navUp(focusStack) },
+                    onOpenUrl = {
+                        endEditing()
+                        engine.load(it)
+                    },
+                    onOpenInTab = { url, action ->
+                        endEditing()
+                        tabsState.selectedId?.let { onLinkAction(LinkTarget(it, url, null, selectedPrivate), action) }
+                    },
+                    onEdit = { editBookmarkId = it },
+                    showDefaultCard = false,
+                    onDefaultNotNow = {},
+                    onDefaultSet = {},
+                    onBackgroundTap = endEditing,
+                )
+            }
+            EditLayer.Suggestions -> SuggestionLayer(
                 editor,
                 engine = searchEngine.takeIf { searchSuggestions == true },
                 client = suggestClient,
                 barHeight = with(density) { expandedPx.toDp() },
                 onOpen = engine::load,
             )
+            EditLayer.None -> Unit
         }
 
         val barModifier = Modifier
@@ -678,10 +732,10 @@ fun BrowserScreen(
                 when (style) {
                     null -> Unit
                     AddressBarStyle.Compact -> CompactBar(
-                        state, site, openProtection, engine, tabActions, libraryActions, editing, { editing = it }, editor, switchStyle, openSettings, progress, fullyCollapsed, bar::expand, barModifier,
+                        state, site, openProtection, engine, tabActions, libraryActions, editing, onEditingChange, editor, switchStyle, openSettings, progress, fullyCollapsed, bar::expand, barModifier,
                     )
                     AddressBarStyle.Classic -> ClassicBar(
-                        state, site, openProtection, engine, tabActions, libraryActions, editing, { editing = it }, editor, switchStyle, openSettings, progress, fullyCollapsed, bar::expand, barModifier,
+                        state, site, openProtection, engine, tabActions, libraryActions, editing, onEditingChange, editor, switchStyle, openSettings, progress, fullyCollapsed, bar::expand, barModifier,
                     )
                 }
             }

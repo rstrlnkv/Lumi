@@ -34,6 +34,16 @@ fun reconcile(stack: List<String>, nodes: List<BookmarkNodeEntity>, start: Strin
 fun backGoesUp(visible: Boolean, stack: List<String>, editing: Boolean, covered: Boolean): Boolean =
     visible && stack.isNotEmpty() && !editing && !covered
 
+enum class EditLayer { None, StartPage, Suggestions }
+
+/** What fills the area above the focused bar. [initial] is the URL text the edit started with. */
+fun editLayer(editing: Boolean, text: String, initial: String, startItems: Int): EditLayer = when {
+    !editing -> EditLayer.None
+    startItems > 0 && (text.isBlank() || text == initial) -> EditLayer.StartPage
+    // Typed, or nothing to show: the scrim and the list, as before.
+    else -> EditLayer.Suggestions
+}
+
 fun gridColumns(landscape: Boolean): Int = if (landscape) 8 else 4
 
 sealed interface Tile {

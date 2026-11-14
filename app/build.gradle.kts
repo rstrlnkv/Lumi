@@ -45,6 +45,12 @@ kotlin {
     jvmToolchain(21)
 }
 
+// Some unit tests read the manifest and resources from the source tree, so they are inputs of the unit tests.
+tasks.withType<Test>().configureEach {
+    inputs.file("src/main/AndroidManifest.xml").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir("src/main/res").withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 dependencies {
     implementation(project(":engine"))
     implementation(project(":data"))

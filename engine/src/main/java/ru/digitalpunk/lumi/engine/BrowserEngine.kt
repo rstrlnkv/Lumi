@@ -93,7 +93,7 @@ class BrowserEngine(appContext: Context) {
     /**
      * While the tab grid covers the page, no automatic snapshot is taken (the page is not on screen) and the page is hidden from accessibility services.
      * Closing the grid makes the group of the tab on screen the current group again, so a new tab opens next to it.
-     * The UI sets it while the Settings screen covers the page too.
+     * The UI sets it while any other screen covers the page too: Settings, the Library, and the start page shown while the address field has the focus.
      */
     var gridOpen = false
         set(value) {

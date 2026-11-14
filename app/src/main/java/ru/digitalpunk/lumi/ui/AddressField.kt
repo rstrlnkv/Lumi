@@ -107,7 +107,8 @@ fun AddressField(
                     var hadFocus by remember { mutableStateOf(false) }
                     // Keyed on the tab so a tab that opens while editing starts empty, not with the old URL.
                     LaunchedEffect(tabs?.selectedId) {
-                        text.setTextAndSelectAll(editableUrl(state.url))
+                        editor.initial = editableUrl(state.url)
+                        text.setTextAndSelectAll(editor.initial)
                         focusRequester.requestFocus()
                     }
                     BackHandler { focusManager.clearFocus() }

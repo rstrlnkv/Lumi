@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
@@ -96,6 +97,7 @@ fun StartPage(
     onDefaultNotNow: () -> Unit,
     onDefaultSet: () -> Unit,
     modifier: Modifier = Modifier,
+    onBackgroundTap: (() -> Unit)? = null,
 ) {
     val folder = currentFolder(stack, start)
     // The default-browser card sits above the start folder only, never inside a sub-folder.
@@ -122,7 +124,9 @@ fun StartPage(
         }
     }
 
-    Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).pointerInput(Unit) {}) {
+    // Over the focused bar a tap on the empty area ends editing; each tile cell takes the taps on its whole cell first.
+    val background = if (onBackgroundTap == null) Modifier.pointerInput(Unit) {} else Modifier.pointerInput(Unit) { detectTapGestures { onBackgroundTap() } }
+    Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).then(background)) {
         // An empty start folder is a plain page: the address field has the focus.
         if (stack.isNotEmpty() || items.isNotEmpty() || card) {
             LazyVerticalGrid(
@@ -197,7 +201,8 @@ private fun TileCell(tile: Tile, inPrivateTab: Boolean, onOpenUrl: (String) -> U
     val folderDescription = (tile as? Tile.Folder)?.let {
         stringResource(R.string.cd_folder_tile, it.name, pluralStringResource(R.plurals.bookmarks_count, it.count, it.count))
     }
-    Box(Modifier.fillMaxWidth().heightIn(min = 94.dp), contentAlignment = Alignment.TopCenter) {
+    // The cell swallows taps beside the tile, so a near miss in the gap between tiles does not end editing.
+    Box(Modifier.fillMaxWidth().heightIn(min = 94.dp).pointerInput(Unit) { detectTapGestures {} }, contentAlignment = Alignment.TopCenter) {
         Column(
             Modifier.width(80.dp).clip(RoundedCornerShape(12.dp))
                 .combinedClickable(onLongClickLabel = stringResource(R.string.action_more), onLongClick = { menu = true }) {
@@ -220,7 +225,7 @@ private fun TileCell(tile: Tile, inPrivateTab: Boolean, onOpenUrl: (String) -> U
             Text(
                 label,
                 style = MaterialTheme.typography.labelMedium,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp)
