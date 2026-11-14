@@ -71,7 +71,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.pm.PackageInfoCompat
 import kotlinx.coroutines.launch
 import ru.digitalpunk.lumi.R
+import ru.digitalpunk.lumi.BuildConfig
 import ru.digitalpunk.lumi.about.AppVersion
+import ru.digitalpunk.lumi.about.Channel
 import ru.digitalpunk.lumi.about.showCopiedSnackbar
 
 private const val AUTHOR_URL = "https://github.com/rstrlnkv"
@@ -82,7 +84,7 @@ fun rememberAppVersion(): AppVersion {
     val context = LocalContext.current
     return remember(context) {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
-        AppVersion(info.versionName.orEmpty(), PackageInfoCompat.getLongVersionCode(info))
+        AppVersion(info.versionName.orEmpty(), PackageInfoCompat.getLongVersionCode(info), Channel.of(BuildConfig.CHANNEL))
     }
 }
 
@@ -122,7 +124,9 @@ private fun AboutScreen(onBack: () -> Unit, onOpenUrl: (String) -> Unit, onPage:
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val copied = stringResource(R.string.about_copied, version.copyText)
+    var revealed by rememberSaveable { mutableStateOf(false) }
     val copy = {
+        revealed = true
         context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Lumi version", version.copyText))
         if (showCopiedSnackbar(Build.VERSION.SDK_INT)) scope.launch { snackbar.showSnackbar(copied) }
         Unit
@@ -140,10 +144,10 @@ private fun AboutScreen(onBack: () -> Unit, onOpenUrl: (String) -> Unit, onPage:
             Spacer(Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Lumi", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
-                if (version.isDev) {
+                if (version.channel != Channel.STABLE) {
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        stringResource(R.string.about_dev_badge),
+                        stringResource(if (version.channel == Channel.BETA) R.string.about_beta_badge else R.string.about_dev_badge),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onTertiaryContainer,
@@ -164,7 +168,7 @@ private fun AboutScreen(onBack: () -> Unit, onOpenUrl: (String) -> Unit, onPage:
             val copyLabel = stringResource(R.string.cd_copy_version, version.name, version.code.toString())
             ListItem(
                 headlineContent = { Text(stringResource(R.string.about_version)) },
-                supportingContent = { Text(version.copyText) },
+                supportingContent = { Text(version.shown(revealed)) },
                 leadingContent = { Icon(Icons.Filled.Info, contentDescription = null) },
                 trailingContent = { Icon(painterResource(R.drawable.ic_content_copy), contentDescription = null) },
                 modifier = Modifier.heightIn(min = 72.dp).combinedClickable(onClick = copy, onLongClick = copy)

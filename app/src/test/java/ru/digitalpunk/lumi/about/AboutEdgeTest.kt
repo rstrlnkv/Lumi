@@ -8,13 +8,14 @@ import kotlin.test.assertTrue
 
 /** Inputs the first tests did not feed: odd version names, changelog shapes, and library entries. */
 class AboutEdgeTest {
-    @Test fun `a version without the dash before dev is not a dev build`() {
-        assertFalse(AppVersion("0.1.0dev.1", 1).isDev)
-        assertFalse(AppVersion("dev.1", 1).isDev)
+    @Test fun `an unknown or lower-case channel name is DEV`() {
+        assertEquals(Channel.DEV, Channel.of("nightly"))
+        assertEquals(Channel.DEV, Channel.of("stable"))
+        assertEquals(Channel.DEV, Channel.of(""))
     }
 
     @Test fun `a build number past Int range is copied whole`() =
-        assertEquals("1.0.0 (3000000000)", AppVersion("1.0.0", 3_000_000_000L).copyText)
+        assertEquals("1.0.0 DEV (Build 3000000000)", AppVersion("1.0.0", 3_000_000_000L, Channel.DEV).copyText)
 
     @Test fun `Unreleased is skipped whatever its letter case`() =
         assertEquals(listOf("1.0.0"), parseChangelog("## [UNRELEASED]\n- x\n## [1.0.0] - 2026-01-01\n- a\n").map { it.version })
