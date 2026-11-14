@@ -416,4 +416,10 @@
     <string name="unprotected_turn_on">Вернуть защиту</string>
     <string name="snackbar_protection_on">Защита для %1$s включена</string>
     <string name="unprotected_empty">Исключений нет. Все сайты защищены</string>
+    <string name="local_network_note">Ответы на вопрос «Сайт хочет найти устройства в сети». Сбросьте ответ, и сайт спросит снова.</string>
+    <string name="local_network_allowed">Разрешено</string>
+    <string name="local_network_blocked">Запрещено</string>
+    <string name="local_network_via">%1$s · через %2$s</string>
+    <string name="cd_reset_local_network">Сбросить ответ для %1$s</string>
+    <string name="local_network_empty">Сайты пока не спрашивали</string>
 </resources>

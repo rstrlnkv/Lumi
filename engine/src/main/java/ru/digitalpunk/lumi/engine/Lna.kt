@@ -35,6 +35,25 @@ internal fun lnaValue(answer: LnaAnswer): Int = when (answer) {
 internal fun isStoredLnaDenial(permission: Int, value: Int, privateMode: Boolean): Boolean =
     !privateMode && lnaKind(permission) != null && value == ContentPermission.VALUE_DENY
 
+/** A site's stored local network answer, for Settings; [allowed] only when every stored answer of the site allows. */
+data class LnaSite(val site: String, val via: String?, val allowed: Boolean)
+
+/** The parts of a Gecko `ContentPermission` the Settings list needs. */
+internal data class LnaEntry(val uri: String, val thirdPartyOrigin: String?, val permission: Int, val value: Int, val privateMode: Boolean)
+
+/** An Allow or Block of a normal tab; private answers end with the private session and are not listed. */
+internal fun LnaEntry.isStoredAnswer(): Boolean =
+    !privateMode && lnaKind(permission) != null && (value == ContentPermission.VALUE_ALLOW || value == ContentPermission.VALUE_DENY)
+
+/** The site and third-party frame host, as the sheet shows them. */
+internal fun LnaEntry.siteAndVia(): Pair<String, String?> = lnaPrompt(uri, thirdPartyOrigin, LnaKind.Network, false).let { it.site to it.via }
+
+/** One row per site and frame host, both kinds together, sorted by site. */
+internal fun lnaSites(entries: List<LnaEntry>): List<LnaSite> =
+    entries.filter { it.isStoredAnswer() }.groupBy { it.siteAndVia() }
+        .map { (key, answers) -> LnaSite(key.first, key.second, answers.all { it.value == ContentPermission.VALUE_ALLOW }) }
+        .sortedWith(compareBy<LnaSite> { it.site }.thenBy { it.via.orEmpty() })
+
 /** The longest DNS name; a longer host or a whole-URI fallback is cut for the sheet. */
 internal const val MAX_LNA_HOST_LENGTH = 253
 

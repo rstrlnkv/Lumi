@@ -391,4 +391,10 @@
     <string name="unprotected_turn_on">Turn on protection</string>
     <string name="snackbar_protection_on">Protection on for %1$s</string>
     <string name="unprotected_empty">No exceptions. All sites are protected</string>
+    <string name="local_network_note">Answers to “Site wants to find devices on your network”. Reset an answer and the site asks again.</string>
+    <string name="local_network_allowed">Allowed</string>
+    <string name="local_network_blocked">Blocked</string>
+    <string name="local_network_via">%1$s · via %2$s</string>
+    <string name="cd_reset_local_network">Reset answer for %1$s</string>
+    <string name="local_network_empty">No sites have asked yet</string>
 </resources>

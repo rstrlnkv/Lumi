@@ -718,6 +718,19 @@ class BrowserEngine(appContext: Context) {
         result.accept({ c.resume(Unit) }, { c.resumeWithException(it ?: IOException("Gecko failed")) })
     }
 
+    /** The local network answers Gecko stored for normal tabs, one per site (ADR 015). */
+    suspend fun storedLnaAnswers(): List<LnaSite> = lnaSites(await(runtime.storageController.allPermissions).map { it.lnaEntry() })
+
+    /** Sets every stored answer of [site] back to PROMPT, so the site asks again. */
+    suspend fun resetLna(site: LnaSite) {
+        val storage = runtime.storageController
+        await(storage.allPermissions)
+            .filter { val entry = it.lnaEntry(); entry.isStoredAnswer() && entry.siteAndVia() == (site.site to site.via) }
+            .forEach { storage.setPermission(it, ContentPermission.VALUE_PROMPT) }
+    }
+
+    private fun ContentPermission.lnaEntry() = LnaEntry(uri, thirdPartyOrigin, permission, value, privateMode)
+
     /** [level] is a `ComponentCallbacks2.TRIM_MEMORY_*` value. The cap returns to normal on the next tab switch. */
     fun trimMemory(level: Int) {
         cap = capForTrim(baseCap, level)
