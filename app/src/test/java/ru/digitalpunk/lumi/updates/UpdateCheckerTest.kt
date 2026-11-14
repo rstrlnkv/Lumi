@@ -24,4 +24,16 @@ class UpdateCheckerTest {
         assertNull(shouldNotify(CheckResult.UpToDate, null))
         assertNull(shouldNotify(CheckResult.Failed, null))
     }
+
+    @Test fun `any failure inside a check is a failed check`() = kotlinx.coroutines.runBlocking {
+        assertEquals(CheckResult.Failed, guarded { throw IllegalStateException("disk full") })
+        assertEquals(CheckResult.Failed, guarded { throw ClassCastException() })
+        assertEquals(CheckResult.UpToDate, guarded { CheckResult.UpToDate })
+    }
+
+    @Test fun `a cancelled check stays cancelled`() {
+        kotlin.test.assertFailsWith<kotlinx.coroutines.CancellationException> {
+            kotlinx.coroutines.runBlocking { guarded { throw kotlinx.coroutines.CancellationException() } }
+        }
+    }
 }

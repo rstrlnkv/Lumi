@@ -63,8 +63,8 @@ wallpaper colours (Dynamic Color).
     `yandex.ru` and `suggest.yandex.ru`, `www.bing.com` and `api.bing.com`, `www.startpage.com`,
     `www.ecosia.org` and `ac.ecosia.org`;
   - the `https` root, the icon links and `/favicon.ico` of each site on the start page, for its icon;
-  - `api.github.com`, once a day and on "Check now" while "Check for updates" is on, for the list of
-    Lumi's releases (no account, no cookies).
+  - `api.github.com`, for the list of Lumi's releases: once a day while "Check for updates" is on,
+    and whenever you tap "Check now" in About Lumi (no account, no cookies).
   GeckoView, the engine, also downloads its tracking-protection lists and Safe Browsing updates from
   Mozilla's and Google's services with its default settings, which Lumi does not change.
 - Changes outside Lumi's own folders: downloaded files go to the system Downloads folder, and Lumi

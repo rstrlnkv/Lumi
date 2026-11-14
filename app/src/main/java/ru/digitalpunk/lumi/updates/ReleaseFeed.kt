@@ -5,8 +5,8 @@ import org.json.JSONException
 import org.json.JSONObject
 import ru.digitalpunk.lumi.about.Channel
 
-/** The page of every release Lumi may open: it goes into a tab, so nothing else from the feed is trusted. */
-private val RELEASE_PAGE = Regex("""https://github\.com/rstrlnkv/lumi/releases/[A-Za-z0-9._/-]+""")
+/** The only page Lumi opens for a release: it goes into a tab, so it must be exactly the page of the release's own tag. */
+private const val RELEASE_PAGE = "https://github.com/rstrlnkv/lumi/releases/tag/"
 
 /** A published release: its tag, the tag's name and its page on GitHub. */
 data class Release(val tag: ReleaseTag, val name: String, val url: String)
@@ -18,10 +18,14 @@ fun parseReleases(json: String): List<Release>? = try {
         val item = array.opt(i) as? JSONObject ?: return@mapNotNull null
         if (item.opt("draft") == true) return@mapNotNull null
         val name = item.opt("tag_name") as? String ?: return@mapNotNull null
-        val url = (item.opt("html_url") as? String)?.takeIf { RELEASE_PAGE.matches(it) } ?: return@mapNotNull null
-        parseTag(name)?.let { Release(it, name, url) }
+        val tag = parseTag(name) ?: return@mapNotNull null
+        val url = (item.opt("html_url") as? String)?.takeIf { it == RELEASE_PAGE + name } ?: return@mapNotNull null
+        Release(tag, name, url)
     }
 } catch (_: JSONException) {
+    null
+} catch (_: StackOverflowError) {
+    // Android's org.json parses nesting by recursion: a body of a million '[' must not end the process.
     null
 }
 

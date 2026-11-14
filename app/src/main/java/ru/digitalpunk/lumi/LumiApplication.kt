@@ -84,10 +84,18 @@ class LumiApplication : Application() {
     /** The update check against GitHub Releases: the daily job and "Check now" in About. */
     val updates by lazy { UpdateChecker(settings, UpdateNotifier(this)) }
 
-    override fun onCreate() {
-        super.onCreate()
-        // The daily job follows the Settings switch; Dispatchers.Default keeps the scheduler's binder calls off the main thread.
-        appScope.launch(Dispatchers.Default) { settings.updatesOn.distinctUntilChanged().collect { UpdateSchedule.sync(this@LumiApplication, it) } }
+    private var followingUpdateSwitch = false
+
+    /**
+     * The daily job follows the Settings switch, from the first activity on; not from `onCreate`, which also runs in every
+     * Gecko child process. The persisted job outlives the process; Dispatchers.Default keeps binder calls off the main thread.
+     */
+    fun followUpdateSwitch() {
+        if (followingUpdateSwitch) return
+        followingUpdateSwitch = true
+        appScope.launch(Dispatchers.Default) {
+            settings.updatesOn.distinctUntilChanged().collect { on -> runCatching { UpdateSchedule.sync(this@LumiApplication, on) } }
+        }
     }
 
     override fun onTrimMemory(level: Int) {

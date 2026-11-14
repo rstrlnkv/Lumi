@@ -34,6 +34,9 @@ class ReleaseFeedTest {
             "https://github.com/rstrlnkv/lumi.evil/releases/tag/v0.2.0",
             "https://github.com/other/lumi/releases/tag/v0.2.0",
             "https://github.com/rstrlnkv/lumi/releases/tag/v0.2.0\nX",
+            "https://github.com/rstrlnkv/lumi/releases/../../../other/x",
+            "https://github.com/rstrlnkv/lumi/releases/tag/v0.2.0/../../../../other",
+            "https://github.com/rstrlnkv/lumi/releases/tag/v0.1.0",
         ).forEach { assertEquals(emptyList(), parseReleases(feed(release("v0.2.0", url = it.replace("\n", "\\n")))), it) }
     }
 
