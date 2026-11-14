@@ -27,6 +27,17 @@ enum class ThemeChoice(internal val stored: String) {
     Dark("dark"),
 }
 
+/** What "Delete browsing data" deletes; [Tabs] closes the normal tabs. */
+enum class ClearItem(internal val stored: String) {
+    History("history"),
+    Cookies("cookies"),
+    Cache("cache"),
+    Tabs("tabs"),
+}
+
+/** The boxes checked the first time: everything but closing the tabs. */
+val DEFAULT_CLEAR_CHOICE: Set<ClearItem> = setOf(ClearItem.History, ClearItem.Cookies, ClearItem.Cache)
+
 /** The tab the Library opens on: the one that was open last. */
 enum class LibraryTab(internal val stored: String) {
     Bookmarks("bookmarks"),
@@ -64,6 +75,16 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
 
     suspend fun setWallpaperColors(value: Boolean) {
         store.edit { it[WALLPAPER_COLORS] = value }
+    }
+
+    /** The last "Delete browsing data" choice; [DEFAULT_CLEAR_CHOICE] when nothing, nothing known or another type is stored. */
+    val clearDataChoice: Flow<Set<ClearItem>> = store.data.map { prefs ->
+        val stored = prefs.read(CLEAR_DATA_CHOICE).orEmpty()
+        ClearItem.entries.filterTo(mutableSetOf()) { it.stored in stored }.ifEmpty { DEFAULT_CLEAR_CHOICE }
+    }
+
+    suspend fun setClearDataChoice(choice: Set<ClearItem>) {
+        store.edit { it[CLEAR_DATA_CHOICE] = choice.mapTo(mutableSetOf()) { item -> item.stored } }
     }
 
     /** "Switch to new tabs": a link opened in a new tab is shown at once instead of in the background. Off when nothing is stored. */
@@ -205,6 +226,7 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         val NOTIFIED_UPDATE_TAG = stringPreferencesKey("notified_update_tag")
         val THEME = stringPreferencesKey("theme")
         val WALLPAPER_COLORS = booleanPreferencesKey("wallpaper_colors")
+        val CLEAR_DATA_CHOICE = stringSetPreferencesKey("clear_data_choice")
     }
 }
 
