@@ -213,4 +213,57 @@ class LibraryRepositoryTest {
         assertFalse(repo.updateBookmark(b, "B", long, ROOT))
         assertEquals("https://b.com/", node(b).url)
     }
+
+    @Test fun reorderChangesTheChildrenOrderAndLeavesOtherFolders() = runBlocking<Unit> {
+        repo.open()
+        val f = repo.createFolder(ROOT, "F")!!
+        val a = repo.addBookmark(ROOT, "A", "https://a.com/")!!
+        val b = repo.addBookmark(ROOT, "B", "https://b.com/")!!
+        val inside = repo.addBookmark(f, "I", "https://i.com/")!!
+        val before = node(inside)
+        assertTrue(repo.reorder(b, 0))
+        assertEquals(listOf(b, FAVORITES, f, a), children(dao.nodeRows.value, ROOT).map { it.id })
+        assertEquals(before, node(inside))
+    }
+
+    @Test fun reorderToTheSamePlaceWritesNothingAndReturnsFalse() = runBlocking<Unit> {
+        repo.open()
+        val a = repo.addBookmark(ROOT, "A", "https://a.com/")!!
+        repo.addBookmark(ROOT, "B", "https://b.com/")
+        val rows = dao.nodeRows.value
+        assertFalse(repo.reorder(a, 1))
+        assertEquals(rows, dao.nodeRows.value)
+    }
+
+    @Test fun reorderOfAnUnknownIdIsRefused() = runBlocking<Unit> {
+        assertFalse(repo.reorder("gone", 0))
+    }
+
+    @Test fun aBookmarkAddedAfterReorderGoesLast() = runBlocking<Unit> {
+        repo.open()
+        val a = repo.addBookmark(ROOT, "A", "https://a.com/")!!
+        val b = repo.addBookmark(ROOT, "B", "https://b.com/")!!
+        repo.reorder(b, 0)
+        val c = repo.addBookmark(ROOT, "C", "https://c.com/")!!
+        assertEquals(c, children(dao.nodeRows.value, ROOT).last().id)
+        assertEquals(listOf(b, FAVORITES, a, c), children(dao.nodeRows.value, ROOT).map { it.id })
+    }
+
+    @Test fun deleteAndRestoreAfterReorderReturnTheSameRows() = runBlocking<Unit> {
+        val a = repo.addBookmark(ROOT, "A", "https://a.com/")!!
+        val b = repo.addBookmark(ROOT, "B", "https://b.com/")!!
+        repo.reorder(b, 0)
+        val rows = dao.nodeRows.value.toSet()
+        repo.restore(repo.delete(a)!!)
+        assertEquals(rows, dao.nodeRows.value.toSet())
+    }
+
+    @Test fun reorderThenMoveNodeIntoAFolderPutsTheNodeAtTheEndOfIt() = runBlocking<Unit> {
+        val f = repo.createFolder(ROOT, "F")!!
+        val inside = repo.addBookmark(f, "I", "https://i.com/")!!
+        val a = repo.addBookmark(ROOT, "A", "https://a.com/")!!
+        repo.reorder(a, 0)
+        assertTrue(repo.moveNode(a, f))
+        assertEquals(listOf(inside, a), children(dao.nodeRows.value, f).map { it.id })
+    }
 }

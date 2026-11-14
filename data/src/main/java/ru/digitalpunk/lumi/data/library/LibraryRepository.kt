@@ -118,6 +118,14 @@ class LibraryRepository(
         true
     }
 
+    /** Moves [id] to [toIndex] among its siblings, rewriting the positions that change in one write; false when nothing was written (unknown id, orphan, no change, failure). */
+    suspend fun reorder(id: String, toIndex: Int): Boolean = write("Reordering bookmarks", false) {
+        val changed = reordered(dao.nodes(), id, toIndex)
+        if (changed.isEmpty()) return@write false
+        dao.insertAll(changed)
+        true
+    }
+
     /** The removed subtree, for Undo; null for Favorites, an unknown id or a failure. */
     suspend fun delete(id: String): List<BookmarkNodeEntity>? {
         if (!canDelete(id)) return null

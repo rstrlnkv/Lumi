@@ -18,6 +18,27 @@ private fun childMap(nodes: List<BookmarkNodeEntity>): Map<String, List<Bookmark
 
 fun children(nodes: List<BookmarkNodeEntity>, parent: String): List<BookmarkNodeEntity> = childMap(nodes)[parent].orEmpty()
 
+/** [ids] with [id] moved to [toIndex] (clamped to the list); an unknown id leaves the list as it is. */
+fun moveToIndex(ids: List<String>, id: String, toIndex: Int): List<String> {
+    if (id !in ids) return ids
+    val rest = ids - id
+    return rest.toMutableList().apply { add(toIndex.coerceIn(0, rest.size), id) }
+}
+
+/**
+ * The siblings of [id] whose position changes when [id] moves to [toIndex] and they are renumbered 0..n-1 in display order.
+ * Empty for an unknown id, an orphan or no change.
+ */
+fun reordered(nodes: List<BookmarkNodeEntity>, id: String, toIndex: Int): List<BookmarkNodeEntity> {
+    val parent = nodes.firstOrNull { it.id == id }?.parentId ?: return emptyList()
+    val siblings = children(nodes, parent)
+    if (siblings.none { it.id == id }) return emptyList()
+    val byId = siblings.associateBy { it.id }
+    return moveToIndex(siblings.map { it.id }, id, toIndex).mapIndexedNotNull { index, key ->
+        byId.getValue(key).takeIf { it.position != index }?.copy(position = index)
+    }
+}
+
 /** Every node below [id] (not [id] itself), depth first. A cycle in a corrupt file stops at the first repeat. */
 private fun descendants(nodes: List<BookmarkNodeEntity>, id: String): List<BookmarkNodeEntity> {
     val map = childMap(nodes)

@@ -105,4 +105,46 @@ class BookmarkTreeTest {
         assertEquals("new", findBookmarkByUrl(saved, "https://example.com/")?.id)
         assertNull(findBookmarkByUrl(saved, "https://example.net/"))
     }
+
+    @Test fun moveToIndexMovesForwardAndBackward() {
+        val ids = listOf("a", "b", "c", "d")
+        assertEquals(listOf("b", "c", "a", "d"), moveToIndex(ids, "a", 2))
+        assertEquals(listOf("d", "a", "b", "c"), moveToIndex(ids, "d", 0))
+    }
+
+    @Test fun moveToIndexClampsToTheList() {
+        val ids = listOf("a", "b", "c")
+        assertEquals(listOf("b", "c", "a"), moveToIndex(ids, "a", 99))
+        assertEquals(listOf("c", "a", "b"), moveToIndex(ids, "c", -5))
+    }
+
+    @Test fun moveToIndexToTheSamePlaceOrOfAnUnknownIdLeavesTheList() {
+        val ids = listOf("a", "b", "c")
+        assertEquals(ids, moveToIndex(ids, "b", 1))
+        assertEquals(ids, moveToIndex(ids, "gone", 0))
+    }
+
+    @Test fun reorderedRenumbersOnlyTheSiblingsWhosePositionChanges() {
+        val rows = listOf(bookmark("a", position = 0), bookmark("b", position = 1), bookmark("c", position = 2), bookmark("d", position = 3))
+        val changed = reordered(rows, "d", 1)
+        assertEquals(mapOf("d" to 1, "b" to 2, "c" to 3), changed.associate { it.id to it.position })
+    }
+
+    @Test fun reorderedNormalisesTiedPositionsInCreationThenIdOrder() {
+        val rows = listOf(bookmark("z", createdAt = 1), bookmark("y", createdAt = 2), bookmark("x", createdAt = 1))
+        // display order: x, z, y; moving y to index 0 gives y, x, z; y already holds position 0
+        assertEquals(mapOf("x" to 1, "z" to 2), reordered(rows, "y", 0).associate { it.id to it.position })
+    }
+
+    @Test fun reorderedNeverTouchesAnotherParent() {
+        val changed = reordered(nodes, "b2", 0)
+        assertEquals(setOf("docs", "b2"), changed.map { it.id }.toSet())
+        assertTrue(changed.all { it.parentId == "work" })
+    }
+
+    @Test fun reorderedIsEmptyForAnUnknownIdAnOrphanOrNoChange() {
+        assertEquals(emptyList(), reordered(nodes, "gone", 0))
+        assertEquals(emptyList(), reordered(nodes, "b1", 2))
+        assertEquals(emptyList(), reordered(listOf(bookmark("o", "gone"), bookmark("b1", position = 1)), "o", 1))
+    }
 }
