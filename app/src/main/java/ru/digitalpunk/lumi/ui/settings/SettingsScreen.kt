@@ -111,7 +111,8 @@ fun SettingsScreen(
                 SettingsPage.Privacy -> PrivacySettings(settings, engine, library, snackbar, scope, back, full)
                 SettingsPage.Sites -> SitesSettings(settings, open, back, full)
                 SettingsPage.SiteData -> SiteDataScreen(library, engine, snackbar, scope, back, full)
-                SettingsPage.Unprotected, SettingsPage.LocalNetwork -> SettingsPageScaffold(stringResource(R.string.settings_sites), back, full) {}
+                SettingsPage.Unprotected -> UnprotectedSitesScreen(settings, engine, snackbar, scope, back, full)
+                SettingsPage.LocalNetwork -> SettingsPageScaffold(stringResource(R.string.settings_local_network), back, full) {}
             }
         }
     }

@@ -114,10 +114,10 @@ fun SiteDataScreen(
 
 /** A site row: the site's icon tile, the host, a supporting line and a trailing button. */
 @Composable
-internal fun SettingsRowWithTile(host: String, supporting: String, url: String, modifier: Modifier, trailing: @Composable () -> Unit) {
+internal fun SettingsRowWithTile(host: String, supporting: String?, url: String, modifier: Modifier, trailing: @Composable () -> Unit) {
     ListItem(
         headlineContent = { Text(host) },
-        supportingContent = { Text(supporting) },
+        supportingContent = supporting?.let { { Text(it) } },
         leadingContent = { SiteIconTile(url, host, 40.dp, 8.dp, backfill = false) },
         trailingContent = trailing,
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceBright),

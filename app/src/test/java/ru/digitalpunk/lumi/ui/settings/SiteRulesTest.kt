@@ -32,4 +32,8 @@ class SiteRulesTest {
         val rows = siteRows(listOf(visit("https://a.com/", 50), visit("https://a.com/old", 5)), "")
         assertEquals(50, rows.single().lastVisit)
     }
+
+    @Test fun `unprotected sites are sorted by host`() {
+        assertEquals(listOf("a.com", "b.org", "z.net"), unprotectedRows(setOf("z.net", "a.com", "b.org")))
+    }
 }

@@ -21,3 +21,6 @@ fun siteRows(history: List<HistoryEntity>, query: String): List<SiteRow> {
         .map { (host, at) -> SiteRow(host, at) }
         .sortedWith(compareByDescending<SiteRow> { it.lastVisit }.thenBy { it.host })
 }
+
+/** The sites with tracker protection off, by host. */
+fun unprotectedRows(hosts: Set<String>): List<String> = hosts.sorted()

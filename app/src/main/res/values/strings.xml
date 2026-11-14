@@ -387,4 +387,8 @@
     <string name="cd_delete_site_data">Delete data of %1$s</string>
     <string name="site_data_note">These are sites from your history. To delete the data of another site, open it: shield sheet → “Delete data of this site”.</string>
     <string name="site_data_empty">No sites in your history yet</string>
+    <string name="unprotected_note">You turned protection off for these sites in the shield sheet. All other sites are always protected.</string>
+    <string name="unprotected_turn_on">Turn on protection</string>
+    <string name="snackbar_protection_on">Protection on for %1$s</string>
+    <string name="unprotected_empty">No exceptions. All sites are protected</string>
 </resources>

@@ -412,4 +412,8 @@
     <string name="cd_delete_site_data">Удалить данные %1$s</string>
     <string name="site_data_note">Здесь сайты из истории. Данные сайта, которого нет в истории, можно удалить на самом сайте: шторка щита → «Удалить данные этого сайта».</string>
     <string name="site_data_empty">В истории пока нет сайтов</string>
+    <string name="unprotected_note">На этих сайтах вы выключили защиту в шторке щита. Остальные сайты защищены всегда.</string>
+    <string name="unprotected_turn_on">Вернуть защиту</string>
+    <string name="snackbar_protection_on">Защита для %1$s включена</string>
+    <string name="unprotected_empty">Исключений нет. Все сайты защищены</string>
 </resources>
