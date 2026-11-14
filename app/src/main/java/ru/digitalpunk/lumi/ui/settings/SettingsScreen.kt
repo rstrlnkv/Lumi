@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -45,11 +46,14 @@ import ru.digitalpunk.lumi.data.library.BookmarkNodeEntity
 import ru.digitalpunk.lumi.data.search.SearchEngine
 import ru.digitalpunk.lumi.data.library.LibraryRepository
 import ru.digitalpunk.lumi.ui.library.FolderPickerDialog
+import ru.digitalpunk.lumi.ui.about.AboutHost
+import ru.digitalpunk.lumi.ui.about.rememberAppVersion
 import ru.digitalpunk.lumi.ui.library.folderLabel
 
 /**
  * The Settings screen over the browser: Browser (the default browser), Search (engine and suggestions), Start page (the start-page folder) and Tabs
- * ("Switch to new tabs"). The engine list opens over it and Back closes the list first.
+ * ("Switch to new tabs") and About (About Lumi, which opens links through [onOpenUrl]). The engine list and About open over it
+ * and Back closes them first.
  * State is the caller's; [startFolder] is the folder in effect, Favorites when the chosen one is gone.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,14 +72,16 @@ fun SettingsScreen(
     defaultBrowser: Boolean,
     onDefaultBrowser: () -> Unit,
     onBack: () -> Unit,
+    onOpenUrl: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var picking by rememberSaveable { mutableStateOf(false) }
     var listOpen by rememberSaveable { mutableStateOf(false) }
+    var aboutOpen by rememberSaveable { mutableStateOf(false) }
     Box(modifier) {
         Scaffold(
-            // The engine list covers this layer; TalkBack must not read it underneath.
-            modifier = Modifier.fillMaxSize().then(if (listOpen) Modifier.clearAndSetSemantics {} else Modifier),
+            // The engine list or About covers this layer; TalkBack must not read it underneath.
+            modifier = Modifier.fillMaxSize().then(if (listOpen || aboutOpen) Modifier.clearAndSetSemantics {} else Modifier),
             topBar = {
                 TopAppBar(
                     title = {
@@ -137,6 +143,13 @@ fun SettingsScreen(
                     trailingContent = { Switch(checked = switchToNewTabs, onCheckedChange = null) },
                     modifier = Modifier.toggleable(value = switchToNewTabs, role = Role.Switch, onValueChange = onSwitchToNewTabsChange),
                 )
+                SectionHeader(stringResource(R.string.settings_section_about))
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_about)) },
+                    supportingContent = { Text(rememberAppVersion().copyText) },
+                    leadingContent = { Icon(Icons.Filled.Info, contentDescription = null) },
+                    modifier = Modifier.clickable(role = Role.Button) { aboutOpen = true },
+                )
             }
         }
         if (listOpen) {
@@ -147,6 +160,9 @@ fun SettingsScreen(
                 onBack = { listOpen = false },
                 modifier = Modifier.fillMaxSize().pointerInput(Unit) {},
             )
+        }
+        if (aboutOpen) {
+            AboutHost(onBack = { aboutOpen = false }, onOpenUrl = onOpenUrl, modifier = Modifier.fillMaxSize().pointerInput(Unit) {})
         }
     }
     if (picking) {

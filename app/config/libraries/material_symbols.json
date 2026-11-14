@@ -1,0 +1,8 @@
+{
+  "uniqueId": "com.google.material-symbols:material-symbols-rounded",
+  "name": "Material Symbols",
+  "description": "The vector icons in Lumi's res/drawable/ic_*.xml are copied from Material Symbols Rounded.",
+  "website": "https://github.com/google/material-design-icons",
+  "developers": [{ "name": "Google" }],
+  "licenses": ["Apache-2.0"]
+}

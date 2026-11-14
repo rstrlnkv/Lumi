@@ -279,4 +279,23 @@
     <string name="settings_default_browser_on">Lumi is the default</string>
     <string name="link_opened_normal_tab">Opened in a normal tab</string>
     <string name="cd_back_to_app">Back to previous app</string>
+    <!-- About Lumi (M8b) -->
+    <string name="settings_section_about">About</string>
+    <string name="settings_about">About Lumi</string>
+    <string name="about_title">About Lumi</string>
+    <string name="about_description">A Material browser with the address bar at the bottom.</string>
+    <string name="about_dev_badge">DEV</string>
+    <string name="about_version">Version</string>
+    <string name="about_author">Rostislav Strelnikov</string>
+    <string name="about_contact">github.com/rstrlnkv</string>
+    <string name="about_whats_new">What\'s new</string>
+    <string name="about_licenses">Licenses</string>
+    <string name="about_copied">Copied: %1$s</string>
+    <string name="about_copyright">© 2026 Lumi · MPL-2.0</string>
+    <string name="licenses_intro">Lumi is built with these open source libraries. Tap one to read its license.</string>
+    <string name="whats_new_empty">Nothing here yet</string>
+    <string name="cd_copy_version">Version %1$s, build %2$s. Copy</string>
+    <string name="cd_open_author_page">Open GitHub profile</string>
+    <string name="cd_expand">Expand</string>
+    <string name="cd_collapse">Collapse</string>
 </resources>

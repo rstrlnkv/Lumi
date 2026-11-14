@@ -754,7 +754,8 @@ fun BrowserScreen(
                 defaultBrowser = isDefault,
                 onDefaultBrowser = defaultBrowser::request,
                 onBack = { settingsOpen = false },
-                Modifier.fillMaxSize().pointerInput(Unit) {},
+                onOpenUrl = { engine.newTab(url = it); settingsOpen = false },
+                modifier = Modifier.fillMaxSize().pointerInput(Unit) {},
             )
         }
 

@@ -302,4 +302,23 @@
     <string name="settings_default_browser_on">Lumi — браузер по умолчанию</string>
     <string name="link_opened_normal_tab">Открыто в обычной вкладке</string>
     <string name="cd_back_to_app">Назад в предыдущее приложение</string>
+    <!-- About Lumi (M8b) -->
+    <string name="settings_section_about">О приложении</string>
+    <string name="settings_about">О Lumi</string>
+    <string name="about_title">О Lumi</string>
+    <string name="about_description">Браузер в стиле Material с адресной строкой внизу.</string>
+    <string name="about_dev_badge">DEV</string>
+    <string name="about_version">Версия</string>
+    <string name="about_author">Ростислав Стрельников</string>
+    <string name="about_contact">github.com/rstrlnkv</string>
+    <string name="about_whats_new">Что нового</string>
+    <string name="about_licenses">Лицензии</string>
+    <string name="about_copied">Скопировано: %1$s</string>
+    <string name="about_copyright">© 2026 Lumi · MPL-2.0</string>
+    <string name="licenses_intro">В Lumi используются эти библиотеки с открытым кодом. Нажмите на библиотеку, чтобы прочитать лицензию.</string>
+    <string name="whats_new_empty">Здесь пока ничего нет</string>
+    <string name="cd_copy_version">Версия %1$s, сборка %2$s. Копировать</string>
+    <string name="cd_open_author_page">Открыть профиль на GitHub</string>
+    <string name="cd_expand">Развернуть</string>
+    <string name="cd_collapse">Свернуть</string>
 </resources>
