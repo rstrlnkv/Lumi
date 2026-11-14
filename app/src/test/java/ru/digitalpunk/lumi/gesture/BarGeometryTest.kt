@@ -1,5 +1,6 @@
 package ru.digitalpunk.lumi.gesture
 
+import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -26,6 +27,16 @@ class BarGeometryTest {
         val top = BarGeometry.stripTop(screen, expanded, hidden = maxHidden)
         assertEquals(screen - navInset - layer, top)
         assertEquals(screen - navInset, top + layer)
+    }
+
+    // Gecko takes whole px. A fractional strip (48 dp at density 3.1375 is 150.6 px, plus a 50 px inset) put the band at
+    // 2571.4 and a site's `bottom:0` bar at 2571: one row of page showed between them (netflix.com).
+    @Test fun aCollapsedBarRestsOnAWholePixelSoTheBandMeetsGeckosFixedBottom() {
+        val screen = 2772f
+        val expanded = 300f
+        val hidden = BarGeometry.maxHidden(expanded, collapsed = 200.6f)
+        val geckoFixedBottom = screen - expanded - BarGeometry.clipping(hidden).roundToInt()
+        assertEquals(geckoFixedBottom, BarGeometry.stripTop(screen, expanded, hidden))
     }
 
     @Test fun stripTopIsTheBarTopWhenExpanded() = assertEquals(700f, BarGeometry.stripTop(1000f, 300f, 0f))

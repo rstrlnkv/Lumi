@@ -1,11 +1,17 @@
 package ru.digitalpunk.lumi.gesture
 
+import kotlin.math.roundToInt
+
 /**
  * Address-bar heights in px, all measured from the screen bottom (so they include the navigation
  * inset). `expanded` is the bar fully shown, `collapsed` the strip left when it is hidden.
  */
 object BarGeometry {
-    fun maxHidden(expanded: Float, collapsed: Float) = (expanded - collapsed).coerceAtLeast(0f)
+    /**
+     * How far the bar slides, with the strip rounded to whole px: Gecko takes the clipping in whole px, so a fractional
+     * strip leaves a row of page between a site's `bottom:0` bar and the band (seen on a device, density 3.1375).
+     */
+    fun maxHidden(expanded: Float, collapsed: Float) = (expanded - collapsed.roundToInt()).coerceAtLeast(0f)
 
     /**
      * What Gecko gets as the vertical clipping. Gecko already keeps the whole bar (`BrowserEngine.setBarMaxHeight`)
