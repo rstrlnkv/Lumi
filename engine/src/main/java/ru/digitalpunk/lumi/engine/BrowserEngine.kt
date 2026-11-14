@@ -449,6 +449,18 @@ class BrowserEngine(appContext: Context) {
         mutableChanges.tryEmit(Unit)
     }
 
+    /** "Close all tabs": closes every normal tab and group with their sessions, then opens one new normal tab. Private tabs stay. */
+    fun closeNormalTabs() {
+        if (selected?.isPrivate != true) view?.releaseSession()
+        tabsStore.dropNormal().forEach { id ->
+            cancelLna(id)
+            records.remove(id)?.session?.close()
+            live.remove(id)
+        }
+        newTab()
+        mutableChanges.tryEmit(Unit)
+    }
+
     /** Selects the tab [offset] places away inside the selected tab's group; false (nothing happens) at either end. */
     fun switchBy(offset: Int): Boolean {
         val next = tabsStore.neighbour(offset) ?: return false
@@ -689,6 +701,21 @@ class BrowserEngine(appContext: Context) {
                 .forEach { storage.setPermission(it, ContentPermission.VALUE_PROMPT) }
             done()
         }, {})
+    }
+
+    /** Deletes cookies, site storage and sign-ins ([cookies]) and every cache ([cache]) of all sites, for all time. */
+    suspend fun clearBrowsingData(cookies: Boolean, cache: Boolean) {
+        awaitDone(runtime.storageController.clearData(clearFlags(cookies, cache)))
+    }
+
+    /** Deletes the cookies, storage, sign-ins and cache of [host] (a site key, [siteKey]). */
+    suspend fun clearSiteData(host: String) {
+        awaitDone(runtime.storageController.clearDataFromHost(host, clearFlags(cookies = true, cache = true)))
+    }
+
+    /** Waits for a result without a value (`GeckoResult<Void>` completes with null). */
+    private suspend fun awaitDone(result: GeckoResult<*>): Unit = suspendCancellableCoroutine { c ->
+        result.accept({ c.resume(Unit) }, { c.resumeWithException(it ?: IOException("Gecko failed")) })
     }
 
     /** [level] is a `ComponentCallbacks2.TRIM_MEMORY_*` value. The cap returns to normal on the next tab switch. */
