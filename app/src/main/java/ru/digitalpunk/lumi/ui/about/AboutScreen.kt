@@ -11,7 +11,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,19 +20,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -55,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -66,6 +61,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.pm.PackageInfoCompat
@@ -138,16 +134,15 @@ private fun AboutScreen(onBack: () -> Unit, onOpenUrl: (String) -> Unit, onPage:
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Mark {
                 Text("Lumi", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
                 if (version.isDev) {
-                    Spacer(Modifier.width(8.dp))
                     Text(
                         stringResource(R.string.about_dev_badge),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.background(MaterialTheme.colorScheme.tertiaryContainer, RoundedCornerShape(8.dp))
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(top = badgeTop).background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
                             .padding(horizontal = 8.dp, vertical = 2.dp),
                     )
                 }
@@ -165,7 +160,7 @@ private fun AboutScreen(onBack: () -> Unit, onOpenUrl: (String) -> Unit, onPage:
             ListItem(
                 headlineContent = { Text(stringResource(R.string.about_version)) },
                 supportingContent = { Text(version.copyText) },
-                leadingContent = { Icon(Icons.Filled.Info, contentDescription = null) },
+                leadingContent = { Icon(painterResource(R.drawable.ic_tag), contentDescription = null) },
                 trailingContent = { Icon(painterResource(R.drawable.ic_content_copy), contentDescription = null) },
                 modifier = Modifier.heightIn(min = 72.dp).combinedClickable(onClick = copy, onLongClick = copy)
                     .semantics(mergeDescendants = true) { contentDescription = copyLabel },
@@ -179,8 +174,8 @@ private fun AboutScreen(onBack: () -> Unit, onOpenUrl: (String) -> Unit, onPage:
                     .clickable(onClickLabel = stringResource(R.string.cd_open_author_page), role = Role.Button) { onOpenUrl(AUTHOR_URL) },
             )
             HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-            NavRow(stringResource(R.string.about_whats_new), { Icon(Icons.Filled.Star, contentDescription = null) }) { onPage("news") }
-            NavRow(stringResource(R.string.about_licenses), { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) }) { onPage("licenses") }
+            NavRow(stringResource(R.string.about_whats_new), { Icon(painterResource(R.drawable.ic_new_releases), contentDescription = null) }) { onPage("news") }
+            NavRow(stringResource(R.string.about_licenses), { Icon(painterResource(R.drawable.ic_description), contentDescription = null) }) { onPage("licenses") }
             Spacer(Modifier.height(24.dp))
             Text(
                 stringResource(R.string.about_copyright),
@@ -189,6 +184,30 @@ private fun AboutScreen(onBack: () -> Unit, onOpenUrl: (String) -> Unit, onPage:
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(16.dp),
             )
+        }
+    }
+}
+
+/** The DEV badge's top sits 3 dp below the top of the name's line box, like a superscript tag. */
+private val badgeTop = 3.dp
+
+/** Where the name and the badge go on the mark line, in px. */
+internal data class MarkPlacement(val width: Int, val nameX: Int, val badgeX: Int)
+
+/** The name alone is centred: the line keeps the badge and its gap on both sides and draws them only after the name. */
+internal fun markPlacement(name: Int, badge: Int, gap: Int): MarkPlacement =
+    MarkPlacement(width = name + 2 * (gap + badge), nameX = gap + badge, badgeX = gap + badge + name + gap)
+
+/** The name, then an optional badge [gap] after it, top-aligned; the reading order stays name, then badge. */
+@Composable
+private fun Mark(gap: Dp = 8.dp, content: @Composable () -> Unit) {
+    Layout(content) { measurables, constraints ->
+        val name = measurables[0].measure(constraints.copy(minWidth = 0, minHeight = 0))
+        val badge = measurables.getOrNull(1)?.measure(constraints.copy(minWidth = 0, minHeight = 0))
+        val at = markPlacement(name.width, badge?.width ?: 0, if (badge == null) 0 else gap.roundToPx())
+        layout(at.width, maxOf(name.height, badge?.height ?: 0)) {
+            name.placeRelative(at.nameX, 0)
+            badge?.placeRelative(at.badgeX, 0)
         }
     }
 }
