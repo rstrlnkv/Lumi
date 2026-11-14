@@ -6,7 +6,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -48,9 +55,46 @@ import androidx.compose.ui.unit.dp
 import ru.digitalpunk.lumi.R
 
 /** A Settings page: a large top app bar with Back, then the content in a scrolling column with 16 dp margins. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsPageScaffold(title: String, onBack: () -> Unit, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    SettingsFrame(title, onBack, modifier) { padding ->
+        Column(
+            Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            content = { content(); Spacer(Modifier.height(8.dp)) },
+        )
+    }
+}
+
+/** A Settings page for a long list: the same frame, the content in a lazy column; items set their own gaps. */
+@Composable
+fun SettingsLazyPage(title: String, onBack: () -> Unit, modifier: Modifier = Modifier, content: LazyListScope.() -> Unit) {
+    val navigation = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    SettingsFrame(title, onBack, modifier) { padding ->
+        LazyColumn(
+            Modifier.padding(padding).fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp + navigation),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            content = content,
+        )
+    }
+}
+
+/** The shape of row [index] of [count] in a lazy group: 20 dp at the group's outer corners, 4 dp elsewhere. */
+fun groupShape(index: Int, count: Int): Shape {
+    val outer = 20.dp
+    val inner = 4.dp
+    return RoundedCornerShape(
+        topStart = if (index == 0) outer else inner,
+        topEnd = if (index == 0) outer else inner,
+        bottomStart = if (index == count - 1) outer else inner,
+        bottomEnd = if (index == count - 1) outer else inner,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsFrame(title: String, onBack: () -> Unit, modifier: Modifier, content: @Composable (PaddingValues) -> Unit) {
     val background = MaterialTheme.colorScheme.surfaceContainer
     Scaffold(
         modifier = modifier,
@@ -66,13 +110,8 @@ fun SettingsPageScaffold(title: String, onBack: () -> Unit, modifier: Modifier =
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = background, scrolledContainerColor = background),
             )
         },
-    ) { padding ->
-        Column(
-            Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            content = { content(); Spacer(Modifier.height(8.dp)) },
-        )
-    }
+        content = content,
+    )
 }
 
 /** Rows with 2 dp gaps; the group rounds its outer corners to 20 dp, each row its own to 4 dp. */

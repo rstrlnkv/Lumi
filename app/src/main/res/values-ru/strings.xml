@@ -394,4 +394,22 @@
     <string name="snackbar_data_delete_failed">Не все данные удалось удалить</string>
     <string name="shield_delete_site_data">Удалить данные этого сайта</string>
     <string name="snackbar_site_data_deleted">Данные %1$s удалены</string>
+    <string name="settings_site_data">Данные сайтов</string>
+    <string name="settings_site_data_summary">Cookies и данные сайтов из истории</string>
+    <string name="settings_unprotected">Сайты без защиты от трекеров</string>
+    <string name="settings_unprotected_none">Нет</string>
+    <plurals name="settings_site_count">
+        <item quantity="one">%d сайт</item>
+        <item quantity="few">%d сайта</item>
+        <item quantity="many">%d сайтов</item>
+        <item quantity="other">%d сайта</item>
+    </plurals>
+    <string name="settings_local_network">Доступ к локальной сети</string>
+    <string name="settings_local_network_counts">Разрешено: %1$d · запрещено: %2$d</string>
+    <string name="settings_local_network_none">Ответов нет</string>
+    <string name="site_data_search">Поиск сайтов</string>
+    <string name="site_data_last_visit">Последний визит: %1$s</string>
+    <string name="cd_delete_site_data">Удалить данные %1$s</string>
+    <string name="site_data_note">Здесь сайты из истории. Данные сайта, которого нет в истории, можно удалить на самом сайте: шторка щита → «Удалить данные этого сайта».</string>
+    <string name="site_data_empty">В истории пока нет сайтов</string>
 </resources>

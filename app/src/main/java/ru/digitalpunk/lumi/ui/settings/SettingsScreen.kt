@@ -109,8 +109,9 @@ fun SettingsScreen(
                 SettingsPage.About -> AboutHost(onBack = back, onOpenUrl = onOpenUrl, modifier = full)
                 SettingsPage.Appearance -> AppearanceSettings(settings, scope, back, full)
                 SettingsPage.Privacy -> PrivacySettings(settings, engine, library, snackbar, scope, back, full)
-                SettingsPage.Sites, SettingsPage.SiteData, SettingsPage.Unprotected, SettingsPage.LocalNetwork ->
-                    SettingsPageScaffold(stringResource(R.string.settings_sites), back, full) {}
+                SettingsPage.Sites -> SitesSettings(settings, open, back, full)
+                SettingsPage.SiteData -> SiteDataScreen(library, engine, snackbar, scope, back, full)
+                SettingsPage.Unprotected, SettingsPage.LocalNetwork -> SettingsPageScaffold(stringResource(R.string.settings_sites), back, full) {}
             }
         }
     }

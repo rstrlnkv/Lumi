@@ -371,4 +371,20 @@
     <string name="snackbar_data_delete_failed">Some data could not be deleted</string>
     <string name="shield_delete_site_data">Delete data of this site</string>
     <string name="snackbar_site_data_deleted">Data of %1$s deleted</string>
+    <string name="settings_site_data">Site data</string>
+    <string name="settings_site_data_summary">Cookies and site data of sites in your history</string>
+    <string name="settings_unprotected">Sites without tracker protection</string>
+    <string name="settings_unprotected_none">None</string>
+    <plurals name="settings_site_count">
+        <item quantity="one">%d site</item>
+        <item quantity="other">%d sites</item>
+    </plurals>
+    <string name="settings_local_network">Local network access</string>
+    <string name="settings_local_network_counts">Allowed: %1$d · blocked: %2$d</string>
+    <string name="settings_local_network_none">No answers</string>
+    <string name="site_data_search">Search sites</string>
+    <string name="site_data_last_visit">Last visit: %1$s</string>
+    <string name="cd_delete_site_data">Delete data of %1$s</string>
+    <string name="site_data_note">These are sites from your history. To delete the data of another site, open it: shield sheet → “Delete data of this site”.</string>
+    <string name="site_data_empty">No sites in your history yet</string>
 </resources>
