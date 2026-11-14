@@ -10,9 +10,10 @@ import java.io.ByteArrayOutputStream
 private const val MAX_DECODE_EDGE = 2048
 private const val WORKING_EDGE = 256
 
-/** Decodes PNG, JPEG, WebP, GIF or ICO through the platform and stores the result as a 192 px PNG per [planIcon]. */
+/** Decodes PNG, JPEG, WebP, GIF or ICO through the platform, or a safe SVG through AndroidSVG, and stores a 192 px PNG per [planIcon]. */
 class BitmapIconCodec : IconCodec {
-    override fun encode(bytes: ByteArray): ByteArray? {
+    override fun encode(bytes: ByteArray): EncodedIcon? {
+        if (looksLikeSvg(bytes)) return encodeSvg(bytes)
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         val w = bounds.outWidth
@@ -34,12 +35,29 @@ class BitmapIconCodec : IconCodec {
                     Rect(plan.dstX, plan.dstY, plan.dstX + plan.dstW, plan.dstY + plan.dstH),
                     Paint(Paint.FILTER_BITMAP_FLAG),
                 )
-                return ByteArrayOutputStream().also { out.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+                val png = ByteArrayOutputStream().also { out.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+                return EncodedIcon(png, IconQuality(minOf(w, h), vector = false))
             } finally {
                 out.recycle()
             }
         } finally {
             src.recycle()
+        }
+    }
+
+    private fun encodeSvg(bytes: ByteArray): EncodedIcon? {
+        if (bytes.size > MAX_SVG_BYTES) return null
+        val text = String(bytes, Charsets.UTF_8)
+        if (!svgSafe(text)) return null
+        val out = SvgRaster.render(text) ?: return null
+        try {
+            val pixels = IntArray(ICON_SIZE * ICON_SIZE)
+            out.getPixels(pixels, 0, ICON_SIZE, 0, 0, ICON_SIZE, ICON_SIZE)
+            if (!hasInk(pixels)) return null
+            val png = ByteArrayOutputStream().also { out.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+            return EncodedIcon(png, IconQuality(ICON_SIZE, vector = true))
+        } finally {
+            out.recycle()
         }
     }
 }

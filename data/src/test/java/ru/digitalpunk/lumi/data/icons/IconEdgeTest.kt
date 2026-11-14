@@ -47,7 +47,7 @@ class IconEdgeTest {
 
     @Test fun theSameUrlTwiceIsAskedOnce() {
         val links = parseIconLinks("""<link rel="icon" href="/a.png"><link rel="icon" href="/a.png"><link rel="icon" href="/b.png">""", base)
-        assertEquals(listOf("https://a.com/a.png", "https://a.com/b.png", "https://a.com/favicon.ico"), rankIcons(links, base).map { it.url })
+        assertEquals(listOf("https://a.com/a.png", "https://a.com/b.png", "https://a.com/favicon.ico"), rankIcons(links, base).filter { it.kind != IconCandidate.Kind.RootTouch }.map { it.url })
     }
 
     private fun gray(g: Int) = IntArray(16) { (0xFF shl 24) or (g shl 16) or (g shl 8) or g }

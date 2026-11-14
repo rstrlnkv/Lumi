@@ -13,7 +13,7 @@ class ManifestIconsTest {
         assertEquals(IconCandidate("https://a.com/app/i/192.png", IconCandidate.Kind.Manifest, 192), got)
     }
 
-    @Test fun maskableOnlyMonochromeSvgAnyAndMissingSizesAreLeftOut() {
+    @Test fun monochromeAndRastersWithoutASizeAreLeftOutWhileMaskableAndSvgAreMarked() {
         val got = icons(
             """{"src":"/m.png","sizes":"512x512","purpose":"maskable"}""",
             """{"src":"/mono.png","sizes":"512x512","purpose":"monochrome"}""",
@@ -23,7 +23,15 @@ class ManifestIconsTest {
             """{"src":"/none.png"}""",
             """{"src":"/both.png","sizes":"256x256","purpose":"maskable any"}""",
         )
-        assertEquals(listOf("https://a.com/both.png"), got.map { it.url })
+        assertEquals(
+            listOf(
+                IconCandidate("https://a.com/m.png", IconCandidate.Kind.Manifest, 512, maskable = true),
+                IconCandidate("https://a.com/s.svg", IconCandidate.Kind.Manifest, null, svg = true),
+                IconCandidate("https://a.com/t.png", IconCandidate.Kind.Manifest, null, svg = true),
+                IconCandidate("https://a.com/both.png", IconCandidate.Kind.Manifest, 256),
+            ),
+            got,
+        )
     }
 
     @Test fun otherSchemesUserInfoLocalHostsAndNonStringsAreRefused() {

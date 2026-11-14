@@ -32,6 +32,7 @@ room {
 
 dependencies {
     api(libs.kotlinx.coroutines.core)
+    implementation(libs.androidsvg)
     implementation(libs.datastore.preferences)
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)

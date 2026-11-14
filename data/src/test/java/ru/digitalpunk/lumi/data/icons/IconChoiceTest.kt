@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 class IconChoiceTest {
     private val root = "https://a.com/"
     private fun c(name: String, kind: Kind, size: Int?) = IconCandidate("https://a.com/$name", kind, size)
-    private fun ranked(vararg cs: IconCandidate) = rankIcons(cs.toList(), root).map { it.url.removePrefix(root) }
+    private fun ranked(vararg cs: IconCandidate) = rankIcons(cs.toList(), root).filter { it.kind != IconCandidate.Kind.RootTouch }.map { it.url.removePrefix(root) }
 
     @Test fun aTouchIconOf180BeatsA512ManifestIcon() =
         assertEquals(listOf("t.png", "m.png", "favicon.ico"), ranked(c("m.png", Kind.Manifest, 512), c("t.png", Kind.Touch, 180)))

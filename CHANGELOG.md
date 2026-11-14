@@ -5,6 +5,10 @@ All notable changes to Lumi are written here. The format follows [Keep a Changel
 ## [Unreleased]
 
 ### Added
+- Start-page tiles show a site's real icon more often, the way Safari finds it: also icons the site keeps at its
+  usual address without naming them, vector (SVG) icons, and icons that only appear once you open the site.
+- A site that offers only a tiny icon gets a letter tile in the site's own colour on the start page, instead of a
+  blurry little icon. Bookmark and History rows keep the small icon.
 - A fresh Lumi starts with ten popular sites in Favorites (Google, YouTube, Wikipedia, Gmail,
   Amazon, Reddit, X, Instagram, GitHub and Netflix), so the start page is not empty. Delete the
   ones you do not want; they do not come back.

@@ -24,9 +24,9 @@ class IconFetcherTest {
         }
     }
 
-    /** Encodes a body that starts with "ok" to "png:<body>"; anything else does not decode. */
-    private val codec = object : IconCodec {
-        override fun encode(bytes: ByteArray): ByteArray? = String(bytes).takeIf { it.startsWith("ok") }?.let { "png:$it".toByteArray() }
+    /** Encodes a body that starts with "ok" to "png:<body>", of the size after its last `-` (else 192); anything else does not decode. */
+    private val codec = IconCodec { bytes ->
+        String(bytes).takeIf { it.startsWith("ok") }?.let { EncodedIcon("png:$it".toByteArray(), IconQuality(it.substringAfterLast('-').toIntOrNull() ?: 192, false)) }
     }
 
     private fun page(html: String) = HttpResponse("https://a.com/", html.toByteArray())
@@ -34,8 +34,8 @@ class IconFetcherTest {
 
     @Test fun aFailedPageStillTriesFaviconIco() = runBlocking<Unit> {
         val http = FakeHttp(mapOf("https://a.com/favicon.ico" to img("ok-ico", "https://a.com/favicon.ico")))
-        assertContentEquals("png:ok-ico".toByteArray(), IconFetcher(http, codec).fetch(target))
-        assertEquals(listOf("https://a.com/", "https://a.com/favicon.ico"), http.asked)
+        assertContentEquals("png:ok-ico".toByteArray(), IconFetcher(http, codec).fetch(target)?.png)
+        assertEquals(listOf("https://a.com/", "https://a.com/apple-touch-icon.png", "https://a.com/apple-touch-icon-precomposed.png", "https://a.com/favicon.ico"), http.asked)
     }
 
     @Test fun theFirstCandidateThatEncodesWinsAndLaterOnesAreNotRequested() = runBlocking<Unit> {
@@ -44,7 +44,7 @@ class IconFetcherTest {
             "https://a.com/t.png" to img("ok-touch", "https://a.com/t.png"),
             "https://a.com/i.png" to img("ok-icon", "https://a.com/i.png"),
         ))
-        assertContentEquals("png:ok-touch".toByteArray(), IconFetcher(http, codec).fetch(target))
+        assertContentEquals("png:ok-touch".toByteArray(), IconFetcher(http, codec).fetch(target)?.png)
         assertEquals(listOf("https://a.com/", "https://a.com/t.png"), http.asked)
     }
 
@@ -54,7 +54,7 @@ class IconFetcherTest {
             "https://a.com/t.png" to img("garbage", "https://a.com/t.png"),
             "https://a.com/favicon.ico" to img("ok-ico", "https://a.com/favicon.ico"),
         ))
-        assertContentEquals("png:ok-ico".toByteArray(), IconFetcher(http, codec).fetch(target))
+        assertContentEquals("png:ok-ico".toByteArray(), IconFetcher(http, codec).fetch(target)?.png)
     }
 
     @Test fun linksResolveAgainstTheFinalUrlOfThePage() = runBlocking<Unit> {
@@ -62,17 +62,17 @@ class IconFetcherTest {
             "https://a.com/" to HttpResponse("https://www.a.com/home/", """<link rel="icon" href="i.png">""".toByteArray()),
             "https://www.a.com/home/i.png" to img("ok-www", "https://www.a.com/home/i.png"),
         ))
-        assertContentEquals("png:ok-www".toByteArray(), IconFetcher(http, codec).fetch(target))
+        assertContentEquals("png:ok-www".toByteArray(), IconFetcher(http, codec).fetch(target)?.png)
     }
 
     @Test fun anExceptionFromTheNetworkGivesNullNotAThrow() = runBlocking<Unit> {
         val http = FakeHttp(emptyMap(), fail = setOf("https://a.com/", "https://a.com/favicon.ico"))
-        assertNull(IconFetcher(http, codec).fetch(target))
+        assertNull(IconFetcher(http, codec).fetch(target)?.png)
     }
 
     @Test fun anExceptionFromTheCodecGivesNull() = runBlocking<Unit> {
         val http = FakeHttp(mapOf("https://a.com/favicon.ico" to img("ok", "https://a.com/favicon.ico")))
-        val throwing = object : IconCodec { override fun encode(bytes: ByteArray): ByteArray? = throw IllegalStateException("bad") }
+        val throwing = object : IconCodec { override fun encode(bytes: ByteArray): EncodedIcon? = throw IllegalStateException("bad") }
         assertNull(IconFetcher(http, throwing).fetch(target))
     }
 
@@ -93,7 +93,7 @@ class IconFetcherTest {
             "https://a.com/m.json" to HttpResponse("https://a.com/m.json", """{"icons":[{"src":"/m.png","sizes":"192x192"}]}""".toByteArray()),
             "https://a.com/m.png" to img("ok-m", "https://a.com/m.png"),
         ))
-        assertContentEquals("png:ok-m".toByteArray(), IconFetcher(http, codec).fetch(target))
+        assertContentEquals("png:ok-m".toByteArray(), IconFetcher(http, codec).fetch(target)?.png)
         assertEquals(listOf("https://a.com/", "https://a.com/m.json", "https://a.com/m.png"), http.asked)
         assertEquals(listOf(262_144, 131_072, 1_048_576), http.caps)
     }
@@ -103,7 +103,7 @@ class IconFetcherTest {
             "https://a.com/" to page("""<link rel="manifest" href="/m.json"><link rel="apple-touch-icon" href="/t.png">"""),
             "https://a.com/t.png" to img("ok-t", "https://a.com/t.png"),
         ))
-        assertContentEquals("png:ok-t".toByteArray(), IconFetcher(http, codec).fetch(target))
+        assertContentEquals("png:ok-t".toByteArray(), IconFetcher(http, codec).fetch(target)?.png)
         assertEquals(listOf("https://a.com/", "https://a.com/t.png"), http.asked)
     }
 
@@ -114,6 +114,6 @@ class IconFetcherTest {
             "https://a.com/512.png" to img("ok-512", "https://a.com/512.png"),
             "https://a.com/favicon.ico" to img("ok-ico", "https://a.com/favicon.ico"),
         ))
-        assertContentEquals("png:ok-512".toByteArray(), IconFetcher(http, codec).fetch(target))
+        assertContentEquals("png:ok-512".toByteArray(), IconFetcher(http, codec).fetch(target)?.png)
     }
 }

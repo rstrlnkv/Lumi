@@ -215,7 +215,7 @@ private fun TileCell(tile: Tile, inPrivateTab: Boolean, onOpenUrl: (String) -> U
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             when (tile) {
-                is Tile.Bookmark -> SiteIconTile(tile.url, label, 64.dp, 16.dp, backfill = !inPrivateTab, letterStyle = MaterialTheme.typography.titleLarge)
+                is Tile.Bookmark -> SiteIconTile(tile.url, label, 64.dp, 16.dp, backfill = !inPrivateTab, letterStyle = MaterialTheme.typography.titleLarge, smallAsLetter = true)
                 is Tile.Folder -> Box(
                     Modifier.size(64.dp).background(MaterialTheme.colorScheme.tertiaryContainer, RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center,

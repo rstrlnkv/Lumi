@@ -28,7 +28,7 @@ class PageEndAssetsTest {
         assertTrue(manifest.contains("\"permissions\": [\"geckoViewAddons\", \"nativeMessaging\", \"nativeMessagingFromContent\", \"storage\"]"))
 
     // Gecko keeps an installed built-in extension until its version changes.
-    @Test fun theVersionIsRaisedForTheSeeThroughBarRule() = assertTrue(manifest.contains("\"version\": \"1.7\""))
+    @Test fun theVersionIsRaisedForTheIconLinks() = assertTrue(manifest.contains("\"version\": \"1.8\""))
 
     // Lumi refuses file: pages (UrlGuard), so the extension does not ask for them.
     @Test fun onlyTopFramesOfWebPagesAreMatched() {

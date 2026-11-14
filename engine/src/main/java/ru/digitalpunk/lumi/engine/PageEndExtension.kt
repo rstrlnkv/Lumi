@@ -57,12 +57,16 @@ internal class PageEndExtension(private val runtime: GeckoRuntime, private val o
         port?.let { post(it, pair) }
     }
 
-    /** Passes the reports of [session]'s page to [onReport]; does nothing until the extension is ready. */
-    fun bind(session: GeckoSession, onReport: (PageReport) -> Unit) {
+    /**
+     * Passes the reports of [session]'s page to [onReport] and its icon links to [onIcons]; null [onIcons] (a private tab)
+     * reads none. Does nothing until the extension is ready.
+     */
+    fun bind(session: GeckoSession, onReport: (PageReport) -> Unit, onIcons: ((PageIcons) -> Unit)?) {
         val ext = extension ?: return
         val delegate = object : WebExtension.MessageDelegate {
             override fun onMessage(nativeApp: String, message: Any, sender: WebExtension.MessageSender): GeckoResult<Any>? {
                 pageReport(message, sender.isTopLevel, sender.environmentType, sender.webExtension.id)?.let(onReport)
+                    ?: pageIcons(message, sender.isTopLevel, sender.environmentType, sender.webExtension.id, onIcons == null)?.let { onIcons?.invoke(it) }
                 return GeckoResult.fromValue(null)
             }
         }

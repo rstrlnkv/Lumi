@@ -1,7 +1,9 @@
 // Sets --lumi-page-end on <html> so spacer.css ends a scrollable page with a block as tall as Lumi's strip.
 // It also tells the app whether the page has an opaque bar stuck to the screen bottom (so the app draws a solid band
 // under its own bar; a see-through one counts as none) and, as "#rrggbb", that bar's colour and a colour for the status bar (the page's theme-color, else a header
-// stuck to the top). It reads only layout, style and the theme-color meta, and sends nothing else anywhere.
+// stuck to the top). It also sends the page's origin and its icon links (https only: URL, kind, size, type), its manifest link
+// and theme-color, which the app takes for bookmarked sites in normal tabs only. It reads only layout, style, the
+// theme-color meta and <link> tags, and sends nothing else anywhere.
 "use strict";
 (() => {
   if (window.top !== window) return;
@@ -13,6 +15,9 @@
   let stripChanged = false;
   let queued = false;
   let lastSent = null;
+  let lastIcons = null;
+  let iconSends = 0;
+  let iconTimer = null;
   let lastCheck = -Infinity;
   let trailing = null;
   let context = null;
@@ -147,8 +152,52 @@
     return msg;
   }
 
+  // The page's icon links: https only, touch icons first, then the largest; at most 16, read from at most 200 <link> tags.
+  function iconLinks() {
+    const icons = [];
+    let manifest = null;
+    const links = document.querySelectorAll("link[rel]");
+    for (let i = 0; i < links.length && i < 200; i++) {
+      const link = links[i];
+      const href = link.href;
+      if (typeof href !== "string" || !href.startsWith("https://") || href.length > 2048) continue;
+      if (link.relList.contains("manifest")) { if (!manifest) manifest = href; continue; }
+      const k = link.relList.contains("apple-touch-icon") || link.relList.contains("apple-touch-icon-precomposed") ? "touch"
+        : link.relList.contains("icon") ? "icon" : null;
+      if (!k || icons.some(x => x.u === href)) continue;
+      const entry = { u: href, k };
+      let s = 0;
+      for (const v of link.sizes || []) { const m = /^(\d{1,4})x(\d{1,4})$/i.exec(v); if (m) s = Math.max(s, +m[1], +m[2]); }
+      if (s > 0 && s <= 4096) entry.s = s;
+      const t = String(link.type || "").toLowerCase();
+      if (/^[a-z0-9.+\/-]{1,40}$/.test(t)) entry.t = t;
+      icons.push(entry);
+    }
+    icons.sort((a, b) => (a.k === b.k ? 0 : a.k === "touch" ? -1 : 1) || (b.s || 0) - (a.s || 0));
+    const msg = { page: location.origin, icons: icons.slice(0, 16) };
+    if (manifest) msg.manifest = manifest;
+    const theme = themeColor();
+    if (theme) msg.themeColor = theme;
+    return msg;
+  }
+
+  // Sends the icon links when they changed, at most six times per page: a script that rewrites them in a loop stops here.
+  function sendIcons() {
+    iconTimer = null;
+    if (iconSends >= 6 || !/^https?:\/\//.test(location.origin)) return;
+    const msg = iconLinks();
+    if (!msg.icons.length && !msg.manifest) return;
+    const key = JSON.stringify(msg);
+    if (key === lastIcons) return;
+    lastIcons = key;
+    iconSends++;
+    browser.runtime.sendNativeMessage("lumiPageEnd", msg).catch(() => {});
+  }
+
   // Sends the report when it changed, or always when forced (a new or restored page: the app starts it empty).
+  // Every report also reads the icon links a little later, so links a script inserts are seen.
   function report(force) {
+    if (!iconTimer) iconTimer = setTimeout(sendIcons, 250);
     const msg = snapshot();
     const key = JSON.stringify(msg);
     if (!force && key === lastSent) return;

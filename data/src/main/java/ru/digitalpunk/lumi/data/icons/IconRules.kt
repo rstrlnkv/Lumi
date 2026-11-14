@@ -8,8 +8,8 @@ internal const val MAX_BYTES = 1_048_576
 internal const val TOTAL_TIMEOUT_MS = 30_000L
 /** The stored icon is this many pixels square. */
 internal const val ICON_SIZE = 192
-/** An opaque source at least this large is cropped to fill the square: a 180 px touch icon fills it. */
-private const val FILL_MIN = 128
+/** An opaque source at least this large is cropped to fill the square: GitHub's 120 px root touch icon fills it. */
+private const val FILL_MIN = GOOD_PX
 internal const val MAX_URL = 2048
 private const val MAX_LINK_TAGS = 50
 private const val MIN_EDGE = 16
@@ -53,14 +53,22 @@ internal fun isAllowedIconUrl(url: String): Boolean {
     return (uri.port == -1 || uri.port == 443) && uri.rawUserInfo == null
 }
 
-data class IconCandidate(val url: String, val kind: Kind, val size: Int?) {
-    enum class Kind { Touch, Manifest, Icon, Favicon }
+/** One icon to try. An [svg] has no size; a [maskable] manifest icon is tried after an `any` one of the same size. */
+data class IconCandidate(val url: String, val kind: Kind, val size: Int?, val svg: Boolean = false, val maskable: Boolean = false) {
+    enum class Kind { Touch, Manifest, Icon, RootTouch, Favicon }
 }
+
+/** Icon links read from the page the person opened (ADR 012): its origin, links, manifest and theme-color. Never from a private tab. */
+data class PageIconOffer(val pageUrl: String, val candidates: List<IconCandidate>, val manifestUrl: String?, val themeColor: Int?)
+
+/** An SVG by its type or the path of its URL. */
+fun isSvg(url: String, type: String?): Boolean =
+    "svg" in type.orEmpty().lowercase() || url.substringBefore('?').substringBefore('#').endsWith(".svg", ignoreCase = true)
 
 private val ATTR = Regex("""([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*(?:=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>`]+)))?""")
 internal val SIZE = Regex("(\\d{1,5})x(\\d{1,5})", RegexOption.IGNORE_CASE)
 
-/** The icon links of a page, resolved against [baseUrl] (the page's final URL), on hosts [isAllowedIconUrl] accepts. SVG and `data:` are left out: they do not decode. */
+/** The icon links of a page, resolved against [baseUrl] (the page's final URL), on hosts [isAllowedIconUrl] accepts. `data:` is left out. */
 fun parseIconLinks(html: String, baseUrl: String): List<IconCandidate> =
     linkAttrs(html).mapNotNull { attrs ->
         val rel = attrs["rel"].orEmpty().lowercase().split(Regex("\\s+"))
@@ -69,10 +77,9 @@ fun parseIconLinks(html: String, baseUrl: String): List<IconCandidate> =
             "icon" in rel -> IconCandidate.Kind.Icon
             else -> return@mapNotNull null
         }
-        if ("svg" in attrs["type"].orEmpty().lowercase()) return@mapNotNull null
         val url = linkUrl(attrs, baseUrl) ?: return@mapNotNull null
-        if (url.substringBefore('?').substringBefore('#').endsWith(".svg", ignoreCase = true)) return@mapNotNull null
-        IconCandidate(url, kind, attrs["sizes"]?.let(::largestEdge))
+        val svg = isSvg(url, attrs["type"])
+        IconCandidate(url, kind, if (svg) null else attrs["sizes"]?.let(::largestEdge), svg = svg)
     }.toList()
 
 /** The first `<link rel=manifest>` of a page, resolved against [baseUrl], on a host [isAllowedIconUrl] accepts. */

@@ -18,16 +18,20 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** A stored icon, decoded. [fillsTile]: fully opaque, drawn edge to edge; otherwise drawn small and centred. */
-class SiteIcon(val bitmap: Bitmap, val fillsTile: Boolean, val lightEdge: Boolean)
+/**
+ * A stored icon, decoded. [fillsTile]: fully opaque. [iconClass] and [tileMode] decide how it is drawn; [letter] colours the
+ * letter tile that stands in for a small icon on the start page.
+ */
+class SiteIcon(val bitmap: Bitmap, val fillsTile: Boolean, val lightEdge: Boolean, val iconClass: IconClass, val letter: LetterColours)
 
 private const val MAX_CONCURRENT_FETCHES = 3
 private const val CACHE_ENTRIES = 48
+private const val OFFERS_KEPT = 64
 
 /** Site icons for the process: fetched in the background, stored as files, decoded on demand. */
 class SiteIcons(
     private val store: SiteIconStore,
-    private val fetch: suspend (IconTarget) -> ByteArray?,
+    private val fetch: suspend (IconTarget, PageIconOffer?) -> FetchedIcon?,
     private val scope: CoroutineScope,
     private val io: CoroutineDispatcher,
     private val now: () -> Long,
@@ -45,35 +49,70 @@ class SiteIcons(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, SiteIcon>?) = size > CACHE_ENTRIES
     }
     private val changeCount = MutableStateFlow(0)
+    /** The last page offer tried per host, so a page that sends the same links again starts no fetch. Guarded by [lock]. */
+    private val offered = object : LinkedHashMap<String, PageIconOffer>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, PageIconOffer>?) = size > OFFERS_KEPT
+    }
+
+    /** The hosts of the person's bookmarks: only their icons are taken from an opened page. */
+    @Volatile var wantedHosts: Set<String> = emptySet()
 
     /** Goes up by one after each icon written, and after a [forget] or [retainOnly] that deleted any. */
     val changes: StateFlow<Int> = changeCount.asStateFlow()
 
     /**
-     * Fetches the icon of [url]'s host unless it is stored, fresh and 192 px, already being fetched, or (without [retryFailed])
-     * failed before in this process. A failure keeps the old icon.
+     * Fetches the icon of [url]'s host unless it is stored, fresh and has Icons3 meta, already being fetched, or (without
+     * [retryFailed]) failed before in this process. A failure or a worse icon keeps the old one.
      */
     fun request(url: String, retryFailed: Boolean = true) {
         val target = iconTarget(url) ?: return
-        val host = target.host
         synchronized(lock) {
-            if (host in inFlight || (!retryFailed && host in failed)) return
-            inFlight += host
+            if (target.host in inFlight || (!retryFailed && target.host in failed)) return
+            inFlight += target.host
         }
+        start(target, null) { meta, modified -> modified != null && !isStale(modified, now()) && meta != null }
+    }
+
+    /**
+     * Tries the icon links of a page the person opened in a normal tab, for a bookmarked host only, unless its stored icon is
+     * already sharp and fresh or the same links were tried in this process. Each URL passes [isAllowedIconUrl] again.
+     */
+    fun offerPageLinks(offer: PageIconOffer) {
+        val target = iconTarget(offer.pageUrl) ?: return
+        if (target.host !in wantedHosts) return
+        val clean = offer.copy(candidates = offer.candidates.filter { isAllowedIconUrl(it.url) }, manifestUrl = offer.manifestUrl?.takeIf(::isAllowedIconUrl))
+        synchronized(lock) {
+            if (target.host in inFlight || offered[target.host] == clean) return
+            inFlight += target.host
+            offered[target.host] = clean
+        }
+        start(target, clean) { meta, modified -> modified != null && !isStale(modified, now()) && iconClass(meta?.quality) == IconClass.Sharp }
+    }
+
+    /** Fetches unless [skip] says the stored icon will do; writes the result only when it is not worse than the stored one. */
+    private fun start(target: IconTarget, offer: PageIconOffer?, skip: (IconMeta?, Long?) -> Boolean) {
+        val host = target.host
         scope.launch(io) {
-            val modified = store.lastModified(host)
-            if (modified != null && !isStale(modified, now()) && store.isCurrent(host)) return@launch
-            val png = try {
-                permits.withPermit { fetch(target) }
+            val stored = store.meta(host)
+            if (skip(stored, store.lastModified(host))) return@launch
+            val got = try {
+                permits.withPermit { fetch(target, offer) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 log("Site icon fetch failed", e)
                 null
             }
-            val written = png != null && synchronized(files) { synchronized(lock) { host !in dropped } && store.write(host, png) }
+            val written = got != null && synchronized(files) {
+                when {
+                    synchronized(lock) { host in dropped } -> false
+                    !shouldReplace(stored?.quality, got.meta.quality) -> { store.touch(host, now()); false }
+                    else -> IconMeta.insert(got.png, got.meta)?.let { store.write(host, it) } == true
+                }
+            }
             synchronized(lock) {
-                if (written) { failed -= host; cache.remove(host) } else if (host !in dropped) failed += host
+                if (got != null) failed -= host
+                if (written) cache.remove(host) else if (got == null && host !in dropped) failed += host
             }
             if (written) changeCount.update { it + 1 }
         }.invokeOnCompletion { synchronized(lock) { inFlight -= host; dropped -= host } }
@@ -111,16 +150,18 @@ class SiteIcons(
     /** The stored icon of [host], decoded off the main thread; null when none is stored. */
     suspend fun load(host: String): SiteIcon? {
         peek(host)?.let { return it }
-        val icon = withContext(io) { store.read(host)?.let(::decode) } ?: return null
+        val icon = withContext(io) { store.read(host)?.let { decode(host, it) } } ?: return null
         synchronized(lock) { cache[host] = icon }
         return icon
     }
 
-    private fun decode(png: ByteArray): SiteIcon? {
+    private fun decode(host: String, png: ByteArray): SiteIcon? {
         val bitmap = BitmapFactory.decodeByteArray(png, 0, png.size) ?: return null
         val pixels = IntArray(bitmap.width * bitmap.height)
         bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-        return SiteIcon(bitmap, fillsTile(pixels), hasLightEdge(pixels, bitmap.width))
+        val meta = IconMeta.parse(png)
+        val letter = letterColours(tileColour(dominantColour(pixels), meta?.themeColor, host))
+        return SiteIcon(bitmap, fillsTile(pixels), hasLightEdge(pixels, bitmap.width), iconClass(meta?.quality), letter)
     }
 
     companion object {

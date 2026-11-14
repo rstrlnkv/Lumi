@@ -1,4 +1,5 @@
 [versions]
+androidsvg = "1.4"
 kotlin = "2.4.21"
 agp = "9.5.1"
 composeBom = "2026.09.00"
@@ -16,6 +17,7 @@ geckoview = "160.0.20261104181552"
 aboutlibraries = "15.3.0"
 
 [libraries]
+androidsvg = { group = "com.caverock", name = "androidsvg-aar", version.ref = "androidsvg" }
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-ui = { module = "androidx.compose.ui:ui" }

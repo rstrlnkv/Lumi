@@ -3,10 +3,7 @@ package ru.digitalpunk.lumi.data.icons
 import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
-import java.nio.ByteBuffer
 import java.security.MessageDigest
-
-private val PNG_SIGNATURE = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
 
 /** One PNG per host in [dir], named by the SHA-1 of the host: hex only, so no host can name a path. */
 class SiteIconStore(private val dir: File) {
@@ -22,13 +19,14 @@ class SiteIconStore(private val dir: File) {
     /** Null when no icon is stored. */
     fun lastModified(host: String): Long? = png(host).takeIf { it.isFile }?.lastModified()
 
-    /** True when the stored icon is a PNG of [ICON_SIZE] px: an older, smaller one is fetched again once. Reads 24 bytes. */
-    fun isCurrent(host: String): Boolean {
-        val head = try {
-            png(host).takeIf { it.isFile }?.let { f -> RandomAccessFile(f, "r").use { if (it.length() < 24) null else ByteArray(24).also(it::readFully) } }
-        } catch (_: IOException) { null } ?: return false
-        if (!head.copyOfRange(0, 8).contentEquals(PNG_SIGNATURE) || String(head, 12, 4, Charsets.ISO_8859_1) != "IHDR") return false
-        return ByteBuffer.wrap(head, 16, 4).int == ICON_SIZE
+    /** The [IconMeta] of the stored icon; null when none is stored or it was stored before Icons3 (it is fetched again once). Reads 512 bytes. */
+    fun meta(host: String): IconMeta? = try {
+        png(host).takeIf { it.isFile }?.let { f -> RandomAccessFile(f, "r").use { ByteArray(minOf(it.length(), 512L).toInt()).also(it::readFully) } }
+    } catch (_: IOException) { null }?.let(IconMeta::parse)
+
+    /** Marks the stored icon fresh without changing it: a fetch found nothing better. */
+    fun touch(host: String, nowMillis: Long) {
+        png(host).takeIf { it.isFile }?.setLastModified(nowMillis)
     }
 
     fun read(host: String): ByteArray? = try {

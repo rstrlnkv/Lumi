@@ -60,6 +60,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -69,6 +70,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import ru.digitalpunk.lumi.data.icons.LetterColours
 import ru.digitalpunk.lumi.R
 import ru.digitalpunk.lumi.address.displayUrl
 import ru.digitalpunk.lumi.data.LibraryTab
@@ -395,6 +397,15 @@ fun LetterTile(title: String, size: Dp = 40.dp, corner: Dp = 8.dp, style: TextSt
         Modifier.size(size).background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(corner)),
         contentAlignment = Alignment.Center,
     ) { Text(cardInitial(title), color = MaterialTheme.colorScheme.onSecondaryContainer, style = style) }
+}
+
+/** A Safari-like letter tile in a site's colour: it stands in for a small icon on the start page. */
+@Composable
+fun ColouredLetterTile(title: String, colours: LetterColours, size: Dp, corner: Dp, style: TextStyle) {
+    Box(Modifier.size(size).background(Color(colours.background), RoundedCornerShape(corner)), contentAlignment = Alignment.Center) {
+        // The tile's own label names the site; the letter alone would be read first ("G, Google").
+        Text(cardInitial(title), Modifier.clearAndSetSemantics {}, color = Color(colours.foreground), style = style)
+    }
 }
 
 @Composable

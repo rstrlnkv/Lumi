@@ -304,5 +304,84 @@ class PageEndContentScriptTest {
 
     @Test fun aPageWithoutABodyReportsFalseWithoutThrowing() =
         assertEquals(listOf("false"), onLoad(null, ""","hasBody":false"""))
-}
 
+    private fun icons(init: String, vararg more: String) =
+        run("""{"init":{$init},"event":"DOMContentLoaded","advance":300,"prop":"icons"}""", *more).map { it.replace('\'', '"') }
+
+    private val apple = """{"rel":"apple-touch-icon","href":"https://a.com/t.png","sizes":"180x180"}"""
+
+    @Test fun touchAndIconLinksTheManifestAndTheThemeColourAreSentWithTheOriginOnly() = assertEquals(
+        listOf("""{"page":"https://a.com","icons":[{"u":"https://a.com/t.png","k":"touch","s":180},{"u":"https://a.com/b.png","k":"icon","s":192,"t":"image/png"},{"u":"https://a.com/f.ico","k":"icon"}],"manifest":"https://a.com/m.json","themeColor":"#336699"}"""),
+        icons(""""links":[{"rel":"shortcut icon","href":"https://a.com/f.ico"},{"rel":"icon","href":"https://a.com/b.png","sizes":"16x16 192x192","type":"IMAGE/PNG"},$apple,{"rel":"manifest","href":"https://a.com/m.json"}],"metas":[{"name":"theme-color","content":"#336699"}]"""),
+    )
+
+    @Test fun dataAndHttpLinksAndOtherRelsAreDropped() = assertEquals(
+        listOf("""{"page":"https://a.com","icons":[{"u":"https://a.com/t.png","k":"touch","s":180}]}"""),
+        icons(""""links":[{"rel":"icon","href":"data:image/png;base64,AA"},{"rel":"icon","href":"http://a.com/i.png"},{"rel":"mask-icon","href":"https://a.com/m.svg"},$apple]"""),
+    )
+
+    @Test fun aPageWithoutIconLinksOrNotOnTheWebSendsNoIconMessage() {
+        assertEquals(listOf(""), icons(""))
+        assertEquals(listOf(""), icons(""""links":[$apple],"origin":"null""""))
+    }
+
+    @Test fun aLinkInsertedByThePageScriptIsSentOnceAndTheSameLinksAreNotSentAgain() = assertEquals(
+        listOf("", """{"page":"https://a.com","icons":[{"u":"https://a.com/t.png","k":"touch","s":180}]}""", ""),
+        icons("",
+            """{"patch":{"links":[$apple]},"headMutation":true,"advance":600,"prop":"icons"}""",
+            """{"event":"load","advance":4000,"prop":"icons"}"""),
+    )
+
+    @Test fun atMost16LinksAndSixMessagesPerPage() {
+        val many = (1..20).joinToString(",") { """{"rel":"icon","href":"https://a.com/$it.png","sizes":"${it}x$it"}""" }
+        val first = icons(""""links":[$many]""").single()
+        assertEquals(16, Regex("\"u\"").findAll(first).count())
+        val changes = (1..8).map { """{"patch":{"links":[{"rel":"icon","href":"https://a.com/n$it.png"}]},"headMutation":true,"advance":600,"prop":"icons"}""" }
+        val sends = run("""{"init":{"links":[$many]},"event":"DOMContentLoaded","advance":300,"prop":"icons"}""", *changes.toTypedArray())
+        assertEquals(6, sends.count { it.isNotEmpty() })
+    }
+
+    private fun urlOf(len: Int) = "https://a.com/" + "x".repeat(len - 14)
+    private fun link(rel: String, href: String, extra: String = "") = """{"rel":"$rel","href":"$href"$extra}"""
+
+    @Test fun onlyTheFirst200LinkTagsAreRead() {
+        val filler = (1..199).joinToString(",") { link("stylesheet", "https://a.com/s$it.css") }
+        val got = icons(""""links":[$filler,${link("icon", "https://a.com/in.png")},${link("icon", "https://a.com/out.png")}]""").single()
+        assertEquals("""{"page":"https://a.com","icons":[{"u":"https://a.com/in.png","k":"icon"}]}""", got)
+    }
+
+    @Test fun anHrefOf2048CharactersIsKeptAndOneOf2049IsDropped() {
+        assertEquals(1, Regex("\"u\"").findAll(icons(""""links":[${link("icon", urlOf(2048))}]""").single()).count())
+        assertEquals("", icons(""""links":[${link("icon", urlOf(2049))}]""").single())
+    }
+
+    @Test fun theFirstManifestLinkWinsAndAManifestAloneIsSent() = assertEquals(
+        """{"page":"https://a.com","icons":[],"manifest":"https://a.com/1.json"}""",
+        icons(""""links":[${link("manifest", "https://a.com/1.json")},${link("manifest", "https://a.com/2.json")}]""").single(),
+    )
+
+    @Test fun aPrecomposedTouchIconIsATouchIconAndASizeOf4096IsKeptButNotOf4097() = assertEquals(
+        """{"page":"https://a.com","icons":[{"u":"https://a.com/p.png","k":"touch","s":4096},{"u":"https://a.com/q.png","k":"icon"}]}""",
+        icons(""""links":[${link("icon", "https://a.com/q.png", ""","sizes":"4097x4097"""")},${link("apple-touch-icon-precomposed", "https://a.com/p.png", ""","sizes":"4096x4096"""")}]""").single(),
+    )
+
+    @Test fun theSameHrefTwiceIsSentOnce() = assertEquals(
+        """{"page":"https://a.com","icons":[{"u":"https://a.com/i.png","k":"icon"}]}""",
+        icons(""""links":[${link("icon", "https://a.com/i.png")},${link("shortcut icon", "https://a.com/i.png")}]""").single(),
+    )
+
+    @Test fun aTypeOf40CharactersIsSentAndOneOf41IsLeftOut() {
+        val ok = icons(""""links":[${link("icon", "https://a.com/i.png", ""","type":"${"a".repeat(40)}"""")}]""").single()
+        assertEquals(true, ok.contains("\"t\":\"${"a".repeat(40)}\""), ok)
+        val long = icons(""""links":[${link("icon", "https://a.com/i.png", ""","type":"${"a".repeat(41)}"""")}]""").single()
+        assertEquals(false, long.contains("\"t\""), long)
+    }
+
+    @Test fun theIconMessageWaitsAboutAQuarterOfASecondAfterTheReport() = assertEquals(
+        listOf("", """{"page":"https://a.com","icons":[{"u":"https://a.com/t.png","k":"touch","s":180}]}"""),
+        run("""{"init":{"links":[$apple]},"event":"DOMContentLoaded","advance":200,"prop":"icons"}""", """{"advance":100,"prop":"icons"}""").map { it.replace('\'', '"') },
+    )
+
+    @Test fun iconMessagesLeaveTheBarReportUnchanged() =
+        assertEquals(listOf("false"), run("""{"init":{"links":[$apple]},"event":"DOMContentLoaded","advance":300,"prop":"sent"}"""))
+}

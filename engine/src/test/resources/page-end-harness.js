@@ -14,6 +14,8 @@
 // "headMutation" notifies observers of <head>, "mediaChange" fires the matchMedia change listeners.
 // "prop":"observedHead" prints the options of the <head> observers, "prop":"styles" the getComputedStyle calls and
 // "prop":"topHits" the elementFromPoint calls in the upper half since the last such step.
+// Icon links: "links" are [{rel, href, sizes, type}] for document.querySelectorAll("link[rel]"), "origin" is location.origin;
+// "prop":"icons" prints the icon messages sent since the last such step as JSON with ' for ", joined by "|".
 "use strict";
 const fs = require("fs");
 const vm = require("vm");
@@ -23,7 +25,7 @@ const S = { base: 2000, innerHeight: 800, clientWidth: 360, overflowRoot: "visib
   top: true, hasBody: true, initialStrip: null, delayGet: false,
   bodyBg: "rgba(0, 0, 0, 0)", endBg: null, endReaches: true, emptyLast: false,
   nav: null, rejectSend: false, hidden: false, now: 0,
-  header: null, htmlBg: "rgba(0, 0, 0, 0)", metas: [], dark: false, colors: false };
+  header: null, htmlBg: "rgba(0, 0, 0, 0)", metas: [], dark: false, colors: false, links: [], origin: "https://a.com" };
 Object.assign(S, steps[0].init || {});
 const props = {};
 const raf = [];
@@ -36,6 +38,7 @@ const mediaListeners = [];
 let styles = 0;
 let topHits = 0;
 const sent = [];
+const iconSent = [];
 const observed = [];
 const observedHead = [];
 // A 2d context's fillStyle as a browser normalises it: opaque colours read back as #rrggbb, translucent ones as
@@ -117,6 +120,9 @@ const ctx = vm.createContext({
     get hidden() { return S.hidden; }, get head() { return head; },
     querySelectorAll: sel => sel === 'meta[name="theme-color" i]'
       ? S.metas.filter(m => String(m.name).toLowerCase() === "theme-color").map(m => ({ getAttribute: n => (n in m ? m[n] : null) }))
+      : sel === "link[rel]" ? S.links.map(l => ({ href: l.href, type: l.type || "",
+        relList: { contains: t => String(l.rel).toLowerCase().split(/\s+/).includes(t) },
+        sizes: String(l.sizes || "").split(/\s+/).filter(Boolean) }))
       : [],
     createElement: tag => (tag === "canvas" ? { getContext: () => canvas2d() } : null) },
   matchMedia: q => ({
@@ -146,6 +152,7 @@ const ctx = vm.createContext({
     }) },
     onChanged: { addListener: f => { onChanged = f; } },
   }, runtime: { sendNativeMessage: (app, m) => {
+    if (app === "lumiPageEnd" && "page" in m) { iconSent.push(JSON.stringify(m).replace(/"/g, "'")); return Promise.resolve(undefined); }
     const keys = Object.keys(m);
     const hex = v => typeof v === "string" && /^#[0-9a-f]{6}$/.test(v);
     const ok = app === "lumiPageEnd" && typeof m.bottomBar === "boolean"
@@ -156,6 +163,7 @@ const ctx = vm.createContext({
   setTimeout: (f, ms) => { const t = { at: S.now + ms, f }; timers.push(t); return t; },
   clearTimeout: t => { const i = timers.indexOf(t); if (i >= 0) timers.splice(i, 1); },
   Date: { now: () => S.now },
+  location: { get origin() { return S.origin; } },
   parseFloat, Math, isFinite, getComputedStyleCalls: 0,
 });
 ctx.window = ctx;
@@ -186,6 +194,7 @@ const deliver = () => { if (mutations) { mutations = 0; notify(root); } };
     if (raf.length) { console.log("frames never settle: each run schedules another"); process.exit(1); }
     const prop = step.prop || "--lumi-page-end";
     if (prop === "sent") out.push(sent.splice(0).join());
+    else if (prop === "icons") out.push(iconSent.splice(0).join("|"));
     else if (prop === "observed") out.push(observed.join());
     else if (prop === "observedHead") out.push(observedHead.join());
     else if (prop === "styles") { out.push(String(styles)); styles = 0; }

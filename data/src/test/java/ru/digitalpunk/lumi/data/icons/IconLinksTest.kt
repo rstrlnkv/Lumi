@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 
 class IconLinksTest {
     private val base = "https://a.com/"
-    private fun ordered(html: String, baseUrl: String = base) = rankIcons(parseIconLinks(html, baseUrl), "https://a.com/").map { it.url }
+    private fun ordered(html: String, baseUrl: String = base) = rankIcons(parseIconLinks(html, baseUrl), "https://a.com/").filter { it.kind != IconCandidate.Kind.RootTouch }.map { it.url }
 
     @Test fun aTouchIconBeatsALargerIcon() = assertEquals(
         listOf("https://a.com/t.png", "https://a.com/big.png", "https://a.com/favicon.ico"),
@@ -30,7 +30,8 @@ class IconLinksTest {
                <link rel="icon" href="/v.svg"><link rel="icon" type="image/svg+xml" href="/v2"><link rel="icon" href="data:image/png;base64,AAAA">""",
             base,
         )
-        assertEquals(listOf(IconCandidate("https://a.com/s.ico", Kind.Icon, null)), links)
+        assertEquals(listOf(IconCandidate("https://a.com/s.ico", Kind.Icon, null)), links.filter { !it.svg })
+        assertEquals(listOf("https://a.com/v.svg", "https://a.com/v2"), links.filter { it.svg }.map { it.url })
     }
 
     @Test fun upperCaseTagsQuotedAndUnquotedAttributesParseAndCommentedLinksAreIgnored() {

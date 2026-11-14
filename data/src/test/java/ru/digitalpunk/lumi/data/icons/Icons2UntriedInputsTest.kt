@@ -38,13 +38,13 @@ class Icons2UntriedInputsTest {
         override suspend fun get(url: String, accept: String, maxBytes: Int): HttpResponse? { asked += url; return pages[url] }
     }
 
-    private val codec = IconCodec { String(it).takeIf { s -> s.startsWith("ok") }?.toByteArray() }
+    private val codec = IconCodec { String(it).takeIf { s -> s.startsWith("ok") }?.let { s -> EncodedIcon(s.toByteArray(), IconQuality(s.substringAfterLast('-').toIntOrNull() ?: 192, false)) } }
 
     @Test fun aPageThatNamesALanAddressForItsIconNeverMakesTheAppAskThatAddress() = runBlocking<Unit> {
         val html = """<link rel="apple-touch-icon" href="https://192.168.1.1/t.png"><link rel="manifest" href="https://10.0.0.1/m.json"><link rel="icon" href="https://nas.local/i.png">"""
         val http = Recording(mapOf("https://a.com/" to HttpResponse("https://a.com/", html.toByteArray())))
         IconFetcher(http, codec).fetch(target)
-        assertEquals(listOf("https://a.com/", "https://a.com/favicon.ico"), http.asked)
+        assertEquals(listOf("https://a.com/", "https://a.com/apple-touch-icon.png", "https://a.com/apple-touch-icon-precomposed.png", "https://a.com/favicon.ico"), http.asked)
     }
 
     @Test fun aManifestThatIsGarbageStillLeavesTheFaviconToTry() = runBlocking<Unit> {
@@ -53,7 +53,7 @@ class Icons2UntriedInputsTest {
             "https://a.com/m.json" to HttpResponse("https://a.com/m.json", ByteArray(5000) { 0xFF.toByte() }),
             "https://a.com/favicon.ico" to HttpResponse("https://a.com/favicon.ico", "ok-ico".toByteArray()),
         ))
-        assertContentEquals("ok-ico".toByteArray(), IconFetcher(http, codec).fetch(target))
+        assertContentEquals("ok-ico".toByteArray(), IconFetcher(http, codec).fetch(target)?.png)
     }
 
     @Test fun aManifestThatNeverAnswersEndsInNullWithinTheTotalDeadlineAndTheCandidatesAreSkipped() = runBlocking<Unit> {
@@ -72,8 +72,8 @@ class Icons2UntriedInputsTest {
             "https://a.com/m.json" to HttpResponse("https://a.com/m.json", """{"icons":[{"src":"/x.svg","sizes":"any"}]}""".toByteArray()),
             "https://a.com/i.png" to HttpResponse("https://a.com/i.png", "ok-32".toByteArray()),
         ))
-        assertContentEquals("ok-32".toByteArray(), IconFetcher(http, codec).fetch(target))
-        assertEquals(listOf("https://a.com/", "https://a.com/m.json", "https://a.com/i.png"), http.asked)
+        assertContentEquals("ok-32".toByteArray(), IconFetcher(http, codec).fetch(target)?.png)
+        assertEquals(listOf("https://a.com/", "https://a.com/m.json", "https://a.com/apple-touch-icon.png", "https://a.com/apple-touch-icon-precomposed.png", "https://a.com/i.png", "https://a.com/x.svg", "https://a.com/favicon.ico"), http.asked)
     }
 
     private val url = "https://a.com/manifest.json"
@@ -100,7 +100,8 @@ class Icons2UntriedInputsTest {
 
     @Test fun purposeAndTypeAreMatchedWhateverTheirCaseAndSpacing() {
         val got = parseManifestIcons("""{"icons":[{"src":"/a.png","sizes":"192x192","purpose":"  Maskable   ANY "},{"src":"/b.png","sizes":"192x192","type":"IMAGE/SVG+XML"},{"src":"/c.PNG?x=.svg","sizes":"192x192"},{"src":"/d.SVG","sizes":"192x192"}]}""", url)
-        assertEquals(listOf("https://a.com/a.png", "https://a.com/c.PNG?x=.svg"), got.map { it.url })
+        assertEquals(listOf("https://a.com/a.png", "https://a.com/c.PNG?x=.svg"), got.filter { !it.svg }.map { it.url })
+        assertEquals(listOf("https://a.com/b.png", "https://a.com/d.SVG"), got.filter { it.svg }.map { it.url })
     }
 
     // Per the manifest spec a purpose that is not a string is ignored, so the icon keeps the default `any`.
@@ -122,38 +123,30 @@ class Icons2UntriedInputsTest {
         try {
             val store = SiteIconStore(dir)
             store.write("a.com", bytes)
-            return store.isCurrent("a.com")
+            return store.meta("a.com") != null
         } finally { dir.deleteRecursively() }
     }
 
-    @Test fun onlyAWholeIhdrOf192CountsAsCurrent() {
-        assertTrue(stored(pngHeader(192)))
-        assertFalse(stored(pngHeader(96)))
-        assertFalse(stored(pngHeader(193)))
-        assertFalse(stored(pngHeader(0)))
-        assertFalse(stored(pngHeader(-1)))
-        assertFalse(stored(pngHeader(192).copyOf(23)))
+    @Test fun aPngWithoutIcons3MetaIsNotCurrentWhateverItsSize() {
+        assertTrue(stored(IconMeta.insert(fakePng(), IconMeta(16, false, null))!!))
+        assertFalse(stored(pngHeader(192)))
+        assertFalse(stored(fakePng()))
         assertFalse(stored(ByteArray(0)))
-        assertFalse(stored(pngHeader(192).also { it[12] = 'X'.code.toByte() }))
-        assertFalse(stored(pngHeader(192).also { it[0] = 0 }))
-        assertFalse(stored(pngHeader(192).also { it[7] = 0x0B }))
-        // 192 in the height position only
-        assertFalse(stored(pngHeader(96, 192)))
     }
 
     @Test fun aDirectoryOrAMissingFileIsNotCurrent() {
         val dir = kotlin.io.path.createTempDirectory("icons2").toFile()
         try {
             val store = SiteIconStore(dir)
-            assertFalse(store.isCurrent("none.com"))
-            store.write("a.com", pngHeader(192))
+            assertNull(store.meta("none.com"))
+            store.write("a.com", IconMeta.insert(fakePng(), IconMeta(192, false, null))!!)
             File(dir, dir.listFiles()!!.first { it.name.endsWith(".png") }.name).delete()
-            assertFalse(store.isCurrent("a.com"))
+            assertNull(store.meta("a.com"))
         } finally { dir.deleteRecursively() }
     }
 
     private fun c(name: String, kind: IconCandidate.Kind, size: Int?) = IconCandidate("https://a.com/$name", kind, size)
-    private fun order(vararg cs: IconCandidate) = rankIcons(cs.toList(), base).map { it.url.removePrefix(base) }
+    private fun order(vararg cs: IconCandidate) = rankIcons(cs.toList(), base).filter { it.kind != IconCandidate.Kind.RootTouch }.map { it.url.removePrefix(base) }
 
     @Test fun anIconOf179DoesNotMeetTheTargetButOneOf180Does() {
         assertEquals(listOf("i192.png", "i179.png", "favicon.ico"), order(c("i179.png", IconCandidate.Kind.Icon, 179), c("i192.png", IconCandidate.Kind.Icon, 192)))
@@ -185,7 +178,7 @@ class Icons2UntriedInputsTest {
     }
 
     @Test fun aLinkTypeOfSvgInAnyCaseAndSizesInUpperCaseAreRead() {
-        assertEquals(emptyList(), parseIconLinks("""<link rel="icon" type="IMAGE/SVG+XML" href="/v">""", base))
+        assertEquals(listOf(true), parseIconLinks("""<link rel="icon" type="IMAGE/SVG+XML" href="/v">""", base).map { it.svg })
         assertEquals(listOf(192), parseIconLinks("""<link rel="icon" sizes="192X192" href="/a.png">""", base).map { it.size })
     }
 

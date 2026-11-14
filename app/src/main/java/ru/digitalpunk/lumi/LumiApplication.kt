@@ -10,6 +10,8 @@ import ru.digitalpunk.lumi.data.SettingsStore
 import ru.digitalpunk.lumi.data.downloads.DownloadRepository
 import ru.digitalpunk.lumi.data.downloads.DownloadStorage
 import ru.digitalpunk.lumi.data.icons.SiteIcons
+import ru.digitalpunk.lumi.data.icons.bookmarkIconHosts
+import ru.digitalpunk.lumi.net.pageIconOffer
 import ru.digitalpunk.lumi.data.library.LibraryRepository
 import ru.digitalpunk.lumi.data.privatetabs.PrivateTabStore
 import ru.digitalpunk.lumi.data.search.EngineSuggestClient
@@ -37,6 +39,7 @@ class LumiApplication : Application() {
     private val engineHolder = lazy {
         BrowserEngine(this).also {
             it.localNetworkAsker = localNetworkAsks::ask
+            it.pageIconListener = { icons -> siteIcons.offerPageLinks(pageIconOffer(icons)) }
             it.lnaErrorPage = { uri -> lnaErrorHtml(getString(R.string.lna_error_title), getString(R.string.lna_error_body), getString(R.string.lna_error_retry), uri) }
         }
     }
@@ -64,7 +67,12 @@ class LumiApplication : Application() {
     val historyRecorder by lazy { HistoryRecorder(library, appScope).also { engine.historySink = it } }
 
     /** Site icons for bookmarks and history, fetched through Gecko without cookies (ADR 014). */
-    val siteIcons by lazy { SiteIcons.create(this, appScope, GeckoHttp(engineHolder)) }
+    val siteIcons: SiteIcons by lazy {
+        SiteIcons.create(this, appScope, GeckoHttp(engineHolder)).also { icons ->
+            // Off the main thread: the library is made with these icons, so it is read once they exist.
+            appScope.launch(Dispatchers.Default) { library.nodes.collect { nodes -> icons.wantedHosts = bookmarkIconHosts(nodes.map { n -> n.url }) } }
+        }
+    }
 
     /** Search suggestions from the chosen engine (ADR 009), fetched through Gecko (ADR 014). */
     val suggestClient by lazy { EngineSuggestClient(GeckoHttp(engineHolder)) }

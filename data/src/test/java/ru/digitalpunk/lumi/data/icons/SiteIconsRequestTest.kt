@@ -24,14 +24,16 @@ class SiteIconsRequestTest {
     private val calls = AtomicInteger()
     private val logged = mutableListOf<String>()
 
-    private fun icons(now: Long = System.currentTimeMillis(), fetch: suspend (IconTarget) -> ByteArray?) =
-        SiteIcons(store, { calls.incrementAndGet(); fetch(it) }, scope, Dispatchers.Default, { now }, { m, _ -> synchronized(logged) { logged += m } })
+    private fun icon(px: Int = 192) = FetchedIcon(fakePng(), IconMeta(px, false, null))
+
+    private fun icons(now: Long = System.currentTimeMillis(), fetch: suspend (IconTarget) -> FetchedIcon?) =
+        SiteIcons(store, { t, _ -> calls.incrementAndGet(); fetch(t) }, scope, Dispatchers.Default, { now }, { m, _ -> synchronized(logged) { logged += m } })
 
     private suspend fun idle() = job.children.toList().forEach { it.join() }
 
     @Test fun twoRequestsForOneHostWhileTheFirstRunsFetchOnce() = runBlocking<Unit> {
         val gate = CompletableDeferred<Unit>()
-        val icons = icons { gate.await(); byteArrayOf(1) }
+        val icons = icons { gate.await(); icon() }
         icons.request("https://a.com/x")
         icons.request("http://a.com/y")
         delay(50)
@@ -41,12 +43,12 @@ class SiteIconsRequestTest {
     }
 
     @Test fun aFreshFileFetchesNothingAndAStaleOneFetchesOnce() = runBlocking<Unit> {
-        store.write("a.com", pngHeader(192))
+        store.write("a.com", IconMeta.insert(fakePng(), IconMeta(192, false, null))!!)
         val written = store.lastModified("a.com")!!
-        icons(now = written + 2_592_000_000L - 1) { byteArrayOf(2) }.request("https://a.com/")
+        icons(now = written + 2_592_000_000L - 1) { icon() }.request("https://a.com/")
         idle()
         assertEquals(0, calls.get())
-        icons(now = written + 2_592_000_000L) { byteArrayOf(2) }.request("https://a.com/")
+        icons(now = written + 2_592_000_000L) { icon() }.request("https://a.com/")
         idle()
         assertEquals(1, calls.get())
     }
@@ -70,7 +72,7 @@ class SiteIconsRequestTest {
             peak.accumulateAndGet(running.incrementAndGet(), ::maxOf)
             delay(100)
             running.decrementAndGet()
-            byteArrayOf(1)
+            icon()
         }
         listOf("a", "b", "c", "d", "e").forEach { icons.request("https://$it.com/") }
         idle()
@@ -80,7 +82,7 @@ class SiteIconsRequestTest {
 
     @Test fun cancellingTheScopeStopsTheFetchAndWritesNothing() = runBlocking<Unit> {
         val started = CompletableDeferred<Unit>()
-        val icons = icons { started.complete(Unit); delay(10_000); byteArrayOf(1) }
+        val icons = icons { started.complete(Unit); delay(10_000); icon() }
         icons.request("https://a.com/")
         withTimeout(2_000) { started.await() }
         job.cancelAndJoin()
@@ -98,7 +100,7 @@ class SiteIconsRequestTest {
     }
 
     @Test fun aSuccessfulWriteBumpsChangesOnce() = runBlocking<Unit> {
-        val icons = icons { byteArrayOf(7) }
+        val icons = icons { icon() }
         icons.request("https://a.com/")
         idle()
         assertEquals(1, icons.changes.value)
@@ -106,7 +108,7 @@ class SiteIconsRequestTest {
     }
 
     @Test fun aUrlWithoutAnIconHostDoesNothing() = runBlocking<Unit> {
-        icons { byteArrayOf(1) }.request("about:blank")
+        icons { icon() }.request("about:blank")
         idle()
         assertEquals(0, calls.get())
     }
@@ -114,7 +116,7 @@ class SiteIconsRequestTest {
     @Test fun aSuccessAfterAFailureClearsTheFailedMarkSoALaterStaleRefreshIsNotSkipped() = runBlocking<Unit> {
         var ok = false
         var clock = System.currentTimeMillis()
-        val icons = SiteIcons(store, { calls.incrementAndGet(); if (ok) byteArrayOf(1) else null }, scope, Dispatchers.Default, { clock }, { _, _ -> })
+        val icons = SiteIcons(store, { _, _ -> calls.incrementAndGet(); if (ok) icon() else null }, scope, Dispatchers.Default, { clock }, { _, _ -> })
         icons.request("https://a.com/")
         idle()
         ok = true
@@ -160,7 +162,7 @@ class SiteIconsRequestTest {
 
     @Test fun anIconFetchedWhileItsHostWasForgottenOrNotRetainedIsNotWritten() = runBlocking<Unit> {
         val gate = CompletableDeferred<Unit>()
-        val icons = icons { gate.await(); byteArrayOf(1) }
+        val icons = icons { gate.await(); icon() }
         icons.request("https://a.com/")
         icons.request("https://b.com/")
         icons.request("https://c.com/")
@@ -177,7 +179,7 @@ class SiteIconsRequestTest {
         assertTrue(store.read("a.com") != null)
     }
 
-    @Test fun aFresh96PixelIconIsFetchedAgainOnceAndKeptWhenThatFails() = runBlocking<Unit> {
+    @Test fun aFreshIconStoredBeforeIcons3IsFetchedAgainOnceAndKeptWhenThatFails() = runBlocking<Unit> {
         store.write("a.com", pngHeader(96))
         val icons = icons { null }
         icons.request("https://a.com/", retryFailed = false)
@@ -187,5 +189,24 @@ class SiteIconsRequestTest {
         icons.request("https://a.com/", retryFailed = false)
         idle()
         assertEquals(1, calls.get())
+    }
+
+    @Test fun aWorseIconNeverReplacesTheStoredOneButMarksItFresh() = runBlocking<Unit> {
+        val sharp = IconMeta.insert(fakePng(), IconMeta(192, false, null))!!
+        store.write("a.com", sharp)
+        val old = System.currentTimeMillis() - 2_592_000_000L - 1_000
+        dir.listFiles()!!.first { it.name.endsWith(".png") }.setLastModified(old)
+        val now = System.currentTimeMillis()
+        icons(now = now) { icon(px = 32) }.request("https://a.com/")
+        idle()
+        assertTrue(store.read("a.com")!!.contentEquals(sharp))
+        assertTrue(store.lastModified("a.com")!! >= now - 2_000)
+    }
+
+    @Test fun aLargerIconReplacesALegacyOneAndStoresItsMeta() = runBlocking<Unit> {
+        store.write("a.com", pngHeader(192))
+        icons { icon(px = 120) }.request("https://a.com/")
+        idle()
+        assertEquals(IconMeta(120, false, null), store.meta("a.com"))
     }
 }

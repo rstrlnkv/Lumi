@@ -106,6 +106,9 @@ class BrowserEngine(appContext: Context) {
     /** Asks Android for [ACCESS_LOCAL_NETWORK] and answers true if granted; null (no activity) refuses. Set by the app. */
     var localNetworkAsker: ((permissions: List<String>, answer: (Boolean) -> Unit) -> Unit)? = null
 
+    /** Gets the icon links of pages shown in normal tabs, on the main thread; never called for a private tab. */
+    var pageIconListener: ((PageIcons) -> Unit)? = null
+
     /** The page shown for a load Gecko refused for local network access, from its URL; null keeps Gecko's page. */
     var lnaErrorPage: ((uri: String) -> String)? = null
 
@@ -333,7 +336,7 @@ class BrowserEngine(appContext: Context) {
     }
 
     private fun bindPageEnd(tab: Tab, session: GeckoSession) {
-        pageEnd.bind(session) { tab.pageChanged { reported(it) } }
+        pageEnd.bind(session, { tab.pageChanged { reported(it) } }, if (tab.isPrivate) null else { icons -> pageIconListener?.invoke(icons) })
     }
 
     private fun evict(tab: Tab) {

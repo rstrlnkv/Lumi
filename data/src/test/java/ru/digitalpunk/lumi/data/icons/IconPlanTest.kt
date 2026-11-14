@@ -15,8 +15,10 @@ class IconPlanTest {
         listOf(128, 180, 192, 512).forEach { assertTrue(assertNotNull(planIcon(it, it, opaque = true)).fills(), "$it") }
     }
 
-    @Test fun under128OrNotOpaqueIsSmall() {
-        assertFalse(assertNotNull(planIcon(127, 200, opaque = true)).fills())
+    @Test fun under96OrNotOpaqueIsSmall() {
+        assertFalse(assertNotNull(planIcon(95, 200, opaque = true)).fills())
+        assertTrue(assertNotNull(planIcon(96, 96, opaque = true)).fills())
+        assertTrue(assertNotNull(planIcon(120, 120, opaque = true)).fills())
         assertFalse(assertNotNull(planIcon(180, 180, opaque = false)).fills())
         assertFalse(assertNotNull(planIcon(16, 16, opaque = true)).fills())
     }

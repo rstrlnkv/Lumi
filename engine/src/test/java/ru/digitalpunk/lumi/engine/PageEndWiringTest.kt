@@ -49,6 +49,12 @@ class PageEndWiringTest {
         assertEquals(1, Regex("bindPageEnd\\(tab, session\\)").findAll(engine.substringAfter("private fun ensureLive(")
             .substringBefore("private fun evict(")).count())
         assertTrue(Regex("PageEndExtension\\(runtime\\) \\{[^}]*records\\.values").containsMatchIn(engine))
-        assertTrue(engine.contains("pageEnd.bind(session) { tab.pageChanged { reported(it) } }"))
+        assertTrue(engine.contains("pageEnd.bind(session, { tab.pageChanged { reported(it) } }, "))
+    }
+
+    // A private tab's delegate never reads icon links: the gate sits at the only call site, the parser checks again.
+    @Test fun aPrivateTabBindsNoIconListener() {
+        assertTrue(engine.substringAfter("private fun bindPageEnd(").substringBefore("\n    }").contains("if (tab.isPrivate) null else"))
+        assertTrue(extension.contains("pageIcons(message, sender.isTopLevel, sender.environmentType, sender.webExtension.id, onIcons == null)"))
     }
 }

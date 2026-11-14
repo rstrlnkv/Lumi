@@ -73,12 +73,13 @@ class SiteIconStoreTest {
         assertEquals(0, store.retainOnly(emptySet()))
     }
 
-    @Test fun onlyAPngOf192PixelsIsCurrent() {
+    @Test fun onlyAPngWithIcons3MetaHasMeta() {
         val store = SiteIconStore(dir)
-        assertFalse(store.isCurrent("a.com"))
-        store.write("a.com", pngHeader(192)); assertTrue(store.isCurrent("a.com"))
-        store.write("a.com", pngHeader(96)); assertFalse(store.isCurrent("a.com"))
-        store.write("a.com", pngHeader(192).copyOf(20)); assertFalse(store.isCurrent("a.com"))
-        store.write("a.com", pngHeader(192).also { it[1] = 'X'.code.toByte() }); assertFalse(store.isCurrent("a.com"))
+        assertNull(store.meta("a.com"))
+        val meta = IconMeta(57, false, null)
+        store.write("a.com", IconMeta.insert(fakePng(), meta)!!); assertEquals(meta, store.meta("a.com"))
+        store.write("a.com", pngHeader(192)); assertNull(store.meta("a.com"))
+        store.write("a.com", IconMeta.insert(fakePng(), meta)!!.copyOf(40)); assertNull(store.meta("a.com"))
+        store.write("a.com", IconMeta.insert(fakePng(), meta)!!.also { it[1] = 'X'.code.toByte() }); assertNull(store.meta("a.com"))
     }
 }
