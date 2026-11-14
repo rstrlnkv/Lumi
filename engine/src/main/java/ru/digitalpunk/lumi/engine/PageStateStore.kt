@@ -12,7 +12,7 @@ internal class PageStateStore(initial: PageState = PageState()) {
 
     // While crashed only recovering() and locationChanged() change the state: late events from the dead page are ignored.
     fun pageStarted(url: String) = mutable.update {
-        if (it.isCrashed) it else it.copy(url = url, isLoading = true, progress = 0, blockedTrackers = 0, hasBottomBar = false)
+        if (it.isCrashed) it else it.copy(url = url, isLoading = true, progress = 0, blockedTrackers = 0).withReport(PageReport.NONE)
     }
 
     fun progressChanged(percent: Int) =
@@ -24,7 +24,7 @@ internal class PageStateStore(initial: PageState = PageState()) {
     fun locationChanged(url: String?) = mutable.update {
         when {
             url == null -> it
-            siteKey(url) != siteKey(it.url) -> it.copy(url = url, blockedTrackers = 0, hasBottomBar = false)
+            siteKey(url) != siteKey(it.url) -> it.copy(url = url, blockedTrackers = 0).withReport(PageReport.NONE)
             else -> it.copy(url = url)
         }
     }
@@ -35,14 +35,18 @@ internal class PageStateStore(initial: PageState = PageState()) {
 
     fun trackerBlocked(count: Int) = mutable.update { if (it.isCrashed) it else it.copy(blockedTrackers = count) }
 
-    fun bottomBarChanged(value: Boolean) = mutable.update { if (it.isCrashed) it else it.copy(hasBottomBar = value) }
+    fun reported(report: PageReport) = mutable.update { if (it.isCrashed) it else it.withReport(report) }
 
     fun historyChanged(items: List<HistoryEntry>, currentIndex: Int) =
         mutable.update { if (it.isCrashed) it else it.copy(history = backHistory(items, currentIndex)) }
 
     fun crashed() = mutable.update {
-        it.copy(isCrashed = true, isLoading = false, progress = 0, canGoBack = false, canGoForward = false, history = BackHistory(), hasBottomBar = false)
+        it.copy(isCrashed = true, isLoading = false, progress = 0, canGoBack = false, canGoForward = false, history = BackHistory())
+            .withReport(PageReport.NONE)
     }
 
     fun recovering() = mutable.update { it.copy(isCrashed = false) }
+
+    private fun PageState.withReport(r: PageReport) =
+        copy(hasBottomBar = r.bottomBar, bottomBarColor = r.bottomColor, statusBarColor = r.statusColor)
 }

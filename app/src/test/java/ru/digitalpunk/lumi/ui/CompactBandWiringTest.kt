@@ -27,13 +27,17 @@ class CompactBandWiringTest {
         assertTrue("CollapsedStrip(" !in band && "NavPill(" !in band)
     }
 
-    @Test fun theBandIsAnOpaqueSurfaceOfTheBarSchemeThatTakesTouchesByTheRule() {
-        assertTrue(".background(MaterialTheme.colorScheme.surface)" in band, "the bar's own scheme, so the private bar gets the private surface")
+    @Test fun theBandIsTheSiteColourElseTheBarSchemeSurfaceAndTakesTouchesByTheRule() {
+        assertTrue(".background(band)" in band)
+        assertTrue(
+            "val band by animateColorAsState(bandColor(state.bottomBarColor, MaterialTheme.colorScheme.surface), tween(150)" in compact,
+            "the bar's own scheme, so the private bar falls back to the private surface; a change animates for 150 ms",
+        )
         assertTrue("bandTakesTouches(collapsed)" in band)
         assertTrue("pointerInput(Unit) {}" in band)
         assertFalse("alpha" in band || "LocalAppColorScheme" in band, "no fade and no app-wide scheme")
     }
 
     @Test fun classicKeepsItsOwnBarBackground() =
-        assertFalse("hasBottomBar" in classic || "matchParentSize" in classic)
+        assertFalse("hasBottomBar" in classic || "matchParentSize" in classic || "bottomBarColor" in classic)
 }

@@ -4,13 +4,24 @@ All notable changes to Lumi are written here. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+### Added
+- On a page that sets a theme colour, or has a header stuck to the top of the screen, the status bar takes that
+  colour, and its icons turn light or dark so they stay readable. This also works in private tabs.
+
 ### Changed
+- On a site with its own solid bar stuck to the bottom of the screen, the space under Lumi's Compact bar takes that
+  bar's colour when Lumi can read a plain colour from it, and the system navigation buttons turn light or dark to stay
+  readable on it. A solid bar whose colour Lumi cannot read (an image or a gradient) keeps the theme colour.
 - The app icon has a smaller disk and a larger flash; the themed icon shows the flash alone.
 - Lumi's native libraries are no longer unpacked when the app is installed.
 
 ### Fixed
-- On a site with its own bar stuck to the bottom of the screen, the Compact bar now has a solid background,
-  so that bar no longer shows through between Lumi's buttons.
+- On a site with its own solid bar stuck to the bottom of the screen, the Compact bar now has a solid background,
+  so that bar no longer shows through between Lumi's buttons. A see-through bar leaves the Compact bar see-through,
+  as on any other page.
+- A page that ends in a colour such as yellow or red now continues in that colour under the collapsed bar, instead
+  of showing through.
+- Pages that follow the system light or dark theme now switch with it at once, without restarting Lumi.
 
 ## [0.1.0-dev.1] - 2026-11-14
 

@@ -2,6 +2,7 @@ package ru.digitalpunk.lumi.engine
 
 import android.app.ActivityManager
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
@@ -289,7 +290,7 @@ class BrowserEngine(appContext: Context) {
     }
 
     private fun bindPageEnd(tab: Tab, session: GeckoSession) {
-        pageEnd.bind(session) { tab.pageChanged { bottomBarChanged(it) } }
+        pageEnd.bind(session) { tab.pageChanged { reported(it) } }
     }
 
     private fun evict(tab: Tab) {
@@ -297,7 +298,7 @@ class BrowserEngine(appContext: Context) {
         tab.session = null
         tab.trackingPermission = null
         live.remove(tab.id)
-        tab.pageChanged { pageStopped(); bottomBarChanged(false) }
+        tab.pageChanged { pageStopped(); reported(PageReport.NONE) }
     }
 
     private fun enforceCap(keep: Tab) {
@@ -557,6 +558,9 @@ class BrowserEngine(appContext: Context) {
         cap = capForTrim(baseCap, level)
         selected?.let(::enforceCap)
     }
+
+    /** Tells Gecko of a configuration change, so `prefers-color-scheme` follows a switch between light and dark. */
+    fun configurationChanged(config: Configuration) = runtime.configurationChanged(config)
 
     /** The stored sites with protection off. Call it before [restoreTabs], so the first page already follows them. */
     fun setProtectionOffHosts(hosts: Set<String>) {

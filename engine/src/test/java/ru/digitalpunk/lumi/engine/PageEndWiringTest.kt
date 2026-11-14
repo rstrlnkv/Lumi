@@ -29,13 +29,26 @@ class PageEndWiringTest {
         assertEquals(1, Regex("removeOnLayoutChangeListener\\(pageEndWidth\\)").findAll(engine).count())
     }
 
-    // Every live session, private included, gets the bottom-bar delegate; sessions opened before the extension was
+    // Every live session, private included, gets the page-report delegate; sessions opened before the extension was
     // ready get it when it is.
+    // An evicted tab has no page that can report, so its report is cleared with it.
+    @Test fun anEvictedTabForgetsItsReport() =
+        assertTrue(engine.substringAfter("private fun evict(").contains("tab.pageChanged { pageStopped(); reported(PageReport.NONE) }"))
+
+    // The session's own delegate must exist before the extension reports ready: onReady binds the sessions already live
+    // and bind() does nothing while `extension` is unset, so the field is set first.
+    @Test fun theExtensionFieldIsSetBeforeTheReadyHookRuns() {
+        val set = extension.indexOf("extension = ext")
+        val ready = extension.indexOf("onReady()")
+        assertTrue(set > 0 && ready > 0, "both lines exist")
+        assertTrue(set < ready, "extension = ext must come before onReady()")
+    }
+
     @Test fun everyLiveSessionIsBoundToTheBottomBarReport() {
         assertTrue(extension.contains("session.webExtensionController.setMessageDelegate("))
         assertEquals(1, Regex("bindPageEnd\\(tab, session\\)").findAll(engine.substringAfter("private fun ensureLive(")
             .substringBefore("private fun evict(")).count())
         assertTrue(Regex("PageEndExtension\\(runtime\\) \\{[^}]*records\\.values").containsMatchIn(engine))
-        assertTrue(engine.contains("pageEnd.bind(session) { tab.pageChanged { bottomBarChanged(it) } }"))
+        assertTrue(engine.contains("pageEnd.bind(session) { tab.pageChanged { reported(it) } }"))
     }
 }

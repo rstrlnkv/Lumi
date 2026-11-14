@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sticky header check</title>
+<style>
+  body { margin: 0; font: 16px sans-serif; }
+  header { position: fixed; left: 0; right: 0; top: 0; height: 56px; background: #6a1b9a; color: #fff;
+           display: flex; align-items: center; padding: 0 16px; }
+  .filler { height: 2400px; padding: 72px 16px 16px; background: repeating-linear-gradient(#cdf, #cdf 40px, #fcd 40px, #fcd 80px); }
+  header.off { display: none; }
+</style>
+</head>
+<body>
+<header>Fixed header, no theme-color</header>
+<div class="filler">
+  The status bar must take the header's purple (#6a1b9a) with light icons. Hide the header: the tint must go away.
+  <p><button onclick="document.querySelector('header').classList.toggle('off')">Toggle the header</button></p>
+</div>
+</body>
+</html>

@@ -34,6 +34,6 @@ dependencies {
     api(libs.kotlinx.coroutines.core)
 
     testImplementation(libs.kotlin.test.junit)
-    // org.json in the android.jar stub throws "not mocked"; BottomBarSignalTest builds real JSON objects.
+    // org.json in the android.jar stub throws "not mocked"; PageReportTest builds real JSON objects.
     testImplementation(libs.json)
 }

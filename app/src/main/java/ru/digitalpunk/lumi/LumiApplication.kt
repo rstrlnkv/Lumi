@@ -1,6 +1,7 @@
 package ru.digitalpunk.lumi
 
 import android.app.Application
+import android.content.res.Configuration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -79,5 +80,11 @@ class LumiApplication : Application() {
         super.onTrimMemory(level)
         // Do not start Gecko just to tell it that memory is short.
         if (engineHolder.isInitialized()) engine.trimMemory(level)
+    }
+
+    // A theme switch recreates the activity, not the process: Gecko keeps the old scheme unless it is told.
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (engineHolder.isInitialized()) engine.configurationChanged(newConfig)
     }
 }

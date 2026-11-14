@@ -64,6 +64,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -247,7 +248,11 @@ fun BrowserScreen(
     // Lumi locked waits behind the lock screen. Back there gives it up and opens the grid.
     val selectedPrivate = tabsState.tabs.any { it.id == tabsState.selectedId && it.isPrivate }
     val lockShown = tabsState.privateResume && !gridOpen
-    SecureWindow(needsSecureWindow(tabsState, gridOpen), darkBar = selectedPrivate && !coverOpen && !lockShown)
+    SecureWindow(
+        needsSecureWindow(tabsState, gridOpen),
+        darkBar = selectedPrivate && !coverOpen && !lockShown,
+        navBackground = if (style == AddressBarStyle.Compact && state.hasBottomBar && !coverOpen && !lockShown) state.bottomBarColor else null,
+    )
     BackHandler(enabled = lockShown) {
         engine.leavePrivate()
         gridOpen = true
@@ -617,7 +622,11 @@ fun BrowserScreen(
             FieldTap.Set -> editing = want
         }
     }
+    // The page's colour behind the status bar, in private tabs and Classic too; off while anything covers the page.
+    val statusTint = if (pageCovered || lockShown) null else state.statusBarColor?.let(::Color)
     Box(Modifier.fillMaxSize().imePadding()) {
+        StatusBarBand(statusTint)
+        StatusBarIcons(statusTint)
         Box(
             Modifier.fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top))

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#202124" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#1a73e8">
+<title>theme-color check</title>
+<style>
+  body { margin: 0; font: 16px sans-serif; }
+  .filler { height: 2400px; padding: 16px; background: repeating-linear-gradient(#eee, #eee 40px, #fff 40px, #fff 80px); }
+</style>
+</head>
+<body>
+<div class="filler">
+  The status bar must be blue (#1a73e8) with light icons in the light theme, and dark gray (#202124) with light icons in
+  the dark theme. No header and no bottom bar: the band under Lumi's bar stays the theme colour.
+  <p><button onclick="document.querySelector('meta[media]').nextElementSibling.content = '#fbbc04'">Make it yellow</button>
+  (light theme: the icons turn dark)</p>
+</div>
+</body>
+</html>

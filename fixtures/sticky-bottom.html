@@ -7,17 +7,21 @@
 <style>
   body { margin: 0; font: 16px sans-serif; }
   .filler { height: 2400px; background: repeating-linear-gradient(#cdf, #cdf 40px, #fcd 40px, #fcd 80px); padding: 16px; }
-  nav { position: fixed; left: 0; right: 0; bottom: 0; height: 56px; background: #fff; border-top: 1px solid #ccc;
+  nav { position: fixed; left: 0; right: 0; bottom: 0; height: 56px; background: #0b57d0; color: #fff;
         display: flex; justify-content: space-around; align-items: center; }
   nav.off { display: none; }
+  nav.clear { background: transparent; color: #000; }
 </style>
 </head>
 <body>
 <div class="filler">
-  The white nav is fixed at the bottom of the screen. Lumi's Compact bar must sit on a solid band below it, expanded
-  and collapsed. Hide the nav: the band must go away.
-  <p><button onclick="document.querySelector('nav').classList.toggle('off')">Toggle the nav</button></p>
+  The blue nav (#0b57d0) is fixed at the bottom of the screen. Lumi's Compact bar must sit on a band of the same
+  blue below it, expanded and collapsed. Hide the nav, or make it see-through (also with #clear in the address):
+  the band must go away.
+  <p><button onclick="document.querySelector('nav').classList.toggle('off')">Toggle the nav</button>
+  <button onclick="document.querySelector('nav').classList.toggle('clear')">Toggle see-through</button></p>
 </div>
 <nav><span>Home</span><span>Catalog</span><span>Cart</span><span>Profile</span></nav>
+<script>if (location.hash === "#clear") document.querySelector("nav").classList.add("clear");</script>
 </body>
 </html>

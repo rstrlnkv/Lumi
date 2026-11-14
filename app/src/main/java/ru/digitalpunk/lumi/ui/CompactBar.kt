@@ -1,5 +1,7 @@
 package ru.digitalpunk.lumi.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -30,8 +33,9 @@ private val BarSidePadding = 20.dp
 
 /**
  * Back (with Forward once the tab can go forward), address pill and More as separate floating controls over the page.
- * A page with its own bar stuck to the screen bottom gets an opaque `surface` band under the bar box, so the page does
- * not show through between that bar and ours (see docs: 002-bar-offset-owned-by-compose).
+ * A page with its own opaque bar stuck to the screen bottom gets an opaque band under the bar box, so the page does not show
+ * through between that bar and ours: in that bar's colour when the page reported one, else the bar scheme's `surface`
+ * (see docs: 002-bar-offset-owned-by-compose).
  */
 @Composable
 fun CompactBar(
@@ -51,11 +55,12 @@ fun CompactBar(
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val band by animateColorAsState(bandColor(state.bottomBarColor, MaterialTheme.colorScheme.surface), tween(150), label = "bandColor")
     Box(modifier.fillMaxWidth()) {
         if (state.hasBottomBar) {
             Box(
                 Modifier.matchParentSize()
-                    .background(MaterialTheme.colorScheme.surface)
+                    .background(band)
                     .then(if (bandTakesTouches(collapsed)) Modifier.pointerInput(Unit) {} else Modifier),
             )
         }
