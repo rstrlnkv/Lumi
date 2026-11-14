@@ -1,22 +1,19 @@
 package ru.digitalpunk.lumi.data.icons
 
-import java.io.ByteArrayOutputStream
-import java.io.InputStream
 import java.net.IDN
 import java.net.URI
 
 /** One body read: at most this many bytes, after decompression. */
 internal const val MAX_BYTES = 1_048_576
-internal const val HTTP_TIMEOUT_MS = 10_000
 internal const val TOTAL_TIMEOUT_MS = 30_000L
-internal const val MAX_REDIRECTS = 5
 /** The stored icon is this many pixels square. */
-internal const val ICON_SIZE = 96
-private const val MAX_ATTEMPTS = 4
-private const val MAX_URL = 2048
+internal const val ICON_SIZE = 192
+/** An opaque source at least this large is cropped to fill the square: a 180 px touch icon fills it. */
+private const val FILL_MIN = 128
+internal const val MAX_URL = 2048
 private const val MAX_LINK_TAGS = 50
 private const val MIN_EDGE = 16
-private const val SMALL_BOX = 88
+private const val SMALL_BOX = 176
 private const val FRESH_MS = 30L * 24 * 3_600_000
 private const val CLOCK_SKEW_MS = 24L * 3_600_000
 
@@ -56,26 +53,16 @@ internal fun isAllowedIconUrl(url: String): Boolean {
     return (uri.port == -1 || uri.port == 443) && uri.rawUserInfo == null
 }
 
-/** The URL of redirect number [hop] from [from] to [location], or null past [MAX_REDIRECTS], off https or port 443, with user info or to a refused host. */
-fun resolveRedirect(from: String, location: String, hop: Int): String? {
-    if (hop > MAX_REDIRECTS) return null
-    val next = try { URI(from).resolve(location.trim()).toString() } catch (_: Exception) { return null }
-    return next.takeIf(::isAllowedIconUrl)
-}
-
 data class IconCandidate(val url: String, val kind: Kind, val size: Int?) {
-    enum class Kind { Touch, Icon, Favicon }
+    enum class Kind { Touch, Manifest, Icon, Favicon }
 }
 
 private val ATTR = Regex("""([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*(?:=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>`]+)))?""")
-private val SIZE = Regex("(\\d{1,5})x(\\d{1,5})", RegexOption.IGNORE_CASE)
+internal val SIZE = Regex("(\\d{1,5})x(\\d{1,5})", RegexOption.IGNORE_CASE)
 
-/** The icon links of a page, resolved against [baseUrl] (the page's final URL), https only. SVG and `data:` are left out: they do not decode. */
+/** The icon links of a page, resolved against [baseUrl] (the page's final URL), on hosts [isAllowedIconUrl] accepts. SVG and `data:` are left out: they do not decode. */
 fun parseIconLinks(html: String, baseUrl: String): List<IconCandidate> =
-    linkTags(withoutComments(html)).take(MAX_LINK_TAGS).mapNotNull { tag ->
-        val attrs = ATTR.findAll(tag).associate { m ->
-            m.groupValues[1].lowercase() to (m.groupValues.drop(2).firstOrNull { it.isNotEmpty() } ?: "")
-        }
+    linkAttrs(html).mapNotNull { attrs ->
         val rel = attrs["rel"].orEmpty().lowercase().split(Regex("\\s+"))
         val kind = when {
             "apple-touch-icon" in rel || "apple-touch-icon-precomposed" in rel -> IconCandidate.Kind.Touch
@@ -83,14 +70,28 @@ fun parseIconLinks(html: String, baseUrl: String): List<IconCandidate> =
             else -> return@mapNotNull null
         }
         if ("svg" in attrs["type"].orEmpty().lowercase()) return@mapNotNull null
-        val href = attrs["href"].orEmpty().replace("&amp;", "&").trim()
-        if (href.isEmpty() || href.length > MAX_URL || href.startsWith("data:", ignoreCase = true)) return@mapNotNull null
-        if (href.substringBefore('?').substringBefore('#').endsWith(".svg", ignoreCase = true)) return@mapNotNull null
-        val url = try { URI(baseUrl).resolve(href).toString() } catch (_: Exception) { return@mapNotNull null }
-        if (!url.startsWith("https://", ignoreCase = true) || url.length > MAX_URL) return@mapNotNull null
-        val size = attrs["sizes"]?.let { s -> SIZE.findAll(s).maxOfOrNull { maxOf(it.groupValues[1].toInt(), it.groupValues[2].toInt()) } }
-        IconCandidate(url, kind, size)
+        val url = linkUrl(attrs, baseUrl) ?: return@mapNotNull null
+        if (url.substringBefore('?').substringBefore('#').endsWith(".svg", ignoreCase = true)) return@mapNotNull null
+        IconCandidate(url, kind, attrs["sizes"]?.let(::largestEdge))
     }.toList()
+
+/** The first `<link rel=manifest>` of a page, resolved against [baseUrl], on a host [isAllowedIconUrl] accepts. */
+fun manifestLink(html: String, baseUrl: String): String? =
+    linkAttrs(html).firstOrNull { "manifest" in it["rel"].orEmpty().lowercase().split(Regex("\\s+")) }?.let { linkUrl(it, baseUrl) }
+
+/** The largest edge named in a `sizes` value, or null for `any` or none. */
+internal fun largestEdge(sizes: String): Int? = SIZE.findAll(sizes).maxOfOrNull { maxOf(it.groupValues[1].toInt(), it.groupValues[2].toInt()) }
+
+private fun linkAttrs(html: String): Sequence<Map<String, String>> = linkTags(withoutComments(html)).take(MAX_LINK_TAGS).map { tag ->
+    ATTR.findAll(tag).associate { m -> m.groupValues[1].lowercase() to (m.groupValues.drop(2).firstOrNull { it.isNotEmpty() } ?: "") }
+}
+
+private fun linkUrl(attrs: Map<String, String>, baseUrl: String): String? {
+    val href = attrs["href"].orEmpty().replace("&amp;", "&").trim()
+    if (href.isEmpty() || href.length > MAX_URL || href.startsWith("data:", ignoreCase = true)) return null
+    val url = try { URI(baseUrl).resolve(href).toString() } catch (_: Exception) { return null }
+    return url.takeIf(::isAllowedIconUrl)
+}
 
 /** [html] without `<!-- … -->` comments; an unclosed one is kept. One pass: a regex here was quadratic on hostile pages. */
 private fun withoutComments(html: String): String {
@@ -120,16 +121,6 @@ private fun linkTags(html: String): Sequence<String> = sequence {
     }
 }
 
-/** Touch icons, then icons, each largest first (document order breaks ties), then `/favicon.ico`; at most four. */
-fun orderCandidates(links: List<IconCandidate>, rootUrl: String): List<IconCandidate> {
-    val bySize = compareByDescending<IconCandidate> { it.size ?: 0 }
-    val ordered = (links.filter { it.kind == IconCandidate.Kind.Touch }.sortedWith(bySize) +
-        links.filter { it.kind == IconCandidate.Kind.Icon }.sortedWith(bySize)).distinctBy { it.url }
-    val favicon = rootUrl + "favicon.ico"
-    val first = ordered.take(MAX_ATTEMPTS)
-    return if (first.any { it.url == favicon }) first else ordered.take(MAX_ATTEMPTS - 1) + IconCandidate(favicon, IconCandidate.Kind.Favicon, null)
-}
-
 /** Copy the source rectangle `src*` into the destination rectangle `dst*` of a [ICON_SIZE] square. */
 data class IconPlan(
     val srcX: Int, val srcY: Int, val srcW: Int, val srcH: Int,
@@ -137,13 +128,13 @@ data class IconPlan(
 )
 
 /**
- * An opaque source of at least 96 px is centre-cropped to fill the square. Anything else is fitted into 88 px and centred,
- * so a transparent margin of at least 4 px remains and the stored file never reads as opaque. Under 16 px is no icon.
+ * An opaque source of at least [FILL_MIN] px is centre-cropped to fill the square. Anything else is fitted into 176 px and
+ * centred, so a transparent margin of at least 8 px remains and the stored file never reads as opaque. Under 16 px is no icon.
  */
 fun planIcon(srcW: Int, srcH: Int, opaque: Boolean): IconPlan? {
     val min = minOf(srcW, srcH)
     if (min < MIN_EDGE) return null
-    if (opaque && min >= ICON_SIZE) return IconPlan((srcW - min) / 2, (srcH - min) / 2, min, min, 0, 0, ICON_SIZE, ICON_SIZE)
+    if (opaque && min >= FILL_MIN) return IconPlan((srcW - min) / 2, (srcH - min) / 2, min, min, 0, 0, ICON_SIZE, ICON_SIZE)
     val scale = SMALL_BOX.toFloat() / maxOf(srcW, srcH)
     val w = Math.round(srcW * scale).coerceIn(1, SMALL_BOX)
     val h = Math.round(srcH * scale).coerceIn(1, SMALL_BOX)
@@ -166,27 +157,3 @@ fun hasLightEdge(pixels: IntArray, size: Int): Boolean {
 /** Older than 30 days, or more than a day in the future (the clock went back). */
 fun isStale(lastModifiedMillis: Long, nowMillis: Long): Boolean =
     nowMillis - lastModifiedMillis >= FRESH_MS || lastModifiedMillis > nowMillis + CLOCK_SKEW_MS
-
-enum class ReadMode { Image, Html }
-
-/**
- * Reads at most [max] bytes ([max] + 1 for an image, to tell that it is too big). An image over [max] gives null;
- * HTML is cut at [max] and stops once `</head>` or `<body` has been read.
- */
-fun readBounded(input: InputStream, max: Int, mode: ReadMode): ByteArray? {
-    val limit = if (mode == ReadMode.Image) max + 1 else max
-    val out = ByteArrayOutputStream()
-    val buf = ByteArray(8192)
-    var tail = ""
-    while (out.size() < limit) {
-        val n = input.read(buf, 0, minOf(buf.size, limit - out.size()))
-        if (n < 0) break
-        out.write(buf, 0, n)
-        if (mode == ReadMode.Html) {
-            val text = tail + String(buf, 0, n, Charsets.ISO_8859_1).lowercase()
-            if ("</head>" in text || "<body" in text) break
-            tail = text.takeLast(6)
-        }
-    }
-    return if (mode == ReadMode.Image && out.size() > max) null else out.toByteArray()
-}

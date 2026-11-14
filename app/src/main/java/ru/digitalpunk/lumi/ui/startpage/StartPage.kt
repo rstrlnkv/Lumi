@@ -202,7 +202,7 @@ private fun TileCell(tile: Tile, inPrivateTab: Boolean, onOpenUrl: (String) -> U
         stringResource(R.string.cd_folder_tile, it.name, pluralStringResource(R.plurals.bookmarks_count, it.count, it.count))
     }
     // The cell swallows taps beside the tile, so a near miss in the gap between tiles does not end editing.
-    Box(Modifier.fillMaxWidth().heightIn(min = 94.dp).pointerInput(Unit) { detectTapGestures {} }, contentAlignment = Alignment.TopCenter) {
+    Box(Modifier.fillMaxWidth().heightIn(min = 102.dp).pointerInput(Unit) { detectTapGestures {} }, contentAlignment = Alignment.TopCenter) {
         Column(
             Modifier.width(80.dp).clip(RoundedCornerShape(12.dp))
                 .combinedClickable(onLongClickLabel = stringResource(R.string.action_more), onLongClick = { menu = true }) {
@@ -215,11 +215,11 @@ private fun TileCell(tile: Tile, inPrivateTab: Boolean, onOpenUrl: (String) -> U
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             when (tile) {
-                is Tile.Bookmark -> SiteIconTile(tile.url, label, 56.dp, 16.dp, backfill = !inPrivateTab, letterStyle = MaterialTheme.typography.titleLarge)
+                is Tile.Bookmark -> SiteIconTile(tile.url, label, 64.dp, 16.dp, backfill = !inPrivateTab, letterStyle = MaterialTheme.typography.titleLarge)
                 is Tile.Folder -> Box(
-                    Modifier.size(56.dp).background(MaterialTheme.colorScheme.tertiaryContainer, RoundedCornerShape(16.dp)),
+                    Modifier.size(64.dp).background(MaterialTheme.colorScheme.tertiaryContainer, RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center,
-                ) { Icon(painterResource(R.drawable.ic_folder), null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer) }
+                ) { Icon(painterResource(R.drawable.ic_folder), null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer) }
             }
             Spacer(Modifier.height(6.dp))
             Text(

@@ -67,12 +67,14 @@ import ru.digitalpunk.lumi.suggest.typedPart
 /**
  * The suggestion list while the address bar is edited: a scrim over the page and a sheet that reaches down behind the
  * bar ([barHeight]), best match nearest the bar. [engine] is null when suggestions are off or the setting is not read yet.
+ * [private]: the bar belongs to a private tab, so the engine is asked in Gecko's private context.
  */
 @Composable
 fun SuggestionLayer(
     editor: AddressEditor,
     engine: SearchEngine?,
     client: EngineSuggestClient,
+    private: Boolean,
     barHeight: Dp,
     onOpen: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -80,10 +82,10 @@ fun SuggestionLayer(
     val focusManager = LocalFocusManager.current
     val language = LocalResources.current.configuration.locales[0].toLanguageTag()
     val index = editor.index
-    val rows by remember(editor, index, engine, language) {
+    val rows by remember(editor, index, engine, language, private) {
         SuggestionPipeline(
             local = { typed, pin -> rankLocal(index ?: LocalIndex.Empty, typed, pin) },
-            remote = { e, q -> client.suggest(e, q, language) },
+            remote = { e, q -> client.suggest(e, q, language, private) },
         ).run(snapshotFlow { SuggestQuery(typedPart(editor.text.text.toString(), editor.text.selection), engine, editor.completedHost) })
     }.collectAsStateWithLifecycle(emptyList())
     val typed = typedPart(editor.text.text.toString(), editor.text.selection).trim()

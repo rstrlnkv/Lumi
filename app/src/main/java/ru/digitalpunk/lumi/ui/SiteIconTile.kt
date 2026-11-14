@@ -55,7 +55,7 @@ fun SiteIconTile(url: String, title: String, size: Dp, corner: Dp, backfill: Boo
         val edge = if (icon.lightEdge) Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape) else Modifier
         Image(image, null, Modifier.size(size).clip(shape).then(edge), contentScale = ContentScale.Crop)
     } else {
-        // 32 dp in the 56 dp start-page tile, the same share of a smaller one.
+        // About 36 dp in the 64 dp start-page tile, the same share of a smaller one.
         Box(Modifier.size(size).background(MaterialTheme.colorScheme.surfaceContainerHighest, shape), contentAlignment = Alignment.Center) {
             Image(image, null, Modifier.size(size * 4 / 7))
         }

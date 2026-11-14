@@ -21,6 +21,7 @@ import ru.digitalpunk.lumi.downloads.DownloadNotifier
 import ru.digitalpunk.lumi.defaultbrowser.DefaultBrowser
 import ru.digitalpunk.lumi.engine.BrowserEngine
 import ru.digitalpunk.lumi.links.AppLinkInbox
+import ru.digitalpunk.lumi.net.GeckoHttp
 import ru.digitalpunk.lumi.library.HistoryRecorder
 import ru.digitalpunk.lumi.privacy.PrivateGate
 import ru.digitalpunk.lumi.privacy.PrivatePersistence
@@ -53,11 +54,11 @@ class LumiApplication : Application() {
     /** Normal tabs' visits go to [library]; private tabs never report any. */
     val historyRecorder by lazy { HistoryRecorder(library, appScope).also { engine.historySink = it } }
 
-    /** Site icons for bookmarks and history, fetched outside Gecko (ADR 008). */
-    val siteIcons by lazy { SiteIcons.create(this, appScope) }
+    /** Site icons for bookmarks and history, fetched through Gecko without cookies (ADR 014). */
+    val siteIcons by lazy { SiteIcons.create(this, appScope, GeckoHttp(engineHolder)) }
 
-    /** Search suggestions from the chosen engine (ADR 009); its own pinned client, so its live limit is its own. */
-    val suggestClient by lazy { EngineSuggestClient() }
+    /** Search suggestions from the chosen engine (ADR 009), fetched through Gecko (ADR 014). */
+    val suggestClient by lazy { EngineSuggestClient(GeckoHttp(engineHolder)) }
 
     val downloadNotifier by lazy { DownloadNotifier(this) }
 

@@ -1,9 +1,7 @@
 package ru.digitalpunk.lumi.data.icons
 
 import kotlinx.coroutines.runBlocking
-import java.io.ByteArrayInputStream
 import java.io.File
-import java.io.InputStream
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -49,33 +47,7 @@ class IconEdgeTest {
 
     @Test fun theSameUrlTwiceIsAskedOnce() {
         val links = parseIconLinks("""<link rel="icon" href="/a.png"><link rel="icon" href="/a.png"><link rel="icon" href="/b.png">""", base)
-        assertEquals(listOf("https://a.com/a.png", "https://a.com/b.png", "https://a.com/favicon.ico"), orderCandidates(links, base).map { it.url })
-    }
-
-    /** Hands out at most [n] bytes per read, as a slow socket does. */
-    private class Trickle(private val data: ByteArray, private val n: Int) : InputStream() {
-        private val inner = ByteArrayInputStream(data)
-        override fun read(): Int = inner.read()
-        override fun read(b: ByteArray, off: Int, len: Int): Int = inner.read(b, off, minOf(len, n))
-    }
-
-    @Test fun aHeadEndTagSplitAcrossReadsStillStopsTheReader() {
-        val html = "<html><head><link rel=icon href=/i.png></head>" + "X".repeat(5000)
-        for (n in 1..7) {
-            val got = readBounded(Trickle(html.toByteArray(), n), MAX_BYTES, ReadMode.Html)!!
-            assertTrue(got.size < html.length - 4000, "n=$n read ${got.size} of ${html.length}")
-        }
-    }
-
-    @Test fun aBodyTagSplitAcrossReadsStopsTheReaderToo() {
-        val html = "<html><BODY>" + "X".repeat(5000)
-        val got = readBounded(Trickle(html.toByteArray(), 2), MAX_BYTES, ReadMode.Html)!!
-        assertTrue(got.size < 100, "read ${got.size}")
-    }
-
-    @Test fun anEmptyStreamGivesAnEmptyArrayInBothModes() {
-        assertEquals(0, readBounded(ByteArrayInputStream(ByteArray(0)), MAX_BYTES, ReadMode.Image)!!.size)
-        assertEquals(0, readBounded(ByteArrayInputStream(ByteArray(0)), MAX_BYTES, ReadMode.Html)!!.size)
+        assertEquals(listOf("https://a.com/a.png", "https://a.com/b.png", "https://a.com/favicon.ico"), rankIcons(links, base).map { it.url })
     }
 
     private fun gray(g: Int) = IntArray(16) { (0xFF shl 24) or (g shl 16) or (g shl 8) or g }
@@ -102,7 +74,7 @@ class IconEdgeTest {
     }
 
     @Test fun theTotalDeadlineIsReallyAboutTheGivenTimeNotJustAnyNull() = runBlocking<Unit> {
-        val http = object : HttpGet { override suspend fun get(url: String, accept: String): HttpResponse? = kotlinx.coroutines.awaitCancellation() }
+        val http = object : HttpGet { override suspend fun get(url: String, accept: String, maxBytes: Int): HttpResponse? = kotlinx.coroutines.awaitCancellation() }
         val codec = IconCodec { null }
         val t0 = System.nanoTime()
         assertNull(IconFetcher(http, codec, totalTimeoutMs = 100).fetch(IconTarget("a.com", base)))
@@ -111,14 +83,6 @@ class IconEdgeTest {
     }
 
     @Test fun theDefaultTotalDeadlineIsThirtySeconds() = assertEquals(30_000L, TOTAL_TIMEOUT_MS)
-
-    @Test fun theNetworkLayerRefusesWithoutConnectingAnythingThatIsNotAnAllowedHttpsHost() = runBlocking<Unit> {
-        val get = PinnedHttpsGet()
-        listOf("http://a.com/i.png", "https://a.com:8443/i.png", "https://u:p@a.com/i.png", "https://127.0.0.1/i.png", "https://localhost/i.png", "https://[::1]/i.png",
-            "https://192.168.0.1/i.png", "file:///etc/passwd", "ftp://a.com/x", "https://nas.local/i.png").forEach {
-            assertNull(get.get(it, IconFetcher.IMAGE), it)
-        }
-    }
 
     @Test fun aWriteIntoADeletedIconsFolderReturnsFalseAndDoesNotThrow() {
         val dir = File(createTempDirectory("icons").toFile(), "icons")

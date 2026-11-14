@@ -10,13 +10,13 @@ class EngineSuggestClientEdgeTest {
     private var accept = ""
     private var body: ByteArray? = null
     private val client = EngineSuggestClient(object : SuggestGet {
-        override suspend fun getCapped(url: String, accept: String, acceptLanguage: String, maxBytes: Int, maxRedirects: Int, maxLive: Int): HttpResponse? {
+        override suspend fun getCapped(url: String, accept: String, acceptLanguage: String, maxBytes: Int, private: Boolean): HttpResponse? {
             this@EngineSuggestClientEdgeTest.accept = accept
             return body?.let { HttpResponse(url, it) }
         }
     })
 
-    private fun suggest() = runBlocking { client.suggest(SearchEngine.Google, "git", "en") }
+    private fun suggest() = runBlocking { client.suggest(SearchEngine.Google, "git", "en", private = false) }
 
     @Test fun theRequestAsksForSuggestionJsonFirst() {
         body = """["git",[]]""".toByteArray()

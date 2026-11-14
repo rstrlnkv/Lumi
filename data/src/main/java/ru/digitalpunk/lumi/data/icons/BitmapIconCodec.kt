@@ -10,7 +10,7 @@ import java.io.ByteArrayOutputStream
 private const val MAX_DECODE_EDGE = 2048
 private const val WORKING_EDGE = 256
 
-/** Decodes PNG, JPEG, WebP, GIF or ICO through the platform and stores the result as a 96 px PNG per [planIcon]. */
+/** Decodes PNG, JPEG, WebP, GIF or ICO through the platform and stores the result as a 192 px PNG per [planIcon]. */
 class BitmapIconCodec : IconCodec {
     override fun encode(bytes: ByteArray): ByteArray? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }

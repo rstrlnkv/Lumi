@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 
 class IconLinksTest {
     private val base = "https://a.com/"
-    private fun ordered(html: String, baseUrl: String = base) = orderCandidates(parseIconLinks(html, baseUrl), "https://a.com/").map { it.url }
+    private fun ordered(html: String, baseUrl: String = base) = rankIcons(parseIconLinks(html, baseUrl), "https://a.com/").map { it.url }
 
     @Test fun aTouchIconBeatsALargerIcon() = assertEquals(
         listOf("https://a.com/t.png", "https://a.com/big.png", "https://a.com/favicon.ico"),

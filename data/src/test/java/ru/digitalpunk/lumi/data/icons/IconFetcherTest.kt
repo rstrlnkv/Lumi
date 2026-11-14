@@ -14,8 +14,10 @@ class IconFetcherTest {
 
     private class FakeHttp(val pages: Map<String, HttpResponse?>, val hang: Set<String> = emptySet(), val fail: Set<String> = emptySet()) : HttpGet {
         val asked = mutableListOf<String>()
-        override suspend fun get(url: String, accept: String): HttpResponse? {
+        val caps = mutableListOf<Int>()
+        override suspend fun get(url: String, accept: String, maxBytes: Int): HttpResponse? {
             asked += url
+            caps += maxBytes
             if (url in hang) awaitCancellation()
             if (url in fail) throw IOException("timeout")
             return pages[url]
@@ -80,8 +82,38 @@ class IconFetcherTest {
     }
 
     @Test fun cancellationOfTheCallerIsNotSwallowed() = runBlocking<Unit> {
-        val http = object : HttpGet { override suspend fun get(url: String, accept: String): HttpResponse? = throw CancellationException("gone") }
+        val http = object : HttpGet { override suspend fun get(url: String, accept: String, maxBytes: Int): HttpResponse? = throw CancellationException("gone") }
         val result = runCatching { IconFetcher(http, codec).fetch(target) }
         assertEquals(true, result.exceptionOrNull() is CancellationException)
+    }
+
+    @Test fun eachBodyIsCappedForItsKind() = runBlocking<Unit> {
+        val http = FakeHttp(mapOf(
+            "https://a.com/" to page("""<link rel="manifest" href="/m.json">"""),
+            "https://a.com/m.json" to HttpResponse("https://a.com/m.json", """{"icons":[{"src":"/m.png","sizes":"192x192"}]}""".toByteArray()),
+            "https://a.com/m.png" to img("ok-m", "https://a.com/m.png"),
+        ))
+        assertContentEquals("png:ok-m".toByteArray(), IconFetcher(http, codec).fetch(target))
+        assertEquals(listOf("https://a.com/", "https://a.com/m.json", "https://a.com/m.png"), http.asked)
+        assertEquals(listOf(262_144, 131_072, 1_048_576), http.caps)
+    }
+
+    @Test fun aLinkThatMeetsTheTargetSkipsTheManifest() = runBlocking<Unit> {
+        val http = FakeHttp(mapOf(
+            "https://a.com/" to page("""<link rel="manifest" href="/m.json"><link rel="apple-touch-icon" href="/t.png">"""),
+            "https://a.com/t.png" to img("ok-t", "https://a.com/t.png"),
+        ))
+        assertContentEquals("png:ok-t".toByteArray(), IconFetcher(http, codec).fetch(target))
+        assertEquals(listOf("https://a.com/", "https://a.com/t.png"), http.asked)
+    }
+
+    @Test fun aManifestIconOf512BeatsAFavicon() = runBlocking<Unit> {
+        val http = FakeHttp(mapOf(
+            "https://a.com/" to page("""<link rel="icon" href="/favicon.ico"><link rel="manifest" href="/m.json">"""),
+            "https://a.com/m.json" to HttpResponse("https://a.com/m.json", """{"icons":[{"src":"/512.png","sizes":"512x512"}]}""".toByteArray()),
+            "https://a.com/512.png" to img("ok-512", "https://a.com/512.png"),
+            "https://a.com/favicon.ico" to img("ok-ico", "https://a.com/favicon.ico"),
+        ))
+        assertContentEquals("png:ok-512".toByteArray(), IconFetcher(http, codec).fetch(target))
     }
 }

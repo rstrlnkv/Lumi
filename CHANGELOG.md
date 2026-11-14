@@ -9,6 +9,13 @@ All notable changes to Lumi are written here. The format follows [Keep a Changel
   Amazon, Reddit, X, Instagram, GitHub and Netflix), so the start page is not empty. Delete the
   ones you do not want; they do not come back.
 
+### Changed
+- Favorites icons are larger (64 dp) and sharper (192 px), and use the site's touch icon or web app
+  manifest icon. Icons saved before refresh once.
+
+### Fixed
+- Site icons and search suggestions now load with a VPN or proxy that gives fake addresses.
+
 ## [0.1.0-dev.1] - 2026-11-14
 
 ### Added

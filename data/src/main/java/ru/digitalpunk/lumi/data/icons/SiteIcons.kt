@@ -22,7 +22,7 @@ import java.io.File
 class SiteIcon(val bitmap: Bitmap, val fillsTile: Boolean, val lightEdge: Boolean)
 
 private const val MAX_CONCURRENT_FETCHES = 3
-private const val CACHE_ENTRIES = 64
+private const val CACHE_ENTRIES = 48
 
 /** Site icons for the process: fetched in the background, stored as files, decoded on demand. */
 class SiteIcons(
@@ -50,7 +50,7 @@ class SiteIcons(
     val changes: StateFlow<Int> = changeCount.asStateFlow()
 
     /**
-     * Fetches the icon of [url]'s host unless it is stored and fresh, already being fetched, or (without [retryFailed])
+     * Fetches the icon of [url]'s host unless it is stored, fresh and 192 px, already being fetched, or (without [retryFailed])
      * failed before in this process. A failure keeps the old icon.
      */
     fun request(url: String, retryFailed: Boolean = true) {
@@ -62,7 +62,7 @@ class SiteIcons(
         }
         scope.launch(io) {
             val modified = store.lastModified(host)
-            if (modified != null && !isStale(modified, now())) return@launch
+            if (modified != null && !isStale(modified, now()) && store.isCurrent(host)) return@launch
             val png = try {
                 permits.withPermit { fetch(target) }
             } catch (e: CancellationException) {
@@ -124,9 +124,9 @@ class SiteIcons(
     }
 
     companion object {
-        fun create(context: Context, scope: CoroutineScope) = SiteIcons(
+        fun create(context: Context, scope: CoroutineScope, http: HttpGet) = SiteIcons(
             SiteIconStore(File(context.filesDir, "icons")),
-            IconFetcher(PinnedHttpsGet(), BitmapIconCodec())::fetch,
+            IconFetcher(http, BitmapIconCodec())::fetch,
             scope,
             Dispatchers.IO,
             System::currentTimeMillis,

@@ -14,6 +14,10 @@ import java.io.IOException
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -553,6 +557,41 @@ class BrowserEngine(appContext: Context) {
         return downloadOffer(response.uri, response.headers, url, private, body) ?: throw IOException("Not a web address")
     }
 
+    /**
+     * A GET through Gecko's network stack for site icons and suggestions (ADR 014): the VPN, proxy and DNS apply as for a
+     * page, never cookies or credentials, the private context when [private]. At most [maxBytes] ([htmlHead]: cut after the
+     * head) within 10 s; null for anything but https, a non-2xx answer, an oversized body or any failure.
+     */
+    suspend fun fetchBytes(url: String, accept: String, acceptLanguage: String?, maxBytes: Int, htmlHead: Boolean, private: Boolean): FetchedBytes? {
+        if (!url.startsWith("https://", ignoreCase = true)) return null
+        val request = WebRequest.Builder(url).header("Accept", accept)
+            .apply { if (acceptLanguage != null) header("Accept-Language", acceptLanguage) }.build()
+        return try {
+            withTimeoutOrNull(FETCH_TIMEOUT_MILLIS) {
+                val response = withContext(Dispatchers.Main.immediate) {
+                    suspendCancellableCoroutine { c ->
+                        val result = executor.fetch(request, fetchFlags(private))
+                        c.invokeOnCancellation { runCatching { result.cancel() } }
+                        result.accept({ c.resume(it!!) }, { c.resumeWithException(it ?: IOException("Fetch failed")) })
+                    }
+                }
+                val body = response.body
+                try {
+                    val length = response.headers.entries.firstOrNull { it.key.equals("Content-Length", ignoreCase = true) }?.value?.trim()?.toLongOrNull()
+                    if (response.statusCode !in 200..299 || body == null || (!htmlHead && length != null && length > maxBytes)) return@withTimeoutOrNull null
+                    // Interrupted on the deadline; the stream is closed below either way, so a stalled read cannot outlive it.
+                    runInterruptible(Dispatchers.IO) { readCapped(body, maxBytes, htmlHead) }?.let { FetchedBytes(response.uri, it) }
+                } finally {
+                    runCatching { body?.close() }
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     /** [level] is a `ComponentCallbacks2.TRIM_MEMORY_*` value. The cap returns to normal on the next tab switch. */
     fun trimMemory(level: Int) {
         cap = capForTrim(baseCap, level)
@@ -674,6 +713,7 @@ class BrowserEngine(appContext: Context) {
 
 private const val CAPTURE_DELAY_MILLIS = 800L
 private const val CAPTURE_TIMEOUT_MILLIS = 250L
+private const val FETCH_TIMEOUT_MILLIS = 10_000L
 
 /** The grid card's snapshot area: 182 x 220 dp. */
 private const val CARD_ASPECT = 182f / 220f

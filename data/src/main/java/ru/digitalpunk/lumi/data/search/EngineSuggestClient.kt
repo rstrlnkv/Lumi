@@ -1,30 +1,27 @@
 package ru.digitalpunk.lumi.data.search
 
 import ru.digitalpunk.lumi.data.icons.HttpResponse
-import ru.digitalpunk.lumi.data.icons.PinnedHttpsGet
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 
-/** A capped GET with a language, a redirect limit and a limit on requests still running; [PinnedHttpsGet] in the app. */
+/** A capped GET without cookies, with a language, in the private context when [private]; Gecko's fetch in the app (ADR 014). */
 interface SuggestGet {
-    suspend fun getCapped(url: String, accept: String, acceptLanguage: String, maxBytes: Int, maxRedirects: Int, maxLive: Int): HttpResponse?
+    suspend fun getCapped(url: String, accept: String, acceptLanguage: String, maxBytes: Int, private: Boolean): HttpResponse?
 }
 
 internal const val SUGGEST_MAX_BYTES = 64 * 1024
-private const val SUGGEST_MAX_REDIRECTS = 1
-private const val SUGGEST_MAX_LIVE = 3
 private const val ACCEPT = "application/x-suggestions+json, application/json;q=0.9, */*;q=0.1"
 
 /**
  * Asks a search engine for suggestions (ADR 009): no cookies, no Referer, the app language, at most [SUGGEST_MAX_BYTES].
  * Its only caller is the address bar's suggestion pipeline, which runs it only while the person's switch is on.
  */
-class EngineSuggestClient(private val http: SuggestGet = PinnedHttpsGet()) {
-    /** The engine's suggestions for [query], or null on any failure: no answer, invalid UTF-8 or another shape. */
-    suspend fun suggest(engine: SearchEngine, query: String, languageTag: String): List<String>? {
+class EngineSuggestClient(private val http: SuggestGet) {
+    /** The engine's suggestions for [query], or null on any failure: no answer, invalid UTF-8 or another shape. [private]: asked from a private tab. */
+    suspend fun suggest(engine: SearchEngine, query: String, languageTag: String, private: Boolean): List<String>? {
         val body = http.getCapped(
-            engine.suggestUrl(query), ACCEPT, acceptLanguage(languageTag), SUGGEST_MAX_BYTES, SUGGEST_MAX_REDIRECTS, SUGGEST_MAX_LIVE,
+            engine.suggestUrl(query), ACCEPT, acceptLanguage(languageTag), SUGGEST_MAX_BYTES, private,
         )?.body ?: return null
         val text = try {
             Charsets.UTF_8.newDecoder()

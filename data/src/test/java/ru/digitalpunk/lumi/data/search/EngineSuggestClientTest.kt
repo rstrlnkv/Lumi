@@ -8,27 +8,26 @@ import kotlin.test.assertNull
 
 /** A fake [SuggestGet]: nothing here touches the network. */
 class EngineSuggestClientTest {
-    private class Call(val url: String, val language: String, val maxBytes: Int, val maxRedirects: Int, val maxLive: Int)
+    private class Call(val url: String, val language: String, val maxBytes: Int, val private: Boolean)
 
     private val calls = mutableListOf<Call>()
     private var body: ByteArray? = """["git",["github"]]""".toByteArray()
     private val client = EngineSuggestClient(object : SuggestGet {
-        override suspend fun getCapped(url: String, accept: String, acceptLanguage: String, maxBytes: Int, maxRedirects: Int, maxLive: Int): HttpResponse? {
-            calls += Call(url, acceptLanguage, maxBytes, maxRedirects, maxLive)
+        override suspend fun getCapped(url: String, accept: String, acceptLanguage: String, maxBytes: Int, private: Boolean): HttpResponse? {
+            calls += Call(url, acceptLanguage, maxBytes, private)
             return body?.let { HttpResponse(url, it) }
         }
     })
 
-    private fun suggest(engine: SearchEngine = SearchEngine.Google, tag: String = "ru-RU") = runBlocking { client.suggest(engine, "git", tag) }
+    private fun suggest(engine: SearchEngine = SearchEngine.Google, tag: String = "ru-RU", private: Boolean = false) = runBlocking { client.suggest(engine, "git", tag, private) }
 
-    @Test fun aCallGoesToTheEngineWithTheLanguageTheCapOneRedirectAndALiveLimit() {
+    @Test fun aCallGoesToTheEngineWithTheLanguageAndTheCapInTheNormalContext() {
         assertEquals(listOf("github"), suggest())
         val call = calls.single()
         assertEquals(SearchEngine.Google.suggestUrl("git"), call.url)
         assertEquals("ru-RU,ru;q=0.9,en;q=0.5", call.language)
         assertEquals(64 * 1024, call.maxBytes)
-        assertEquals(1, call.maxRedirects)
-        assertEquals(3, call.maxLive)
+        assertEquals(false, call.private)
     }
 
     @Test fun invalidUtf8NoAnswerOrABadShapeGivesNull() {
@@ -47,5 +46,10 @@ class EngineSuggestClientTest {
         assertEquals("en", acceptLanguage("und"))
         assertEquals("en", acceptLanguage(""))
         assertEquals("deCH,en;q=0.5", acceptLanguage("de\r\nCH"))
+    }
+
+    @Test fun aPrivateTabAsksInThePrivateContext() {
+        suggest(private = true)
+        assertEquals(true, calls.single().private)
     }
 }

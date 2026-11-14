@@ -41,7 +41,7 @@ class SiteIconsRequestTest {
     }
 
     @Test fun aFreshFileFetchesNothingAndAStaleOneFetchesOnce() = runBlocking<Unit> {
-        store.write("a.com", byteArrayOf(1))
+        store.write("a.com", pngHeader(192))
         val written = store.lastModified("a.com")!!
         icons(now = written + 2_592_000_000L - 1) { byteArrayOf(2) }.request("https://a.com/")
         idle()
@@ -175,5 +175,17 @@ class SiteIconsRequestTest {
         icons.request("https://a.com/", retryFailed = false)
         idle()
         assertTrue(store.read("a.com") != null)
+    }
+
+    @Test fun aFresh96PixelIconIsFetchedAgainOnceAndKeptWhenThatFails() = runBlocking<Unit> {
+        store.write("a.com", pngHeader(96))
+        val icons = icons { null }
+        icons.request("https://a.com/", retryFailed = false)
+        idle()
+        assertEquals(1, calls.get())
+        assertEquals(96, java.nio.ByteBuffer.wrap(store.read("a.com")!!, 16, 4).int)
+        icons.request("https://a.com/", retryFailed = false)
+        idle()
+        assertEquals(1, calls.get())
     }
 }

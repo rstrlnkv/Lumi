@@ -712,6 +712,7 @@ fun BrowserScreen(
                 editor,
                 engine = searchEngine.takeIf { searchSuggestions == true },
                 client = suggestClient,
+                private = selectedPrivate,
                 barHeight = with(density) { expandedPx.toDp() },
                 onOpen = engine::load,
             )

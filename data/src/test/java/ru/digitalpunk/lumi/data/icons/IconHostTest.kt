@@ -32,24 +32,9 @@ class IconHostTest {
 
     @Test fun httpAndHttpsOfTheSameHostShareOneHost() = assertEquals(iconHost("http://a.com"), iconHost("https://a.com"))
 
-    @Test fun aRedirectIsFollowedOnlyToHttpsOnPort443OfAPublicHostForAtMostFiveHops() {
-        assertEquals("https://www.a.com/x", resolveRedirect("https://a.com/", "https://www.a.com/x", 1))
-        assertEquals("https://a.com/next", resolveRedirect("https://a.com/dir/", "/next", 5))
-        assertEquals("https://www.a.com/x", resolveRedirect("https://a.com/", "https://www.a.com/x", 4))
-        assertEquals("https://a.com:443/x", resolveRedirect("https://a.com/", "https://a.com:443/x", 1))
-        assertNull(resolveRedirect("https://a.com/", "https://www.a.com/x", 6))
-        assertNull(resolveRedirect("https://a.com/", "https://a.com:444/x", 1))
-        assertNull(resolveRedirect("https://a.com/", "https://u@a.com/x", 1))
-        assertNull(resolveRedirect("https://a.com/", "http://a.com/", 1))
-        assertNull(resolveRedirect("https://a.com/", "https://10.0.0.1/", 1))
-        assertNull(resolveRedirect("https://a.com/", "https://localhost/", 1))
-    }
-
     @Test fun limitsArePinned() {
         assertEquals(1_048_576, MAX_BYTES)
-        assertEquals(10_000, HTTP_TIMEOUT_MS)
         assertEquals(30_000L, TOTAL_TIMEOUT_MS)
-        assertEquals(5, MAX_REDIRECTS)
-        assertEquals(96, ICON_SIZE)
+        assertEquals(192, ICON_SIZE)
     }
 }

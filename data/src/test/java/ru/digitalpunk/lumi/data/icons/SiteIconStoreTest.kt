@@ -72,4 +72,13 @@ class SiteIconStoreTest {
         dir.deleteRecursively()
         assertEquals(0, store.retainOnly(emptySet()))
     }
+
+    @Test fun onlyAPngOf192PixelsIsCurrent() {
+        val store = SiteIconStore(dir)
+        assertFalse(store.isCurrent("a.com"))
+        store.write("a.com", pngHeader(192)); assertTrue(store.isCurrent("a.com"))
+        store.write("a.com", pngHeader(96)); assertFalse(store.isCurrent("a.com"))
+        store.write("a.com", pngHeader(192).copyOf(20)); assertFalse(store.isCurrent("a.com"))
+        store.write("a.com", pngHeader(192).also { it[1] = 'X'.code.toByte() }); assertFalse(store.isCurrent("a.com"))
+    }
 }

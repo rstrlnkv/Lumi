@@ -11,13 +11,12 @@ class IconPlanTest {
     /** Edge to edge: the whole square is the destination. */
     private fun IconPlan.fills() = dstX == 0 && dstY == 0 && dstW == ICON_SIZE && dstH == ICON_SIZE
 
-    @Test fun anOpaqueIconOfAtLeast96FillsTheTile() {
-        assertTrue(assertNotNull(planIcon(96, 96, opaque = true)).fills())
-        assertTrue(assertNotNull(planIcon(512, 512, opaque = true)).fills())
+    @Test fun anOpaqueIconOfAtLeast128FillsThe192Tile() {
+        listOf(128, 180, 192, 512).forEach { assertTrue(assertNotNull(planIcon(it, it, opaque = true)).fills(), "$it") }
     }
 
-    @Test fun under96OrNotOpaqueIsSmall() {
-        assertFalse(assertNotNull(planIcon(95, 96, opaque = true)).fills())
+    @Test fun under128OrNotOpaqueIsSmall() {
+        assertFalse(assertNotNull(planIcon(127, 200, opaque = true)).fills())
         assertFalse(assertNotNull(planIcon(180, 180, opaque = false)).fills())
         assertFalse(assertNotNull(planIcon(16, 16, opaque = true)).fills())
     }
@@ -25,17 +24,17 @@ class IconPlanTest {
     @Test fun under16IsNoIcon() = assertNull(planIcon(15, 15, opaque = true))
 
     @Test fun aWideOpaqueIconIsCentreCroppedToASquare() {
-        val plan = assertNotNull(planIcon(200, 100, opaque = true))
-        assertEquals(IconPlan(50, 0, 100, 100, 0, 0, 96, 96), plan)
+        val plan = assertNotNull(planIcon(400, 200, opaque = true))
+        assertEquals(IconPlan(100, 0, 200, 200, 0, 0, 192, 192), plan)
     }
 
-    @Test fun aSmallRectangleIsAlwaysInsetAtLeastFourAndKeepsTheAspect() {
-        listOf(16 to 16, 95 to 96, 300 to 100, 100 to 300, 180 to 180).forEach { (w, h) ->
+    @Test fun aSmallRectangleIsAlwaysInsetAtLeastEightAndKeepsTheAspect() {
+        listOf(16 to 16, 127 to 128, 300 to 100, 100 to 300, 180 to 180).forEach { (w, h) ->
             val p = assertNotNull(planIcon(w, h, opaque = false))
-            assertTrue(p.dstX >= 4 && p.dstY >= 4 && p.dstX + p.dstW <= 92 && p.dstY + p.dstH <= 92, "$w x $h -> $p")
-            assertTrue(p.dstW == 88 || p.dstH == 88, "$w x $h fits 88 -> $p")
+            assertTrue(p.dstX >= 8 && p.dstY >= 8 && p.dstX + p.dstW <= 184 && p.dstY + p.dstH <= 184, "$w x $h -> $p")
+            assertTrue(p.dstW == 176 || p.dstH == 176, "$w x $h fits 176 -> $p")
         }
-        assertEquals(IconPlan(0, 0, 300, 100, 4, 33, 88, 29), planIcon(300, 100, opaque = false))
+        assertEquals(IconPlan(0, 0, 300, 100, 8, 66, 176, 59), planIcon(300, 100, opaque = false))
     }
 
     @Test fun fillsTileOnlyWhenEveryPixelIsFullyOpaque() {

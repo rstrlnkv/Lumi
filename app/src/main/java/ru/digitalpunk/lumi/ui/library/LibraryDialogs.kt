@@ -251,7 +251,7 @@ fun ClearHistoryDialog(onClear: (ClearRange) -> Unit, onDismiss: () -> Unit) {
 
 /**
  * Full-screen editor of bookmark [id]: title, URL (address-bar rules) and folder. Closes by itself if the bookmark is gone.
- * Saved from a private tab, it fetches no icon (a fetch is a request outside Gecko).
+ * Saved from a private tab, it fetches no icon (the icon store is on disk and would record the site).
  */
 @Composable
 fun BookmarkEditorDialog(library: LibraryRepository, nodes: List<BookmarkNodeEntity>, id: String, inPrivateTab: Boolean, onDelete: () -> Unit, onDismiss: () -> Unit) {
