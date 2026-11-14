@@ -4,6 +4,8 @@ A Material 3 web browser for Android with a bottom address bar, gestures, tab gr
 
 ![Platform](https://img.shields.io/badge/platform-Android%208.0%2B%20arm64-lightgrey) ![Release](https://img.shields.io/github/v/release/rstrlnkv/lumi?include_prereleases) ![Downloads](https://img.shields.io/github/downloads/rstrlnkv/lumi/total) ![Licence](https://img.shields.io/badge/licence-MPL--2.0-blue)
 
+**English** · [Русский](README.ru.md)
+
 ## Install
 
 Download `Lumi-<version>.apk` from the [Releases](https://github.com/rstrlnkv/lumi/releases) page and
