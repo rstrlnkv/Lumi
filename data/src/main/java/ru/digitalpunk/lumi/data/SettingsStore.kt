@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -132,6 +133,34 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         store.edit { it[LNA_DENIALS_RESET] = true }
     }
 
+    /** "Check for updates" in Settings; on when nothing, or another type, is stored. */
+    val updatesOn: Flow<Boolean> = store.data.map { it.read(UPDATES_ON) ?: true }
+
+    suspend fun setUpdatesOn(value: Boolean) {
+        store.edit { it[UPDATES_ON] = value }
+    }
+
+    /** The chosen update channel's name; null means the installed build's channel. */
+    val updateChannel: Flow<String?> = store.data.map { it.read(UPDATE_CHANNEL) }
+
+    suspend fun setUpdateChannel(name: String) {
+        store.edit { it[UPDATE_CHANNEL] = name }
+    }
+
+    /** When the last update check succeeded, in epoch milliseconds; null when it never did. */
+    val lastUpdateCheck: Flow<Long?> = store.data.map { it.read(LAST_UPDATE_CHECK) }
+
+    suspend fun setLastUpdateCheck(millis: Long) {
+        store.edit { it[LAST_UPDATE_CHECK] = millis }
+    }
+
+    /** The release tag of the last update notification, so one build is announced once. */
+    val notifiedUpdateTag: Flow<String?> = store.data.map { it.read(NOTIFIED_UPDATE_TAG) }
+
+    suspend fun setNotifiedUpdateTag(tag: String) {
+        store.edit { it[NOTIFIED_UPDATE_TAG] = tag }
+    }
+
     private companion object {
         val ADDRESS_BAR_STYLE = stringPreferencesKey("address_bar_style")
         val PROTECTION_OFF_HOSTS = stringSetPreferencesKey("protection_off_hosts")
@@ -146,6 +175,10 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         val ROLE_REFUSALS = intPreferencesKey("default_role_refusals")
         val FAVORITES_SEEDED = booleanPreferencesKey("favorites_seeded")
         val LNA_DENIALS_RESET = booleanPreferencesKey("lna_denials_reset")
+        val UPDATES_ON = booleanPreferencesKey("updates_on")
+        val UPDATE_CHANNEL = stringPreferencesKey("update_channel")
+        val LAST_UPDATE_CHECK = longPreferencesKey("last_update_check")
+        val NOTIFIED_UPDATE_TAG = stringPreferencesKey("notified_update_tag")
     }
 }
 

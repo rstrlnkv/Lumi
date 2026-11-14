@@ -42,6 +42,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import ru.digitalpunk.lumi.R
+import ru.digitalpunk.lumi.about.Channel
 import ru.digitalpunk.lumi.data.library.BookmarkNodeEntity
 import ru.digitalpunk.lumi.data.search.SearchEngine
 import ru.digitalpunk.lumi.data.library.LibraryRepository
@@ -71,6 +72,10 @@ fun SettingsScreen(
     onSearchSuggestionsChange: (Boolean) -> Unit,
     defaultBrowser: Boolean,
     onDefaultBrowser: () -> Unit,
+    updatesOn: Boolean,
+    onUpdatesOnChange: (Boolean) -> Unit,
+    updateChannel: Channel,
+    onUpdateChannelChange: (Channel) -> Unit,
     onBack: () -> Unit,
     onOpenUrl: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -143,6 +148,8 @@ fun SettingsScreen(
                     trailingContent = { Switch(checked = switchToNewTabs, onCheckedChange = null) },
                     modifier = Modifier.toggleable(value = switchToNewTabs, role = Role.Switch, onValueChange = onSwitchToNewTabsChange),
                 )
+                SectionHeader(stringResource(R.string.settings_section_updates))
+                UpdatesSection(updatesOn, onUpdatesOnChange, updateChannel, onUpdateChannelChange)
                 SectionHeader(stringResource(R.string.settings_section_about))
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.settings_about)) },

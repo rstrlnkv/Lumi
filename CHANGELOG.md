@@ -18,11 +18,15 @@ All notable changes to Lumi are written here. The format follows [Keep a Changel
   You can allow or block each site.
 - Lumi asks Android for the local network permission when a site needs it.
 - A clear page when local network access is blocked.
+- Once a day Lumi checks GitHub for a newer build and shows a notification; a tap opens the release.
+  “Check for updates” and “Update channel” (Stable, Beta, DEV) are in Settings → Updates.
+- About Lumi shows the update channel, when updates were last checked, and a “Check now” button.
 
 ### Changed
 - Favorites icons are larger (64 dp) and sharper (192 px), and use the site's touch icon or web app
   manifest icon. Icons saved before refresh once.
 - Site icons and search suggestions no longer reach devices on your own network.
+- The version line reads “0.1.0 DEV (Build N)”: the version, the channel and the build number.
 
 ### Fixed
 - Site icons and search suggestions now load with a VPN or proxy that gives fake addresses.

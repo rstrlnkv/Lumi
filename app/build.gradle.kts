@@ -23,6 +23,7 @@ android {
         // From git and gradle.properties, checked in the root build script.
         versionCode = rootProject.extra["lumiVersionCode"] as Int
         versionName = rootProject.extra["lumiVersionName"] as String
+        buildConfigField("String", "CHANNEL", "\"${rootProject.extra["lumiChannel"]}\"")
     }
 
     buildFeatures {

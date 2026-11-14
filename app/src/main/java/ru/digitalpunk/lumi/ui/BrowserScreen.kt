@@ -91,6 +91,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ru.digitalpunk.lumi.R
+import ru.digitalpunk.lumi.about.Channel
+import ru.digitalpunk.lumi.about.installedChannel
 import ru.digitalpunk.lumi.address.SiteStatus
 import ru.digitalpunk.lumi.address.displayUrl
 import ru.digitalpunk.lumi.address.siteStatus
@@ -199,6 +201,8 @@ fun BrowserScreen(
     // Null until read: no suggestion request goes out before the stored switch is known.
     val searchEngine by settings.searchEngine.collectAsStateWithLifecycle<SearchEngine?>(null)
     val searchSuggestions by settings.searchSuggestions.collectAsStateWithLifecycle<Boolean?>(null)
+    val updatesOn by settings.updatesOn.collectAsStateWithLifecycle<Boolean?>(null)
+    val updateChannel by settings.updateChannel.collectAsStateWithLifecycle<String?>(null)
     // The start page shows the start folder; a new tab focuses the address field only when that folder is empty.
     val nodes by library.nodes.collectAsStateWithLifecycle(emptyList())
     val startStored by settings.startPageFolder.collectAsStateWithLifecycle(FAVORITES)
@@ -485,7 +489,7 @@ fun BrowserScreen(
             val url = incomingUrl(incoming, settings.searchEngine.first().searchPrefix) ?: return@collect
             // Read before the new tab: selecting it drops the pending private resume.
             val privateBefore = wasPrivate
-            engine.newTab(url = url, fromApp = true)
+            engine.newTab(url = url, fromApp = incoming.fromApp)
             gridOpen = false
             settingsOpen = false
             libraryOpen = false
@@ -785,6 +789,10 @@ fun BrowserScreen(
                 onSearchSuggestionsChange = { scope.launch { settings.setSearchSuggestions(it) } },
                 defaultBrowser = isDefault,
                 onDefaultBrowser = defaultBrowser::request,
+                updatesOn = updatesOn ?: true,
+                onUpdatesOnChange = { scope.launch { settings.setUpdatesOn(it) } },
+                updateChannel = updateChannel?.let(Channel::of) ?: installedChannel,
+                onUpdateChannelChange = { scope.launch { settings.setUpdateChannel(it.name) } },
                 onBack = { settingsOpen = false },
                 onOpenUrl = { engine.newTab(url = it); settingsOpen = false },
                 modifier = Modifier.fillMaxSize().pointerInput(Unit) {},

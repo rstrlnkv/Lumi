@@ -17,3 +17,15 @@ class ThemeSwitchWiringTest {
         assertTrue("if (engineHolder.isInitialized()) engine.configurationChanged(newConfig)" in body.substringBefore("\n    }"))
     }
 }
+
+/** Gecko's content processes create the Application too; the update schedule must start only from the activity. */
+class UpdateScheduleWiringTest {
+    private val app = File("src/main/java/ru/digitalpunk/lumi/LumiApplication.kt").readText()
+    private val activity = File("src/main/java/ru/digitalpunk/lumi/MainActivity.kt").readText()
+
+    @Test fun theApplicationDoesNoWorkAtProcessStart() =
+        assertTrue("override fun onCreate()" !in app, "Application.onCreate runs in every Gecko child process")
+
+    @Test fun theActivityStartsFollowingTheUpdateSwitch() =
+        assertTrue("app.followUpdateSwitch()" in activity)
+}

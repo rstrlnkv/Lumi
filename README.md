@@ -42,6 +42,7 @@ There is no store listing yet. Builds marked `-dev.N` are prereleases for daily 
 | Default browser | Links and web searches from other apps open in Lumi, and Back returns to the app you came from. |
 | Site colours | The status bar and the space under the bar take the page's colours; icons stay readable on them. |
 | Pull to refresh | Pull the page down to reload it. |
+| Updates | Once a day Lumi checks this project's GitHub Releases for a newer build of the channel you choose, Stable, Beta or DEV, and notifies you; the notification opens the release. |
 
 The interface is in English and Russian and follows the phone's language, light or dark theme and
 wallpaper colours (Dynamic Color).
@@ -53,13 +54,17 @@ wallpaper colours (Dynamic Color).
 - Permissions, from `app/src/main/AndroidManifest.xml`: `INTERNET`; `POST_NOTIFICATIONS`, asked when a
   download starts, for download progress; `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_DATA_SYNC`,
   so a download continues when Lumi is in the background; `WRITE_EXTERNAL_STORAGE` on Android 9 and
-  older only, to save a download.
+  older only, to save a download; `RECEIVE_BOOT_COMPLETED`, so the daily update check survives a
+  restart; `REQUEST_INSTALL_PACKAGES`, so a downloaded Lumi APK can be handed to the system installer.
+  `POST_NOTIFICATIONS` also shows the update notification.
 - Network hosts Lumi itself reaches, besides the pages you open:
   - the search engine you choose, for searches, and for suggestions while "Search engine
     suggestions" is on: `www.google.com` and `suggestqueries.google.com`, `duckduckgo.com`,
     `yandex.ru` and `suggest.yandex.ru`, `www.bing.com` and `api.bing.com`, `www.startpage.com`,
     `www.ecosia.org` and `ac.ecosia.org`;
-  - the `https` root, the icon links and `/favicon.ico` of each site on the start page, for its icon.
+  - the `https` root, the icon links and `/favicon.ico` of each site on the start page, for its icon;
+  - `api.github.com`, for the list of Lumi's releases: once a day while "Check for updates" is on,
+    and whenever you tap "Check now" in About Lumi (no account, no cookies).
   GeckoView, the engine, also downloads its tracking-protection lists and Safe Browsing updates from
   Mozilla's and Google's services with its default settings, which Lumi does not change.
 - Changes outside Lumi's own folders: downloaded files go to the system Downloads folder, and Lumi

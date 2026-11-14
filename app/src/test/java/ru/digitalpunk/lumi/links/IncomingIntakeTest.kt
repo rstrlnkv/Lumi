@@ -23,3 +23,17 @@ class IncomingIntakeTest {
         assertEquals(link, incomingUrl(incomingIntent("android.intent.action.VIEW", link, null), prefix))
     }
 }
+
+/** The update notification opens its release through the same intake, but as Lumi's own tab: Back stays in Lumi. */
+class UpdateIntakeTest {
+    private val page = "https://github.com/rstrlnkv/lumi/releases/tag/v0.1.0.DEV.3613700"
+
+    @Test fun anUpdateNotificationOpensItsPageAsLumisOwnTab() =
+        assertEquals(IncomingIntent("android.intent.action.VIEW", page, null, fromApp = false), incomingIntent(ACTION_OPEN_UPDATE, page, null))
+
+    @Test fun aLinkFromAnotherAppStaysFromThatApp() =
+        assertEquals(true, incomingIntent("android.intent.action.VIEW", page, null).fromApp)
+
+    @Test fun theUpdatePageStillPassesTheLinkRules() =
+        assertEquals(page, incomingUrl(incomingIntent(ACTION_OPEN_UPDATE, page, null), "https://search.test/?q="))
+}
