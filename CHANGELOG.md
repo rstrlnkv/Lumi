@@ -2,6 +2,8 @@
 
 All notable changes to Lumi are written here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+**English** · [Русский](CHANGELOG.ru.md)
+
 ## [Unreleased]
 
 ## [0.1.0-dev.1] - 2026-11-14
