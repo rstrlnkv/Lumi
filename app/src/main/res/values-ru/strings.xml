@@ -212,7 +212,6 @@
         <item quantity="many">Папка и %d закладок в ней будут удалены.</item>
         <item quantity="other">Папка и %d закладки в ней будут удалены.</item>
     </plurals>
-    <string name="settings_section_start_page">Стартовая страница</string>
     <string name="settings_start_page_folder">Папка стартовой страницы</string>
     <string name="action_open">Открыть</string>
     <string name="cd_back_to_folder">Назад к «%s»</string>
@@ -299,14 +298,11 @@
     <string name="default_card_body">Ссылки из других приложений будут открываться в Lumi.</string>
     <string name="default_card_not_now">Не сейчас</string>
     <string name="default_card_set">Назначить по умолчанию</string>
-    <string name="settings_section_browser">Браузер</string>
     <string name="settings_default_browser">Браузер по умолчанию</string>
-    <string name="settings_default_browser_off">Lumi не назначен браузером по умолчанию. Нажмите, чтобы назначить.</string>
     <string name="settings_default_browser_on">Lumi — браузер по умолчанию</string>
     <string name="link_opened_normal_tab">Открыто в обычной вкладке</string>
     <string name="cd_back_to_app">Назад в предыдущее приложение</string>
     <!-- About Lumi (M8b) -->
-    <string name="settings_section_about">О приложении</string>
     <string name="settings_about">О Lumi</string>
     <string name="about_title">О Lumi</string>
     <string name="about_description">Браузер в стиле Material с адресной строкой внизу.</string>
@@ -355,4 +351,18 @@
     <string name="lna_error_title">Доступ к локальной сети заблокирован</string>
     <string name="lna_error_body">Страница пыталась подключиться к устройству в вашей локальной сети. Разрешите это в запросе или включите для Lumi доступ к устройствам поблизости в настройках Android.</string>
     <string name="lna_error_retry">Повторить</string>
+    <string name="settings_appearance">Внешний вид</string>
+    <string name="settings_appearance_summary">Тема, цвета, адресная строка</string>
+    <string name="settings_search_summary_on">%1$s · подсказки включены</string>
+    <string name="settings_search_summary_off">%1$s · подсказки выключены</string>
+    <string name="settings_tabs_summary">Стартовая папка, новые вкладки</string>
+    <string name="settings_privacy">Конфиденциальность</string>
+    <string name="settings_privacy_summary">Удаление данных, защита от трекеров</string>
+    <string name="settings_sites">Сайты</string>
+    <string name="settings_sites_summary">Данные сайтов, исключения, локальная сеть</string>
+    <string name="settings_updates_summary">Раз в день · канал %1$s</string>
+    <string name="settings_updates_off">Выключены</string>
+    <string name="settings_card_title">Lumi — не браузер по умолчанию</string>
+    <string name="settings_card_body">Ссылки из других приложений откроются в Lumi</string>
+    <string name="settings_card_button">Сделать основным</string>
 </resources>
