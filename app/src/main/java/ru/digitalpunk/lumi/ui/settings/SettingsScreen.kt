@@ -1,196 +1,199 @@
 package ru.digitalpunk.lumi.ui.settings
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import ru.digitalpunk.lumi.R
 import ru.digitalpunk.lumi.about.Channel
-import ru.digitalpunk.lumi.data.library.BookmarkNodeEntity
-import ru.digitalpunk.lumi.data.search.SearchEngine
+import ru.digitalpunk.lumi.about.installedChannel
+import ru.digitalpunk.lumi.data.SettingsStore
 import ru.digitalpunk.lumi.data.library.LibraryRepository
-import ru.digitalpunk.lumi.ui.library.FolderPickerDialog
+import ru.digitalpunk.lumi.data.search.SearchEngine
+import ru.digitalpunk.lumi.defaultbrowser.DefaultBrowser
+import ru.digitalpunk.lumi.engine.BrowserEngine
 import ru.digitalpunk.lumi.ui.about.AboutHost
 import ru.digitalpunk.lumi.ui.about.rememberAppVersion
-import ru.digitalpunk.lumi.ui.library.folderLabel
 
 /**
- * The Settings screen over the browser: Browser (the default browser), Search (engine and suggestions), Start page (the start-page folder) and Tabs
- * ("Switch to new tabs") and About (About Lumi, which opens links through [onOpenUrl]). The engine list and About open over it
- * and Back closes them first.
- * State is the caller's; [startFolder] is the folder in effect, Favorites when the chosen one is gone.
+ * Settings over the browser: the category list ([SettingsPage.Root]) and one back stack of pages over it. Back pops one
+ * page; on the root it closes Settings through [onBack]. Only the top page is composed; the pages under it keep their
+ * saved state. Links from About open through [onOpenUrl].
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    settings: SettingsStore,
     library: LibraryRepository,
-    nodes: List<BookmarkNodeEntity>,
-    startFolder: String,
-    onStartFolderChange: (String) -> Unit,
-    switchToNewTabs: Boolean,
-    onSwitchToNewTabsChange: (Boolean) -> Unit,
-    searchEngine: SearchEngine,
-    onSearchEngineChange: (SearchEngine) -> Unit,
-    searchSuggestions: Boolean,
-    onSearchSuggestionsChange: (Boolean) -> Unit,
-    defaultBrowser: Boolean,
-    onDefaultBrowser: () -> Unit,
-    updatesOn: Boolean,
-    onUpdatesOnChange: (Boolean) -> Unit,
-    updateChannel: Channel,
-    onUpdateChannelChange: (Channel) -> Unit,
-    onBack: () -> Unit,
+    engine: BrowserEngine,
+    defaultBrowser: DefaultBrowser,
+    snackbar: SnackbarHostState,
+    scope: CoroutineScope,
     onOpenUrl: (String) -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var picking by rememberSaveable { mutableStateOf(false) }
-    var listOpen by rememberSaveable { mutableStateOf(false) }
-    var aboutOpen by rememberSaveable { mutableStateOf(false) }
-    Box(modifier) {
-        Scaffold(
-            // The engine list or About covers this layer; TalkBack must not read it underneath.
-            modifier = Modifier.fillMaxSize().then(if (listOpen || aboutOpen) Modifier.clearAndSetSemantics {} else Modifier),
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                        }
-                    },
-                )
-            },
-        ) { padding ->
-            Column(Modifier.padding(padding).verticalScroll(rememberScrollState())) {
-                SectionHeader(stringResource(R.string.settings_section_browser))
-                // Always tappable: the system dialog, or the system's default-apps screen when Lumi is the default already.
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_default_browser)) },
-                    supportingContent = {
-                        Text(stringResource(if (defaultBrowser) R.string.settings_default_browser_on else R.string.settings_default_browser_off))
-                    },
-                    leadingContent = { Icon(painterResource(R.drawable.ic_open_in_browser), contentDescription = null) },
-                    trailingContent = {
-                        if (defaultBrowser) Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    },
-                    modifier = Modifier.clickable(
-                        onClickLabel = stringResource(if (defaultBrowser) R.string.cd_change else R.string.default_card_set),
-                        role = Role.Button,
-                        onClick = onDefaultBrowser,
-                    ),
-                )
-                SectionHeader(stringResource(R.string.settings_section_search))
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_search_engine)) },
-                    supportingContent = { Text(searchEngine.displayName()) },
-                    leadingContent = { Icon(painterResource(R.drawable.ic_travel_explore), contentDescription = null) },
-                    modifier = Modifier.clickable(onClickLabel = stringResource(R.string.cd_change), role = Role.Button) { listOpen = true },
-                )
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_search_suggestions)) },
-                    supportingContent = { Text(stringResource(R.string.settings_search_suggestions_summary, searchEngine.displayName())) },
-                    leadingContent = { Icon(Icons.Filled.Search, contentDescription = null) },
-                    trailingContent = { Switch(checked = searchSuggestions, onCheckedChange = null) },
-                    modifier = Modifier.toggleable(value = searchSuggestions, role = Role.Switch, onValueChange = onSearchSuggestionsChange),
-                )
-                SectionHeader(stringResource(R.string.settings_section_start_page))
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_start_page_folder)) },
-                    supportingContent = { Text(folderLabel(nodes, startFolder)) },
-                    leadingContent = { Icon(painterResource(R.drawable.ic_grid_view), contentDescription = null) },
-                    modifier = Modifier.clickable(onClickLabel = stringResource(R.string.cd_change), role = Role.Button) { picking = true },
-                )
-                SectionHeader(stringResource(R.string.settings_section_tabs))
-                // One element for TalkBack: headline, summary, then the switch state.
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_switch_to_new_tab)) },
-                    supportingContent = { Text(stringResource(R.string.settings_switch_to_new_tab_summary)) },
-                    leadingContent = { Icon(painterResource(R.drawable.ic_tab), contentDescription = null) },
-                    trailingContent = { Switch(checked = switchToNewTabs, onCheckedChange = null) },
-                    modifier = Modifier.toggleable(value = switchToNewTabs, role = Role.Switch, onValueChange = onSwitchToNewTabsChange),
-                )
-                SectionHeader(stringResource(R.string.settings_section_updates))
-                UpdatesSection(updatesOn, onUpdatesOnChange, updateChannel, onUpdateChannelChange)
-                SectionHeader(stringResource(R.string.settings_section_about))
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_about)) },
-                    supportingContent = { Text(rememberAppVersion().copyText) },
-                    leadingContent = { Icon(Icons.Filled.Info, contentDescription = null) },
-                    modifier = Modifier.clickable(role = Role.Button) { aboutOpen = true },
-                )
-            }
-        }
-        if (listOpen) {
-            BackHandler { listOpen = false }
-            SearchEngineScreen(
-                searchEngine,
-                onPick = { listOpen = false; onSearchEngineChange(it) },
-                onBack = { listOpen = false },
-                modifier = Modifier.fillMaxSize().pointerInput(Unit) {},
-            )
-        }
-        if (aboutOpen) {
-            AboutHost(onBack = { aboutOpen = false }, onOpenUrl = onOpenUrl, modifier = Modifier.fillMaxSize().pointerInput(Unit) {})
+    var stack by rememberSaveable(stateSaver = SettingsStackSaver) { mutableStateOf(listOf(SettingsPage.Root)) }
+    val pages = rememberSaveableStateHolder()
+    val open: (SettingsPage) -> Unit = { stack = stack.pushed(it) }
+    val back: () -> Unit = {
+        val top = stack.last()
+        val rest = stack.popped()
+        if (rest == null) {
+            onBack()
+        } else {
+            stack = rest
+            pages.removeState(top.name)
         }
     }
-    if (picking) {
-        FolderPickerDialog(
-            library, nodes, stringResource(R.string.settings_start_page_folder),
-            selected = startFolder,
-            disabled = emptySet(),
-            onPick = { picking = false; onStartFolderChange(it) },
-            onDismiss = { picking = false },
-            includeRoot = false,
-        )
+    BackHandler(onBack = back)
+    AnimatedContent(
+        targetState = stack,
+        modifier = modifier,
+        contentKey = { it.last() },
+        transitionSpec = {
+            if (targetState.size >= initialState.size) {
+                (slideInHorizontally { it } + fadeIn()) togetherWith (slideOutHorizontally { -it / 4 } + fadeOut())
+            } else {
+                (slideInHorizontally { -it / 4 } + fadeIn()) togetherWith (slideOutHorizontally { it } + fadeOut())
+            }
+        },
+        label = "settings",
+    ) { shown ->
+        val page = shown.last()
+        val full = Modifier.fillMaxSize()
+        pages.SaveableStateProvider(page.name) {
+            when (page) {
+                SettingsPage.Root -> RootPage(settings, defaultBrowser, open, back, full)
+                SettingsPage.Search -> SearchSettings(settings, scope, { open(SettingsPage.SearchEngines) }, back, full)
+                SettingsPage.SearchEngines -> {
+                    val engine by settings.searchEngine.collectAsStateWithLifecycle(SearchEngine.Google)
+                    SearchEngineScreen(engine, onPick = { scope.launch { settings.setSearchEngine(it) }; back() }, onBack = back, modifier = full)
+                }
+                SettingsPage.Tabs -> TabsSettings(settings, library, scope, back, full)
+                SettingsPage.Updates -> UpdatesSettings(settings, scope, back, full)
+                SettingsPage.About -> AboutHost(onBack = back, onOpenUrl = onOpenUrl, modifier = full)
+                SettingsPage.Appearance -> AppearanceSettings(settings, scope, back, full)
+                SettingsPage.Privacy -> PrivacySettings(settings, engine, library, snackbar, scope, back, full)
+                SettingsPage.Sites -> SitesSettings(settings, engine, open, back, full)
+                SettingsPage.SiteData -> SiteDataScreen(library, engine, snackbar, scope, back, full)
+                SettingsPage.Unprotected -> UnprotectedSitesScreen(settings, engine, snackbar, scope, back, full)
+                SettingsPage.LocalNetwork -> LocalNetworkScreen(engine, scope, back, full)
+            }
+        }
     }
 }
 
+/** S1: the default-browser card (only while Lumi is not the default), then the categories in three groups. */
 @Composable
-private fun SectionHeader(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.fillMaxWidth().height(44.dp).padding(start = 16.dp).wrapContentHeight(Alignment.CenterVertically)
-            .semantics { heading() },
-    )
+private fun RootPage(settings: SettingsStore, defaultBrowser: DefaultBrowser, open: (SettingsPage) -> Unit, onBack: () -> Unit, modifier: Modifier) {
+    val isDefault by defaultBrowser.isDefault.collectAsStateWithLifecycle()
+    val engine by settings.searchEngine.collectAsStateWithLifecycle(SearchEngine.Google)
+    val suggestions by settings.searchSuggestions.collectAsStateWithLifecycle(true)
+    val updatesOn by settings.updatesOn.collectAsStateWithLifecycle(true)
+    val channel by settings.updateChannel.collectAsStateWithLifecycle(null)
+    val colors = MaterialTheme.colorScheme
+    fun Modifier.opens(page: SettingsPage) = clickable(role = Role.Button) { open(page) }
+    SettingsPageScaffold(stringResource(R.string.settings_title), onBack, modifier) {
+        if (!isDefault) DefaultCard(onSet = defaultBrowser::request)
+        SettingsGroup {
+            CategoryRow(
+                stringResource(R.string.settings_appearance), stringResource(R.string.settings_appearance_summary),
+                painterResource(R.drawable.ic_palette), colors.primaryContainer, colors.onPrimaryContainer, Modifier.opens(SettingsPage.Appearance),
+            )
+            CategoryRow(
+                stringResource(R.string.settings_section_search),
+                stringResource(if (suggestions) R.string.settings_search_summary_on else R.string.settings_search_summary_off, engine.displayName()),
+                rememberVectorPainter(Icons.Filled.Search),
+                colors.secondaryContainer, colors.onSecondaryContainer, Modifier.opens(SettingsPage.Search),
+            )
+            CategoryRow(
+                stringResource(R.string.settings_section_tabs), stringResource(R.string.settings_tabs_summary),
+                painterResource(R.drawable.ic_tab), colors.tertiaryContainer, colors.onTertiaryContainer, Modifier.opens(SettingsPage.Tabs),
+            )
+        }
+        SettingsGroup {
+            CategoryRow(
+                stringResource(R.string.settings_privacy), stringResource(R.string.settings_privacy_summary),
+                painterResource(R.drawable.ic_shield), colors.primaryContainer, colors.onPrimaryContainer, Modifier.opens(SettingsPage.Privacy),
+            )
+            CategoryRow(
+                stringResource(R.string.settings_sites), stringResource(R.string.settings_sites_summary),
+                painterResource(R.drawable.ic_language), colors.secondaryContainer, colors.onSecondaryContainer, Modifier.opens(SettingsPage.Sites),
+            )
+        }
+        SettingsGroup {
+            if (isDefault) DefaultBrowserRow(onChange = defaultBrowser::request)
+            val channelName = stringResource((channel?.let(Channel::of) ?: installedChannel).labelRes())
+            CategoryRow(
+                stringResource(R.string.settings_section_updates),
+                if (updatesOn) stringResource(R.string.settings_updates_summary, channelName) else stringResource(R.string.settings_updates_off),
+                painterResource(R.drawable.ic_system_update), colors.tertiaryContainer, colors.onTertiaryContainer, Modifier.opens(SettingsPage.Updates),
+            )
+            CategoryRow(
+                stringResource(R.string.settings_about), rememberAppVersion().copyText,
+                rememberVectorPainter(Icons.Filled.Info), colors.surfaceContainerHighest, colors.onSurfaceVariant, Modifier.opens(SettingsPage.About),
+            )
+        }
+    }
+}
+
+/** "Lumi is not the default browser" with Make default; it hides as soon as Lumi becomes the default. */
+@Composable
+private fun DefaultCard(onSet: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Column(Modifier.fillMaxWidth().background(colors.primaryContainer, RoundedCornerShape(20.dp)).padding(20.dp)) {
+        Text(stringResource(R.string.settings_card_title), style = MaterialTheme.typography.titleMedium, color = colors.onPrimaryContainer)
+        Text(
+            stringResource(R.string.settings_card_body), style = MaterialTheme.typography.bodyMedium, color = colors.onPrimaryContainer,
+            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
+        )
+        Button(onClick = onSet, colors = ButtonDefaults.buttonColors(containerColor = colors.onPrimaryContainer, contentColor = colors.primaryContainer)) {
+            Text(stringResource(R.string.settings_card_button))
+        }
+    }
+}
+
+/** Shown instead of the card while Lumi is the default; a tap opens the system's default-apps screen. */
+@Composable
+private fun DefaultBrowserRow(onChange: () -> Unit) {
+    SettingsRow(
+        stringResource(R.string.settings_default_browser), stringResource(R.string.settings_default_browser_on),
+        painterResource(R.drawable.ic_open_in_browser),
+        Modifier.clickable(onClickLabel = stringResource(R.string.cd_change), role = Role.Button, onClick = onChange),
+    ) { Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
 }

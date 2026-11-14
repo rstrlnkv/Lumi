@@ -207,6 +207,21 @@ internal class TabsStore {
         return doomed
     }
 
+    /** Closes every normal tab and every group; the private tabs stay. Their ids. */
+    fun dropNormal(): List<TabId> {
+        val doomed = list.ids.filterNot(::isPrivate)
+        doomed.forEach { list = list.close(it).list }
+        doomed.forEach {
+            pages.remove(it)
+            titles.remove(it)
+            appOrigin.remove(it)
+        }
+        groups = groups.groups.fold(groups) { left, group -> left.remove(group.id) }
+        chain = null
+        publish()
+        return doomed
+    }
+
     /** Makes the group of the selected tab the current one. */
     fun showSelectedGroup() {
         groups = groups.setCurrent(list.groupOf[list.selected])

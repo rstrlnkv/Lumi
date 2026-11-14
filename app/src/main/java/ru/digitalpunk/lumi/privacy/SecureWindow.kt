@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import ru.digitalpunk.lumi.ui.theme.LocalDarkTheme
 import ru.digitalpunk.lumi.engine.PRIVATE_GROUP
 import ru.digitalpunk.lumi.engine.TabsState
 import ru.digitalpunk.lumi.engine.isPrivate
@@ -30,11 +31,12 @@ fun SecureWindow(secure: Boolean, darkBar: Boolean, navBackground: Int?) {
         onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
     }
     val view = LocalView.current
-    DisposableEffect(window, darkBar, navBackground) {
+    // Gives back Lumi's theme, not the value found, so the icons stay right after the theme changes.
+    val lightIcons = !LocalDarkTheme.current
+    DisposableEffect(window, darkBar, navBackground, lightIcons) {
         val controller = WindowCompat.getInsetsController(window, view)
-        val before = controller.isAppearanceLightNavigationBars
         if (navBackground != null) controller.isAppearanceLightNavigationBars = darkIconsOn(navBackground)
         else if (darkBar) controller.isAppearanceLightNavigationBars = false
-        onDispose { controller.isAppearanceLightNavigationBars = before }
+        onDispose { controller.isAppearanceLightNavigationBars = lightIcons }
     }
 }

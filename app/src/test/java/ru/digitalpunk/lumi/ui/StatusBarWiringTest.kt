@@ -49,9 +49,9 @@ class StatusBarWiringTest {
 
     // Tester pass: pins for the lines the first tests left unpinned (each was a mutant that stayed green).
     @Test fun theStatusBarIconsAreRestoredWhenTheTintGoesAndTheEffectRestartsWithTheTint() {
-        assertTrue("DisposableEffect(window, argb)" in band)
-        assertTrue("onDispose { controller.isAppearanceLightStatusBars = before }" in band)
-        assertTrue("val before = controller.isAppearanceLightStatusBars" in band)
+        // Restored to Lumi's theme, not the value found: that one is stale after a theme change.
+        assertTrue("DisposableEffect(window, argb, lightIcons)" in band)
+        assertTrue("onDispose { controller.isAppearanceLightStatusBars = lightIcons }" in band)
     }
 
     @Test fun thePrivateBarKeepsItsLightIconsAndTheSiteBandWinsOverItAndBothRestartTheEffect() {
@@ -59,7 +59,7 @@ class StatusBarWiringTest {
         val site = secure.indexOf("if (navBackground != null) controller.isAppearanceLightNavigationBars = darkIconsOn(navBackground)")
         val dark = secure.indexOf("else if (darkBar) controller.isAppearanceLightNavigationBars = false")
         assertTrue(site in 0 until dark, "the site band decides before the private bar: $site $dark")
-        assertTrue("DisposableEffect(window, darkBar, navBackground)" in secure)
-        assertTrue("onDispose { controller.isAppearanceLightNavigationBars = before }" in secure)
+        assertTrue("DisposableEffect(window, darkBar, navBackground, lightIcons)" in secure)
+        assertTrue("onDispose { controller.isAppearanceLightNavigationBars = lightIcons }" in secure)
     }
 }

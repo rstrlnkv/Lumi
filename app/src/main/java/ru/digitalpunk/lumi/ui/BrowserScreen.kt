@@ -91,8 +91,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ru.digitalpunk.lumi.R
-import ru.digitalpunk.lumi.about.Channel
-import ru.digitalpunk.lumi.about.installedChannel
 import ru.digitalpunk.lumi.address.SiteStatus
 import ru.digitalpunk.lumi.address.displayUrl
 import ru.digitalpunk.lumi.address.siteStatus
@@ -120,6 +118,7 @@ import ru.digitalpunk.lumi.privacy.PrivateLockScreen
 import ru.digitalpunk.lumi.engine.LnaAnswer
 import ru.digitalpunk.lumi.privacy.SecureWindow
 import ru.digitalpunk.lumi.privacy.barScheme
+import ru.digitalpunk.lumi.ui.theme.LocalPrivateScheme
 import ru.digitalpunk.lumi.privacy.needsSecureWindow
 import android.content.ClipData
 import android.content.ClipDescription
@@ -201,8 +200,6 @@ fun BrowserScreen(
     // Null until read: no suggestion request goes out before the stored switch is known.
     val searchEngine by settings.searchEngine.collectAsStateWithLifecycle<SearchEngine?>(null)
     val searchSuggestions by settings.searchSuggestions.collectAsStateWithLifecycle<Boolean?>(null)
-    val updatesOn by settings.updatesOn.collectAsStateWithLifecycle<Boolean?>(null)
-    val updateChannel by settings.updateChannel.collectAsStateWithLifecycle<String?>(null)
     // The start page shows the start folder; a new tab focuses the address field only when that folder is empty.
     val nodes by library.nodes.collectAsStateWithLifecycle(emptyList())
     val startStored by settings.startPageFolder.collectAsStateWithLifecycle(FAVORITES)
@@ -246,9 +243,9 @@ fun BrowserScreen(
         }
     }
     BackHandler(enabled = step != BackStep.None && !editing) { goBack() }
-    // After the page-history handler, so it comes first: Back closes the grid or Settings before anything else.
+    // After the page-history handler, so it comes first: Back closes the grid before anything else.
     BackHandler(enabled = gridOpen) { gridOpen = false }
-    BackHandler(enabled = settingsOpen) { settingsOpen = false }
+    // Settings install their own Back handler (one page back, then close).
     // The Library installs its own Back handler (search, folder levels, then close).
     // Settings and the Library cover the page as the grid does: no snapshots, and the page is out of TalkBack.
     val coverOpen = gridOpen || settingsOpen || libraryOpen
@@ -629,6 +626,7 @@ fun BrowserScreen(
             editing = false
             libraryOpen = true
         },
+        openDownloads = { showDownloads.value = true },
     )
 
     // The page fills the screen under the bar; only the keyboard shrinks it.
@@ -760,10 +758,10 @@ fun BrowserScreen(
             }
         }
         // Draw no bar until the stored style is known, so a Classic user never sees Compact first.
-        // A private tab's bar uses the fixed dark private scheme.
+        // A private tab's bar uses the dark scheme of the current palette.
         val appScheme = MaterialTheme.colorScheme
         val openSettings = { settingsOpen = true }
-        MaterialTheme(colorScheme = barScheme(appScheme, selectedPrivate)) {
+        MaterialTheme(colorScheme = barScheme(appScheme, selectedPrivate, LocalPrivateScheme.current)) {
             CompositionLocalProvider(LocalPrivateTab provides selectedPrivate, LocalAppColorScheme provides appScheme) {
                 when (style) {
                     null -> Unit
@@ -779,22 +777,9 @@ fun BrowserScreen(
 
         if (settingsOpen) {
             SettingsScreen(
-                library, nodes, startFolder,
-                { scope.launch { settings.setStartPageFolder(it) } },
-                switchToNewTabs,
-                { scope.launch { settings.setSwitchToNewTabs(it) } },
-                searchEngine = searchEngine ?: SearchEngine.Google,
-                onSearchEngineChange = { scope.launch { settings.setSearchEngine(it) } },
-                searchSuggestions = searchSuggestions ?: true,
-                onSearchSuggestionsChange = { scope.launch { settings.setSearchSuggestions(it) } },
-                defaultBrowser = isDefault,
-                onDefaultBrowser = defaultBrowser::request,
-                updatesOn = updatesOn ?: true,
-                onUpdatesOnChange = { scope.launch { settings.setUpdatesOn(it) } },
-                updateChannel = updateChannel?.let(Channel::of) ?: installedChannel,
-                onUpdateChannelChange = { scope.launch { settings.setUpdateChannel(it.name) } },
-                onBack = { settingsOpen = false },
+                settings, library, engine, defaultBrowser, snackbar, scope,
                 onOpenUrl = { engine.newTab(url = it); settingsOpen = false },
+                onBack = { settingsOpen = false },
                 modifier = Modifier.fillMaxSize().pointerInput(Unit) {},
             )
         }
@@ -865,6 +850,20 @@ fun BrowserScreen(
                         }
                     }
                 },
+                // The site of the tap: the delete ends after the sheet is gone.
+                onDeleteData = if (selectedPrivate) null else {
+                    {
+                        val host = siteHost
+                        protectionTab = null
+                        scope.launch {
+                            val done = runCatching { engine.clearSiteData(host) }.isSuccess
+                            if (done) engine.reload()
+                            snackbar.showSnackbar(
+                                if (done) resources.getString(R.string.snackbar_site_data_deleted, host) else resources.getString(R.string.snackbar_data_delete_failed),
+                            )
+                        }
+                    }
+                },
                 onDismiss = { protectionTab = null },
             )
         }
@@ -916,8 +915,8 @@ fun BrowserScreen(
             )
         }
 
-        // Over the Library the bar is hidden, so the snackbar sits above the navigation bar instead.
-        val snackbarBottom = if (libraryOpen) Modifier.navigationBarsPadding() else Modifier.padding(bottom = with(density) { expandedPx.toDp() })
+        // Over the Library and Settings the bar is hidden, so the snackbar sits above the navigation bar instead.
+        val snackbarBottom = if (libraryOpen || settingsOpen) Modifier.navigationBarsPadding() else Modifier.padding(bottom = with(density) { expandedPx.toDp() })
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).then(snackbarBottom)) { data ->
             val action = data.visuals.actionLabel
             val actionDescription = (data.visuals as? LumiSnackbarVisuals)?.actionDescription

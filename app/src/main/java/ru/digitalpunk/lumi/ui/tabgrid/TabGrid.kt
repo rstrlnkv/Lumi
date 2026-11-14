@@ -53,6 +53,7 @@ import ru.digitalpunk.lumi.engine.isPrivate
 import ru.digitalpunk.lumi.privacy.PrivateEmptyColumn
 import ru.digitalpunk.lumi.privacy.PrivateLockColumn
 import ru.digitalpunk.lumi.privacy.barScheme
+import ru.digitalpunk.lumi.ui.theme.LocalPrivateScheme
 import ru.digitalpunk.lumi.engine.TabGroup
 import ru.digitalpunk.lumi.engine.TabId
 import ru.digitalpunk.lumi.engine.TabsState
@@ -144,7 +145,7 @@ fun TabGrid(
                 ) {
                     itemsIndexed(tabs, key = { _, tab -> tab.id.value }) { index, tab ->
                         // A private card is drawn in the fixed dark private scheme, in light and dark theme alike.
-                        MaterialTheme(colorScheme = barScheme(MaterialTheme.colorScheme, tab.isPrivate)) {
+                        MaterialTheme(colorScheme = barScheme(MaterialTheme.colorScheme, tab.isPrivate, LocalPrivateScheme.current)) {
                         TabCard(
                             tab = tab,
                             position = index + 1,

@@ -209,6 +209,10 @@ fun MoreMenu(style: AddressBarStyle, tabs: TabActions, library: LibraryActions, 
                     open = false
                     library.openLibrary()
                 }
+                MenuItem(stringResource(R.string.menu_downloads), { Icon(painterResource(R.drawable.ic_download), null) }) {
+                    open = false
+                    library.openDownloads()
+                }
             }
             group {
                 MenuItem(

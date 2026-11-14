@@ -449,6 +449,18 @@ class BrowserEngine(appContext: Context) {
         mutableChanges.tryEmit(Unit)
     }
 
+    /** "Close all tabs": closes every normal tab and group with their sessions, then opens one new normal tab. Private tabs stay. */
+    fun closeNormalTabs() {
+        if (selected?.isPrivate != true) view?.releaseSession()
+        tabsStore.dropNormal().forEach { id ->
+            cancelLna(id)
+            records.remove(id)?.session?.close()
+            live.remove(id)
+        }
+        newTab()
+        mutableChanges.tryEmit(Unit)
+    }
+
     /** Selects the tab [offset] places away inside the selected tab's group; false (nothing happens) at either end. */
     fun switchBy(offset: Int): Boolean {
         val next = tabsStore.neighbour(offset) ?: return false
@@ -693,6 +705,35 @@ class BrowserEngine(appContext: Context) {
         }, {})
     }
 
+    /** Deletes cookies, site storage and sign-ins ([cookies]) and every cache ([cache]) of all sites, for all time. */
+    suspend fun clearBrowsingData(cookies: Boolean, cache: Boolean) {
+        awaitDone(runtime.storageController.clearData(clearFlags(cookies, cache)))
+    }
+
+    /** Deletes the cookies, storage, sign-ins and cache of [host] (a site key, [siteKey]) and of its `www.` host. */
+    suspend fun clearSiteData(host: String) {
+        val flags = clearFlags(cookies = true, cache = true)
+        siteDataHosts(host).forEach { awaitDone(runtime.storageController.clearDataFromHost(it, flags)) }
+    }
+
+    /** Waits for a result without a value (`GeckoResult<Void>` completes with null). */
+    private suspend fun awaitDone(result: GeckoResult<*>): Unit = suspendCancellableCoroutine { c ->
+        result.accept({ c.resume(Unit) }, { c.resumeWithException(it ?: IOException("Gecko failed")) })
+    }
+
+    /** The local network answers Gecko stored for normal tabs, one per site (ADR 015). */
+    suspend fun storedLnaAnswers(): List<LnaSite> = lnaSites(await(runtime.storageController.allPermissions).map { it.lnaEntry() })
+
+    /** Sets every stored answer of [site] back to PROMPT, so the site asks again. */
+    suspend fun resetLna(site: LnaSite) {
+        val storage = runtime.storageController
+        await(storage.allPermissions)
+            .filter { val entry = it.lnaEntry(); entry.isStoredAnswer() && entry.siteAndVia() == (site.site to site.via) }
+            .forEach { storage.setPermission(it, ContentPermission.VALUE_PROMPT) }
+    }
+
+    private fun ContentPermission.lnaEntry() = LnaEntry(uri, thirdPartyOrigin, permission, value, privateMode)
+
     /** [level] is a `ComponentCallbacks2.TRIM_MEMORY_*` value. The cap returns to normal on the next tab switch. */
     fun trimMemory(level: Int) {
         cap = capForTrim(baseCap, level)
@@ -701,6 +742,11 @@ class BrowserEngine(appContext: Context) {
 
     /** Tells Gecko of a configuration change, so `prefers-color-scheme` follows a switch between light and dark. */
     fun configurationChanged(config: Configuration) = runtime.configurationChanged(config)
+
+    /** Lumi's theme for pages; [PageTheme.System] leaves it to the device (and [configurationChanged]). */
+    fun setPageTheme(theme: PageTheme) {
+        runtime.settings.preferredColorScheme = geckoColorScheme(theme)
+    }
 
     /** The stored sites with protection off. Call it before [restoreTabs], so the first page already follows them. */
     fun setProtectionOffHosts(hosts: Set<String>) {
