@@ -2,7 +2,6 @@ package ru.digitalpunk.lumi.ui.library
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,6 +70,7 @@ import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import kotlinx.coroutines.launch
 import ru.digitalpunk.lumi.R
+import ru.digitalpunk.lumi.ui.theme.LocalDarkTheme
 import ru.digitalpunk.lumi.ui.LocalSiteIcons
 import ru.digitalpunk.lumi.address.resolveInput
 import ru.digitalpunk.lumi.data.library.BookmarkNodeEntity
@@ -269,7 +269,7 @@ fun BookmarkEditorDialog(library: LibraryRepository, nodes: List<BookmarkNodeEnt
     val resolved = resolveInput(url)
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val window = (LocalView.current.parent as? DialogWindowProvider)?.window
-        val lightBars = !isSystemInDarkTheme()
+        val lightBars = !LocalDarkTheme.current
         SideEffect {
             window?.let { WindowCompat.getInsetsController(it, it.decorView).run { isAppearanceLightStatusBars = lightBars; isAppearanceLightNavigationBars = lightBars } }
         }

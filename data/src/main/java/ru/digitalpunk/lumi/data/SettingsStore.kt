@@ -20,6 +20,24 @@ enum class AddressBarStyle(internal val stored: String) {
     Classic("classic"),
 }
 
+/** Lumi's light or dark theme; [System] follows the device. */
+enum class ThemeChoice(internal val stored: String) {
+    System("system"),
+    Light("light"),
+    Dark("dark"),
+}
+
+/** What "Delete browsing data" deletes; [Tabs] closes the normal tabs. */
+enum class ClearItem(internal val stored: String) {
+    History("history"),
+    Cookies("cookies"),
+    Cache("cache"),
+    Tabs("tabs"),
+}
+
+/** The boxes checked the first time: everything but closing the tabs. */
+val DEFAULT_CLEAR_CHOICE: Set<ClearItem> = setOf(ClearItem.History, ClearItem.Cookies, ClearItem.Cache)
+
 /** The tab the Library opens on: the one that was open last. */
 enum class LibraryTab(internal val stored: String) {
     Bookmarks("bookmarks"),
@@ -40,6 +58,33 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
 
     suspend fun setAddressBarStyle(style: AddressBarStyle) {
         store.edit { it[ADDRESS_BAR_STYLE] = style.stored }
+    }
+
+    /** [ThemeChoice.System] when nothing, something unknown or another type is stored. */
+    val theme: Flow<ThemeChoice> = store.data.map { prefs ->
+        val stored = prefs.read(THEME)
+        ThemeChoice.entries.firstOrNull { it.stored == stored } ?: ThemeChoice.System
+    }
+
+    suspend fun setTheme(theme: ThemeChoice) {
+        store.edit { it[THEME] = theme.stored }
+    }
+
+    /** "Wallpaper colours" (Dynamic Color, Android 12+); off gives the monochrome palette. On when nothing, or another type, is stored. */
+    val wallpaperColors: Flow<Boolean> = store.data.map { it.read(WALLPAPER_COLORS) ?: true }
+
+    suspend fun setWallpaperColors(value: Boolean) {
+        store.edit { it[WALLPAPER_COLORS] = value }
+    }
+
+    /** The last "Delete browsing data" choice; [DEFAULT_CLEAR_CHOICE] when nothing, nothing known or another type is stored. */
+    val clearDataChoice: Flow<Set<ClearItem>> = store.data.map { prefs ->
+        val stored = prefs.read(CLEAR_DATA_CHOICE).orEmpty()
+        ClearItem.entries.filterTo(mutableSetOf()) { it.stored in stored }.ifEmpty { DEFAULT_CLEAR_CHOICE }
+    }
+
+    suspend fun setClearDataChoice(choice: Set<ClearItem>) {
+        store.edit { it[CLEAR_DATA_CHOICE] = choice.mapTo(mutableSetOf()) { item -> item.stored } }
     }
 
     /** "Switch to new tabs": a link opened in a new tab is shown at once instead of in the background. Off when nothing is stored. */
@@ -179,6 +224,9 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         val UPDATE_CHANNEL = stringPreferencesKey("update_channel")
         val LAST_UPDATE_CHECK = longPreferencesKey("last_update_check")
         val NOTIFIED_UPDATE_TAG = stringPreferencesKey("notified_update_tag")
+        val THEME = stringPreferencesKey("theme")
+        val WALLPAPER_COLORS = booleanPreferencesKey("wallpaper_colors")
+        val CLEAR_DATA_CHOICE = stringSetPreferencesKey("clear_data_choice")
     }
 }
 

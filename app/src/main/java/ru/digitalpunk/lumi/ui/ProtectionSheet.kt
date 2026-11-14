@@ -1,5 +1,6 @@
 package ru.digitalpunk.lumi.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -36,7 +37,16 @@ import ru.digitalpunk.lumi.address.trackersRow
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProtectionSheet(host: String, trackers: Int, off: Boolean, secure: Boolean, private: Boolean, onToggle: (off: Boolean) -> Unit, onDismiss: () -> Unit) {
+fun ProtectionSheet(
+    host: String,
+    trackers: Int,
+    off: Boolean,
+    secure: Boolean,
+    private: Boolean,
+    onToggle: (off: Boolean) -> Unit,
+    onDeleteData: (() -> Unit)?,
+    onDismiss: () -> Unit,
+) {
     val row = trackersRow(off, trackers)
     val colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -89,6 +99,15 @@ fun ProtectionSheet(host: String, trackers: Int, off: Boolean, secure: Boolean, 
                 colors = colors,
                 modifier = Modifier.toggleable(value = !off, role = Role.Switch) { on -> onToggle(!on) },
             )
+            // Null in a private tab: its data ends with the private session anyway.
+            onDeleteData?.let { delete ->
+                ListItem(
+                    leadingContent = { Icon(painterResource(R.drawable.ic_delete_sweep), contentDescription = null) },
+                    headlineContent = { Text(stringResource(R.string.shield_delete_site_data)) },
+                    colors = colors,
+                    modifier = Modifier.clickable(role = Role.Button, onClick = delete),
+                )
+            }
         }
     }
 }

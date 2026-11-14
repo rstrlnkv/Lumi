@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -23,10 +22,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import ru.digitalpunk.lumi.R
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import ru.digitalpunk.lumi.about.Channel
+import ru.digitalpunk.lumi.about.installedChannel
+import ru.digitalpunk.lumi.data.SettingsStore
 import ru.digitalpunk.lumi.updates.askUpdateNotifications
 
 @StringRes fun Channel.labelRes(): Int = when (this) {
@@ -41,27 +46,33 @@ import ru.digitalpunk.lumi.updates.askUpdateNotifications
     Channel.DEV -> R.string.update_channel_dev_summary
 }
 
-/** Settings → Updates: the daily check's switch and the channel it looks at; the channel row rests while the switch is off. */
+/** S10 Updates: the daily check's switch and the channel it looks at; the channel row rests while the switch is off. */
 @Composable
-internal fun UpdatesSection(on: Boolean, onOnChange: (Boolean) -> Unit, channel: Channel, onChannelChange: (Channel) -> Unit) {
+fun UpdatesSettings(settings: SettingsStore, scope: CoroutineScope, onBack: () -> Unit, modifier: Modifier = Modifier) {
+    val on by settings.updatesOn.collectAsStateWithLifecycle(true)
+    val stored by settings.updateChannel.collectAsStateWithLifecycle(null)
+    val channel = stored?.let(Channel::of) ?: installedChannel
     val activity = LocalActivity.current
     var picking by rememberSaveable { mutableStateOf(false) }
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_updates_check)) },
-        supportingContent = { Text(stringResource(R.string.settings_updates_check_summary)) },
-        leadingContent = { Icon(Icons.Filled.Notifications, contentDescription = null) },
-        trailingContent = { Switch(checked = on, onCheckedChange = null) },
-        modifier = Modifier.toggleable(value = on, role = Role.Switch) {
-            onOnChange(it)
-            if (it) activity?.let(::askUpdateNotifications)
-        },
-    )
-    ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_update_channel)) },
-        supportingContent = { Text(stringResource(channel.labelRes()) + " · " + stringResource(channel.summaryRes())) },
-        leadingContent = { Icon(Icons.Filled.Build, contentDescription = null) },
-        modifier = Modifier.clickable(enabled = on, onClickLabel = stringResource(R.string.cd_change), role = Role.Button) { picking = true },
-    )
+    SettingsPageScaffold(stringResource(R.string.settings_section_updates), onBack, modifier) {
+        SettingsGroup {
+            SettingsRow(
+                stringResource(R.string.settings_updates_check),
+                stringResource(R.string.settings_updates_check_summary),
+                rememberVectorPainter(Icons.Filled.Notifications),
+                Modifier.toggleable(value = on, role = Role.Switch) {
+                    scope.launch { settings.setUpdatesOn(it) }
+                    if (it) activity?.let(::askUpdateNotifications)
+                },
+            ) { Switch(checked = on, onCheckedChange = null) }
+            SettingsRow(
+                stringResource(R.string.settings_update_channel),
+                stringResource(channel.labelRes()) + " · " + stringResource(channel.summaryRes()),
+                rememberVectorPainter(Icons.Filled.Build),
+                Modifier.clickable(enabled = on, onClickLabel = stringResource(R.string.cd_change), role = Role.Button) { picking = true },
+            )
+        }
+    }
     if (picking) {
         AlertDialog(
             onDismissRequest = { picking = false },
@@ -76,7 +87,7 @@ internal fun UpdatesSection(on: Boolean, onOnChange: (Boolean) -> Unit, channel:
                             leadingContent = { RadioButton(selected = option == channel, onClick = null) },
                             modifier = Modifier.selectable(selected = option == channel, role = Role.RadioButton) {
                                 picking = false
-                                onChannelChange(option)
+                                scope.launch { settings.setUpdateChannel(option.name) }
                             },
                         )
                     }
