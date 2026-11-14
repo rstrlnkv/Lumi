@@ -11,6 +11,7 @@
 // key or value prints "bad". Site colours: "header" is an element stuck at the top ({position, width, height, top, bg,
 // bgImage, visibility, opacity}); "bodyBg"/"htmlBg" are the backgrounds the colour walk reaches; "metas" are
 // [{name, content, media}] for document.querySelectorAll; "dark" drives matchMedia("(prefers-color-scheme: dark|light)").
+// "htmlScheme" is the computed color-scheme of <html>.
 // "headMutation" notifies observers of <head>, "mediaChange" fires the matchMedia change listeners.
 // "prop":"observedHead" prints the options of the <head> observers, "prop":"styles" the getComputedStyle calls and
 // "prop":"topHits" the elementFromPoint calls in the upper half since the last such step.
@@ -23,7 +24,7 @@ const S = { base: 2000, innerHeight: 800, clientWidth: 360, overflowRoot: "visib
   top: true, hasBody: true, initialStrip: null, delayGet: false,
   bodyBg: "rgba(0, 0, 0, 0)", endBg: null, endReaches: true, emptyLast: false,
   nav: null, rejectSend: false, hidden: false, now: 0,
-  header: null, htmlBg: "rgba(0, 0, 0, 0)", metas: [], dark: false, colors: false };
+  header: null, htmlBg: "rgba(0, 0, 0, 0)", htmlScheme: "normal", metas: [], dark: false, colors: false };
 Object.assign(S, steps[0].init || {});
 const props = {};
 const raf = [];
@@ -127,7 +128,8 @@ const ctx = vm.createContext({
   get innerWidth() { return S.clientWidth; },
   getComputedStyle: (el, pseudo) => (styles++, style(el)) || (pseudo ? { height: applied() ? applied() + "px" : "auto" }
     : { overflowY: el === root ? S.overflowRoot : S.overflowBody, display: "block", position: "static",
-        backgroundColor: el === end ? S.endBg : el === body ? S.bodyBg : el === root ? S.htmlBg : "rgba(0, 0, 0, 0)" }),
+        backgroundColor: el === end ? S.endBg : el === body ? S.bodyBg : el === root ? S.htmlBg : "rgba(0, 0, 0, 0)",
+        colorScheme: el === root ? S.htmlScheme : "normal" }),
   requestAnimationFrame: f => { raf.push(f); },
   addEventListener: (t, f) => { (listeners[t] = listeners[t] || []).push(f); },
   ResizeObserver: class { observe() {} },

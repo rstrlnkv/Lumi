@@ -12,7 +12,7 @@ data class PageState(
     val blockedTrackers: Int = 0,
     /** The tab's back history for the Back long-press menu; empty after a crash. */
     val history: BackHistory = BackHistory(),
-    /** The page has an opaque bar stuck to the screen bottom (a see-through one counts as none), as its content script reported; false until it reports. */
+    /** The page has a painted bar stuck to the screen bottom (a translucent one too), as its content script reported; false until it reports. */
     val hasBottomBar: Boolean = false,
     /** That bar's opaque ARGB colour, as the page's content script reported; null until it reports or when the colour is unknown. */
     val bottomBarColor: Int? = null,

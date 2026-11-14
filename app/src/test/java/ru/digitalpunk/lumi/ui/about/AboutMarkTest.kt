@@ -28,6 +28,13 @@ class AboutMarkTest {
         assertTrue("badgeTop = 3.dp" in screen)
     }
 
+    // Figma: 12 sp Medium on a 16 sp line, so the pill is 20 dp tall. Without its own line height the text takes
+    // bodyLarge's 24 sp line and the pill grows to 28 dp.
+    @Test fun theBadgeTextHasA16spLineSoThePillIs20dpTall() {
+        val badge = screen.substringAfter("R.string.about_dev_badge").substringBefore("modifier =")
+        assertTrue("fontSize = 12.sp" in badge && "lineHeight = 16.sp" in badge, badge)
+    }
+
     @Test fun theRowsUseTheFigmaSymbols() {
         for (icon in listOf("ic_tag", "ic_new_releases", "ic_description")) {
             assertTrue("R.drawable.$icon" in screen, icon)

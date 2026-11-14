@@ -4,8 +4,8 @@ import org.json.JSONObject
 import org.mozilla.geckoview.WebExtension
 
 /**
- * The page-end content script's report (see docs: 012-page-end-spacer-extension): whether the page has an opaque bar
- * stuck to the screen bottom (a see-through one is reported as none), that bar's colour, and the colour for the status
+ * The page-end content script's report (see docs: 012-page-end-spacer-extension): whether the page has a painted bar
+ * stuck to the screen bottom (a translucent one too), that bar's colour, and the colour for the status
  * bar (theme-color, else a header stuck to the top). Colours are opaque ARGB; null when the page gave none the script
  * could read.
  */
