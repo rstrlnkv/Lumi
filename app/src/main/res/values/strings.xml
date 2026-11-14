@@ -397,4 +397,5 @@
     <string name="local_network_via">%1$s · via %2$s</string>
     <string name="cd_reset_local_network">Reset answer for %1$s</string>
     <string name="local_network_empty">No sites have asked yet</string>
+    <string name="menu_downloads">Downloads</string>
 </resources>

@@ -208,6 +208,10 @@ fun MoreMenu(style: AddressBarStyle, tabs: TabActions, library: LibraryActions, 
                 open = false
                 library.openLibrary()
             }
+            MenuItem(stringResource(R.string.menu_downloads), { Icon(painterResource(R.drawable.ic_download), null) }) {
+                open = false
+                library.openDownloads()
+            }
             HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
             MenuItem(
                 stringResource(if (compact) R.string.menu_use_classic_bar else R.string.menu_use_compact_bar),

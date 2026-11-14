@@ -21,11 +21,13 @@ class TabActions(
     val goBack: () -> Unit,
 )
 
-/** What the More menu needs from the library: whether the page on screen is saved, whether it can be, and two actions. */
+/** What the More menu needs from the library: whether the page on screen is saved, whether it can be, and its actions. */
 class LibraryActions(
     val bookmarked: Boolean,
     val canBookmark: Boolean,
     /** Saves the page into the start-page folder, or opens the editor when it is saved already. */
     val addOrEditBookmark: () -> Unit,
     val openLibrary: () -> Unit,
+    /** The Library on the Downloads tab. */
+    val openDownloads: () -> Unit,
 )

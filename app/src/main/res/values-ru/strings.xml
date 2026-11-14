@@ -422,4 +422,5 @@
     <string name="local_network_via">%1$s · через %2$s</string>
     <string name="cd_reset_local_network">Сбросить ответ для %1$s</string>
     <string name="local_network_empty">Сайты пока не спрашивали</string>
+    <string name="menu_downloads">Загрузки</string>
 </resources>

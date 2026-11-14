@@ -626,6 +626,7 @@ fun BrowserScreen(
             editing = false
             libraryOpen = true
         },
+        openDownloads = { showDownloads.value = true },
     )
 
     // The page fills the screen under the bar; only the keyboard shrinks it.
