@@ -352,4 +352,21 @@
     <string name="settings_address_bar">Address bar</string>
     <string name="settings_address_bar_classic">Classic</string>
     <string name="settings_address_bar_compact">Compact</string>
+    <string name="settings_delete_data">Delete browsing data</string>
+    <string name="settings_delete_data_summary">History, cookies and site data, cache</string>
+    <string name="settings_tracker_protection">Tracker protection</string>
+    <string name="settings_tracker_protection_summary">Strict, always on. Turn it off for one site in the shield sheet</string>
+    <string name="settings_private_lock">Private tab lock</string>
+    <string name="settings_private_lock_summary">Always: fingerprint or PIN when you return to Lumi</string>
+    <string name="delete_data_line">For all time. Clear the history for the last hour or today in the Library</string>
+    <string name="delete_data_history">History</string>
+    <string name="delete_data_history_summary">Visited sites and searches. Bookmarks stay</string>
+    <string name="delete_data_cookies">Cookies and site data</string>
+    <string name="delete_data_cookies_summary">Signs you out of most sites</string>
+    <string name="delete_data_cache">Cache</string>
+    <string name="delete_data_cache_summary">Images and files of sites</string>
+    <string name="delete_data_tabs">Close all tabs</string>
+    <string name="delete_data_tabs_summary">Normal tabs and groups; private tabs stay</string>
+    <string name="snackbar_data_deleted">Browsing data deleted</string>
+    <string name="snackbar_data_delete_failed">Some data could not be deleted</string>
 </resources>

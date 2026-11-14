@@ -375,4 +375,21 @@
     <string name="settings_address_bar">Адресная строка</string>
     <string name="settings_address_bar_classic">Классическая</string>
     <string name="settings_address_bar_compact">Компактная</string>
+    <string name="settings_delete_data">Удалить данные браузера</string>
+    <string name="settings_delete_data_summary">История, cookies и данные сайтов, кеш</string>
+    <string name="settings_tracker_protection">Защита от трекеров</string>
+    <string name="settings_tracker_protection_summary">Строгая, всегда включена. Для одного сайта её выключают в шторке щита</string>
+    <string name="settings_private_lock">Блокировка приватных вкладок</string>
+    <string name="settings_private_lock_summary">Всегда: отпечаток или PIN при возврате в Lumi</string>
+    <string name="delete_data_line">За всё время. Историю за час или за сегодня можно очистить в Библиотеке</string>
+    <string name="delete_data_history">История</string>
+    <string name="delete_data_history_summary">Посещённые сайты и запросы. Закладки остаются</string>
+    <string name="delete_data_cookies">Cookies и данные сайтов</string>
+    <string name="delete_data_cookies_summary">Выход из большинства сайтов</string>
+    <string name="delete_data_cache">Кеш</string>
+    <string name="delete_data_cache_summary">Картинки и файлы сайтов</string>
+    <string name="delete_data_tabs">Закрыть все вкладки</string>
+    <string name="delete_data_tabs_summary">Обычные вкладки и группы; приватные не трогает</string>
+    <string name="snackbar_data_deleted">Данные браузера удалены</string>
+    <string name="snackbar_data_delete_failed">Не все данные удалось удалить</string>
 </resources>

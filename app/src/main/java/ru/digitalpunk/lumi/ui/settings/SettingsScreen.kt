@@ -59,9 +59,9 @@ import ru.digitalpunk.lumi.ui.about.rememberAppVersion
 fun SettingsScreen(
     settings: SettingsStore,
     library: LibraryRepository,
-    @Suppress("UNUSED_PARAMETER") engine: BrowserEngine,
+    engine: BrowserEngine,
     defaultBrowser: DefaultBrowser,
-    @Suppress("UNUSED_PARAMETER") snackbar: SnackbarHostState,
+    snackbar: SnackbarHostState,
     scope: CoroutineScope,
     onOpenUrl: (String) -> Unit,
     onBack: () -> Unit,
@@ -108,7 +108,7 @@ fun SettingsScreen(
                 SettingsPage.Updates -> UpdatesSettings(settings, scope, back, full)
                 SettingsPage.About -> AboutHost(onBack = back, onOpenUrl = onOpenUrl, modifier = full)
                 SettingsPage.Appearance -> AppearanceSettings(settings, scope, back, full)
-                SettingsPage.Privacy -> SettingsPageScaffold(stringResource(R.string.settings_privacy), back, full) {}
+                SettingsPage.Privacy -> PrivacySettings(settings, engine, library, snackbar, scope, back, full)
                 SettingsPage.Sites, SettingsPage.SiteData, SettingsPage.Unprotected, SettingsPage.LocalNetwork ->
                     SettingsPageScaffold(stringResource(R.string.settings_sites), back, full) {}
             }
