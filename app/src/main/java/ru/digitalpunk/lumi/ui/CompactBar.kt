@@ -55,9 +55,10 @@ fun CompactBar(
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val band by animateColorAsState(bandColor(state.bottomBarColor, MaterialTheme.colorScheme.surface), tween(150), label = "bandColor")
     Box(modifier.fillMaxWidth()) {
         if (state.hasBottomBar) {
+            // Created with the band, so a new band starts in its colour; a change while it shows animates.
+            val band by animateColorAsState(bandColor(state.bottomBarColor, MaterialTheme.colorScheme.surface), tween(150), label = "bandColor")
             Box(
                 Modifier.matchParentSize()
                     .background(band)

@@ -38,6 +38,12 @@ class CompactBandWiringTest {
         assertFalse("alpha" in band || "LocalAppColorScheme" in band, "no fade and no app-wide scheme")
     }
 
+    @Test fun aBandThatAppearsStartsInItsReportedColourNotTheSurface() = assertTrue(
+        "animateColorAsState(bandColor(" in band,
+        "the colour state is created with the band: one kept while no band shows holds surface (white in the light theme) " +
+            "and fades the new band in from it (netflix.com: a white first frame under its black block)",
+    )
+
     @Test fun classicKeepsItsOwnBarBackground() =
         assertFalse("hasBottomBar" in classic || "matchParentSize" in classic || "bottomBarColor" in classic)
 }
