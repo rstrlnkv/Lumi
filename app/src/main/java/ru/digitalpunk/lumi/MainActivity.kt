@@ -2,7 +2,7 @@ package ru.digitalpunk.lumi
 
 import android.graphics.Color
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.digitalpunk.lumi.data.ThemeChoice
@@ -130,13 +130,15 @@ class MainActivity : FragmentActivity() {
             val theme = storedTheme ?: return@setContent
             val wallpaperColors = storedWallpaper ?: return@setContent
             LumiTheme(theme, wallpaperColors) {
-                // The bar icons follow Lumi's theme, not the device's, when a theme is forced.
+                // The bar icons follow Lumi's theme, not the device's, when a theme is forced. A DisposableEffect runs
+                // at once and before the effects under it, so the band and private-bar overrides stay on top.
                 val dark = LocalDarkTheme.current
-                LaunchedEffect(dark) {
+                DisposableEffect(dark) {
                     enableEdgeToEdge(
                         SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
                         SystemBarStyle.auto(LIGHT_NAV_SCRIM, DARK_NAV_SCRIM) { dark },
                     )
+                    onDispose {}
                 }
                 Surface(Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalSiteIcons provides app.siteIcons) {

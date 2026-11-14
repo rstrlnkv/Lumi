@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import ru.digitalpunk.lumi.ui.theme.LocalDarkTheme
 
 /**
  * The page's colour behind the transparent status bar, or the app surface (the root Surface's colour, so nothing shows)
@@ -32,16 +33,19 @@ fun BoxScope.StatusBarBand(tint: Color?) {
     Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(color))
 }
 
-/** While [tint] is set, the status-bar icons are black or white, whichever contrasts more with it; else as they were. */
+/**
+ * While [tint] is set, the status-bar icons are black or white, whichever contrasts more with it; else they follow
+ * Lumi's theme. Giving back the theme's value, not the one found, keeps it right after the theme changes.
+ */
 @Composable
 fun StatusBarIcons(tint: Color?) {
     val window = LocalActivity.current?.window ?: return
     val view = LocalView.current
     val argb = tint?.toArgb()
-    DisposableEffect(window, argb) {
+    val lightIcons = !LocalDarkTheme.current
+    DisposableEffect(window, argb, lightIcons) {
         val controller = WindowCompat.getInsetsController(window, view)
-        val before = controller.isAppearanceLightStatusBars
         if (argb != null) controller.isAppearanceLightStatusBars = darkIconsOn(argb)
-        onDispose { controller.isAppearanceLightStatusBars = before }
+        onDispose { controller.isAppearanceLightStatusBars = lightIcons }
     }
 }

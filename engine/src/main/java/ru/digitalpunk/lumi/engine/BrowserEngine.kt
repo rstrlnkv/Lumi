@@ -708,9 +708,10 @@ class BrowserEngine(appContext: Context) {
         awaitDone(runtime.storageController.clearData(clearFlags(cookies, cache)))
     }
 
-    /** Deletes the cookies, storage, sign-ins and cache of [host] (a site key, [siteKey]). */
+    /** Deletes the cookies, storage, sign-ins and cache of [host] (a site key, [siteKey]) and of its `www.` host. */
     suspend fun clearSiteData(host: String) {
-        awaitDone(runtime.storageController.clearDataFromHost(host, clearFlags(cookies = true, cache = true)))
+        val flags = clearFlags(cookies = true, cache = true)
+        siteDataHosts(host).forEach { awaitDone(runtime.storageController.clearDataFromHost(it, flags)) }
     }
 
     /** Waits for a result without a value (`GeckoResult<Void>` completes with null). */

@@ -23,4 +23,9 @@ class ClearDataTest {
             assertEquals(0L, clearFlags(cookies, cache) and ClearFlags.SITE_SETTINGS)
         }
     }
+
+    @Test fun `a site key also clears its www host`() {
+        assertEquals(listOf("example.com", "www.example.com"), siteDataHosts("example.com"))
+        assertEquals(listOf("mail.yandex.ru", "www.mail.yandex.ru"), siteDataHosts("mail.yandex.ru"))
+    }
 }
