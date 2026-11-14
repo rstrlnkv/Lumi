@@ -1,25 +1,25 @@
 package ru.digitalpunk.lumi
 
+import android.graphics.Color
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ru.digitalpunk.lumi.data.ThemeChoice
+import ru.digitalpunk.lumi.ui.theme.LocalDarkTheme
+import ru.digitalpunk.lumi.ui.theme.LumiTheme
 import ru.digitalpunk.lumi.ui.LocalSiteIcons
 import android.app.KeyguardManager
 import android.app.SearchManager
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
@@ -123,7 +123,20 @@ class MainActivity : FragmentActivity() {
             }
         })
         setContent {
-            LumiTheme {
+            // Nothing is drawn until both are read, so a forced theme never flashes the device's first.
+            val storedTheme by app.settings.theme.collectAsStateWithLifecycle<ThemeChoice?>(null)
+            val storedWallpaper by app.settings.wallpaperColors.collectAsStateWithLifecycle<Boolean?>(null)
+            val theme = storedTheme ?: return@setContent
+            val wallpaperColors = storedWallpaper ?: return@setContent
+            LumiTheme(theme, wallpaperColors) {
+                // The bar icons follow Lumi's theme, not the device's, when a theme is forced.
+                val dark = LocalDarkTheme.current
+                LaunchedEffect(dark) {
+                    enableEdgeToEdge(
+                        SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
+                        SystemBarStyle.auto(LIGHT_NAV_SCRIM, DARK_NAV_SCRIM) { dark },
+                    )
+                }
                 Surface(Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalSiteIcons provides app.siteIcons) {
                         BrowserScreen(app.engine, app.settings, app.tabSnapshots, gate, app.library, app.suggestClient, app.downloads, asks, app.showDownloads, app.appLinks, defaultBrowser)
@@ -179,20 +192,11 @@ class MainActivity : FragmentActivity() {
     companion object {
         private const val CONFIRM_CREDENTIAL = 1
 
+        /** The navigation-bar scrims of `enableEdgeToEdge()`'s defaults, for three-button navigation. */
+        private const val LIGHT_NAV_SCRIM = 0xE6FFFFFF.toInt()
+        private const val DARK_NAV_SCRIM = 0x801B1B1B.toInt()
+
         /** A download notification: open the Library on the Downloads tab. */
         const val ACTION_SHOW_DOWNLOADS = "ru.digitalpunk.lumi.SHOW_DOWNLOADS"
     }
-}
-
-/** Follows the system light/dark setting; Dynamic Color on Android 12+. */
-@Composable
-fun LumiTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
-    val colors = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        val context = LocalContext.current
-        if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-    } else {
-        if (dark) darkColorScheme() else lightColorScheme()
-    }
-    MaterialTheme(colorScheme = colors, content = content)
 }

@@ -118,6 +118,7 @@ import ru.digitalpunk.lumi.privacy.PrivateLockScreen
 import ru.digitalpunk.lumi.engine.LnaAnswer
 import ru.digitalpunk.lumi.privacy.SecureWindow
 import ru.digitalpunk.lumi.privacy.barScheme
+import ru.digitalpunk.lumi.ui.theme.LocalPrivateScheme
 import ru.digitalpunk.lumi.privacy.needsSecureWindow
 import android.content.ClipData
 import android.content.ClipDescription
@@ -756,10 +757,10 @@ fun BrowserScreen(
             }
         }
         // Draw no bar until the stored style is known, so a Classic user never sees Compact first.
-        // A private tab's bar uses the fixed dark private scheme.
+        // A private tab's bar uses the dark scheme of the current palette.
         val appScheme = MaterialTheme.colorScheme
         val openSettings = { settingsOpen = true }
-        MaterialTheme(colorScheme = barScheme(appScheme, selectedPrivate)) {
+        MaterialTheme(colorScheme = barScheme(appScheme, selectedPrivate, LocalPrivateScheme.current)) {
             CompositionLocalProvider(LocalPrivateTab provides selectedPrivate, LocalAppColorScheme provides appScheme) {
                 when (style) {
                     null -> Unit
