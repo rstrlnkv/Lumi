@@ -309,6 +309,9 @@
     <string name="about_description">Браузер в стиле Material с адресной строкой внизу.</string>
     <string name="about_dev_badge">DEV</string>
     <string name="about_beta_badge">BETA</string>
+    <string name="notification_channel_updates">Обновления</string>
+    <string name="notification_update_title">Доступна Lumi %1$s</string>
+    <string name="notification_update_text">Нажмите, чтобы открыть релиз</string>
     <string name="about_version">Версия</string>
     <string name="about_author">Ростислав Стрельников</string>
     <string name="about_contact">github.com/rstrlnkv</string>

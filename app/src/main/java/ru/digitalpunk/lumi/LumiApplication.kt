@@ -6,6 +6,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import ru.digitalpunk.lumi.data.SettingsStore
 import ru.digitalpunk.lumi.data.downloads.DownloadRepository
 import ru.digitalpunk.lumi.data.downloads.DownloadStorage
@@ -26,6 +28,9 @@ import ru.digitalpunk.lumi.privacy.PrivateGate
 import ru.digitalpunk.lumi.privacy.PrivatePersistence
 import ru.digitalpunk.lumi.tabs.TabPersistence
 import ru.digitalpunk.lumi.tabs.TabSnapshots
+import ru.digitalpunk.lumi.updates.UpdateChecker
+import ru.digitalpunk.lumi.updates.UpdateNotifier
+import ru.digitalpunk.lumi.updates.UpdateSchedule
 
 class LumiApplication : Application() {
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -75,6 +80,15 @@ class LumiApplication : Application() {
 
     /** Whether Lumi is the default browser, and the request for it; the Settings row and the start-page card share it. */
     val defaultBrowser by lazy { DefaultBrowser(this, settings, appScope) }
+
+    /** The update check against GitHub Releases: the daily job and "Check now" in About. */
+    val updates by lazy { UpdateChecker(settings, UpdateNotifier(this)) }
+
+    override fun onCreate() {
+        super.onCreate()
+        // The daily job follows the Settings switch; Dispatchers.Default keeps the scheduler's binder calls off the main thread.
+        appScope.launch(Dispatchers.Default) { settings.updatesOn.distinctUntilChanged().collect { UpdateSchedule.sync(this@LumiApplication, it) } }
+    }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)

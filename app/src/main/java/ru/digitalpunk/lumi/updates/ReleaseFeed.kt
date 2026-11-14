@@ -11,8 +11,8 @@ private val RELEASE_PAGE = Regex("""https://github\.com/rstrlnkv/lumi/releases/[
 /** A published release: its tag, the tag's name and its page on GitHub. */
 data class Release(val tag: ReleaseTag, val name: String, val url: String)
 
-/** GitHub's release list; drafts, unknown tags and pages outside the project are dropped, anything malformed is empty. */
-fun parseReleases(json: String): List<Release> = try {
+/** GitHub's release list; drafts, unknown tags and pages outside the project are dropped. Null when it is not a JSON array. */
+fun parseReleases(json: String): List<Release>? = try {
     val array = JSONArray(json)
     (0 until array.length()).mapNotNull { i ->
         val item = array.opt(i) as? JSONObject ?: return@mapNotNull null
@@ -22,7 +22,7 @@ fun parseReleases(json: String): List<Release> = try {
         parseTag(name)?.let { Release(it, name, url) }
     }
 } catch (_: JSONException) {
-    emptyList()
+    null
 }
 
 /** The newest release of [channel] above the installed build, or null. */

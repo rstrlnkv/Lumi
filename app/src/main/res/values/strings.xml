@@ -286,6 +286,9 @@
     <string name="about_description">A Material browser with the address bar at the bottom.</string>
     <string name="about_dev_badge">DEV</string>
     <string name="about_beta_badge">BETA</string>
+    <string name="notification_channel_updates">Updates</string>
+    <string name="notification_update_title">Lumi %1$s is available</string>
+    <string name="notification_update_text">Tap to open the release</string>
     <string name="about_version">Version</string>
     <string name="about_author">Rostislav Strelnikov</string>
     <string name="about_contact">github.com/rstrlnkv</string>

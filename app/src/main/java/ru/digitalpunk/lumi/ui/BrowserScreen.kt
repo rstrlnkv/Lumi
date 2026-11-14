@@ -464,7 +464,7 @@ fun BrowserScreen(
             val url = incomingUrl(incoming, settings.searchEngine.first().searchPrefix) ?: return@collect
             // Read before the new tab: selecting it drops the pending private resume.
             val privateBefore = wasPrivate
-            engine.newTab(url = url, fromApp = true)
+            engine.newTab(url = url, fromApp = incoming.fromApp)
             gridOpen = false
             settingsOpen = false
             libraryOpen = false
