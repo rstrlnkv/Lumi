@@ -20,6 +20,13 @@ enum class AddressBarStyle(internal val stored: String) {
     Classic("classic"),
 }
 
+/** Lumi's light or dark theme; [System] follows the device. */
+enum class ThemeChoice(internal val stored: String) {
+    System("system"),
+    Light("light"),
+    Dark("dark"),
+}
+
 /** The tab the Library opens on: the one that was open last. */
 enum class LibraryTab(internal val stored: String) {
     Bookmarks("bookmarks"),
@@ -40,6 +47,23 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
 
     suspend fun setAddressBarStyle(style: AddressBarStyle) {
         store.edit { it[ADDRESS_BAR_STYLE] = style.stored }
+    }
+
+    /** [ThemeChoice.System] when nothing, something unknown or another type is stored. */
+    val theme: Flow<ThemeChoice> = store.data.map { prefs ->
+        val stored = prefs.read(THEME)
+        ThemeChoice.entries.firstOrNull { it.stored == stored } ?: ThemeChoice.System
+    }
+
+    suspend fun setTheme(theme: ThemeChoice) {
+        store.edit { it[THEME] = theme.stored }
+    }
+
+    /** "Wallpaper colours" (Dynamic Color, Android 12+); off gives the monochrome palette. On when nothing, or another type, is stored. */
+    val wallpaperColors: Flow<Boolean> = store.data.map { it.read(WALLPAPER_COLORS) ?: true }
+
+    suspend fun setWallpaperColors(value: Boolean) {
+        store.edit { it[WALLPAPER_COLORS] = value }
     }
 
     /** "Switch to new tabs": a link opened in a new tab is shown at once instead of in the background. Off when nothing is stored. */
@@ -179,6 +203,8 @@ class SettingsStore internal constructor(private val store: DataStore<Preference
         val UPDATE_CHANNEL = stringPreferencesKey("update_channel")
         val LAST_UPDATE_CHECK = longPreferencesKey("last_update_check")
         val NOTIFIED_UPDATE_TAG = stringPreferencesKey("notified_update_tag")
+        val THEME = stringPreferencesKey("theme")
+        val WALLPAPER_COLORS = booleanPreferencesKey("wallpaper_colors")
     }
 }
 
