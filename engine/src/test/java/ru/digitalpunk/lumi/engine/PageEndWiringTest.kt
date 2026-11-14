@@ -28,4 +28,14 @@ class PageEndWiringTest {
         assertEquals(1, Regex("addOnLayoutChangeListener\\(pageEndWidth\\)").findAll(engine).count())
         assertEquals(1, Regex("removeOnLayoutChangeListener\\(pageEndWidth\\)").findAll(engine).count())
     }
+
+    // Every live session, private included, gets the bottom-bar delegate; sessions opened before the extension was
+    // ready get it when it is.
+    @Test fun everyLiveSessionIsBoundToTheBottomBarReport() {
+        assertTrue(extension.contains("session.webExtensionController.setMessageDelegate("))
+        assertEquals(1, Regex("bindPageEnd\\(tab, session\\)").findAll(engine.substringAfter("private fun ensureLive(")
+            .substringBefore("private fun evict(")).count())
+        assertTrue(Regex("PageEndExtension\\(runtime\\) \\{[^}]*records\\.values").containsMatchIn(engine))
+        assertTrue(engine.contains("pageEnd.bind(session) { tab.pageChanged { bottomBarChanged(it) } }"))
+    }
 }

@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import ru.digitalpunk.lumi.address.SiteStatus
 import ru.digitalpunk.lumi.data.AddressBarStyle
@@ -27,7 +28,11 @@ import ru.digitalpunk.lumi.engine.PageState
 
 private val BarSidePadding = 20.dp
 
-/** Back (with Forward once the tab can go forward), address pill and More as separate floating controls over the page; no bar background. */
+/**
+ * Back (with Forward once the tab can go forward), address pill and More as separate floating controls over the page.
+ * A page with its own bar stuck to the screen bottom gets an opaque `surface` band under the bar box, so the page does
+ * not show through between that bar and ours (see docs: 002-bar-offset-owned-by-compose).
+ */
 @Composable
 fun CompactBar(
     state: PageState,
@@ -47,6 +52,13 @@ fun CompactBar(
     modifier: Modifier = Modifier,
 ) {
     Box(modifier.fillMaxWidth()) {
+        if (state.hasBottomBar) {
+            Box(
+                Modifier.matchParentSize()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .then(if (bandTakesTouches(collapsed)) Modifier.pointerInput(Unit) {} else Modifier),
+            )
+        }
         Row(
             Modifier
                 .graphicsLayer { alpha = controlsAlpha(progress()) }

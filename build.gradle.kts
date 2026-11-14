@@ -12,14 +12,20 @@ plugins {
 fun refuse(why: String): Nothing = throw GradleException("Lumi build refused: $why")
 
 fun git(vararg args: String): Pair<Int, String> {
-    val out = providers.exec { commandLine(listOf("git") + args); workingDir = rootDir; isIgnoreExitValue = true }
+    val out = providers.exec {
+        commandLine(listOf("git") + args); workingDir = rootDir; isIgnoreExitValue = true
+        // No system or user config: no include, core.* or replace setting outside the repository can change the count.
+        environment("GIT_CONFIG_NOSYSTEM", "1")
+        environment("GIT_CONFIG_GLOBAL", "/dev/null")
+    }
     val code = try { out.result.get().exitValue } catch (e: Exception) { refuse("git cannot run (${e.javaClass.simpleName})") }
     return code to out.standardOutput.asText.get().trim()
 }
 
 val lumiVersionCode: Int = run {
-    for (name in listOf("GIT_DIR", "GIT_WORK_TREE", "GIT_GRAFT_FILE", "GIT_REPLACE_REF_BASE")) {
-        if (providers.environmentVariable(name).isPresent) refuse("$name is set; git must read this project's own history")
+    // The -c style overrides from the environment are not covered by the clean config above, so they are refused.
+    for (name in listOf("GIT_DIR", "GIT_WORK_TREE", "GIT_GRAFT_FILE", "GIT_REPLACE_REF_BASE", "GIT_CONFIG_COUNT", "GIT_CONFIG_PARAMETERS", "GIT_NO_REPLACE_OBJECTS")) {
+        if (providers.environmentVariable(name).isPresent) refuse("$name is set; git must read this project's own history with no injected config")
     }
     val (topCode, top) = git("rev-parse", "--show-toplevel")
     if (topCode != 0) refuse("no git repository at the project root")

@@ -12,4 +12,6 @@ data class PageState(
     val blockedTrackers: Int = 0,
     /** The tab's back history for the Back long-press menu; empty after a crash. */
     val history: BackHistory = BackHistory(),
+    /** The page has a bar stuck to the screen bottom, as its content script reported; false until it reports. */
+    val hasBottomBar: Boolean = false,
 )

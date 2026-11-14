@@ -122,7 +122,8 @@ class BrowserEngine(appContext: Context) {
             .build(),
     )
 
-    private val pageEnd = PageEndExtension(runtime).also { it.start() }
+    private val pageEnd = PageEndExtension(runtime) { records.values.forEach { tab -> tab.session?.let { bindPageEnd(tab, it) } } }
+        .also { it.start() }
     private var pageEndStripPx = 0
     private val pageEndWidth = View.OnLayoutChangeListener { v, _, _, _, _, _, _, _, _ -> pageEnd.update(pageEndStripPx, v.width) }
 
@@ -273,6 +274,7 @@ class BrowserEngine(appContext: Context) {
         tab.session?.let { return it }
         val session = if (tab.isPrivate) GeckoSession(GeckoSessionSettings.Builder().usePrivateMode(true).build()) else GeckoSession()
         attach(tab, session)
+        bindPageEnd(tab, session)
         session.open(runtime)
         tab.session = session
         val restored = tab.sessionState ?: parseState(tab.storedState, GeckoSession.SessionState::fromString) { it.isEmpty() }
@@ -286,12 +288,16 @@ class BrowserEngine(appContext: Context) {
         return session
     }
 
+    private fun bindPageEnd(tab: Tab, session: GeckoSession) {
+        pageEnd.bind(session) { tab.pageChanged { bottomBarChanged(it) } }
+    }
+
     private fun evict(tab: Tab) {
         tab.session?.close()
         tab.session = null
         tab.trackingPermission = null
         live.remove(tab.id)
-        tab.pageChanged { pageStopped() }
+        tab.pageChanged { pageStopped(); bottomBarChanged(false) }
     }
 
     private fun enforceCap(keep: Tab) {

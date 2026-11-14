@@ -23,8 +23,12 @@ class PageEndAssetsTest {
         files.forEach { assertTrue(File(dir, it).isFile, it) }
     }
 
+    // nativeMessagingFromContent lets the content script send its one bottom-bar boolean to the app.
     @Test fun permissionsAreOnlyNativeMessagingAndStorage() =
-        assertTrue(manifest.contains("\"permissions\": [\"geckoViewAddons\", \"nativeMessaging\", \"storage\"]"))
+        assertTrue(manifest.contains("\"permissions\": [\"geckoViewAddons\", \"nativeMessaging\", \"nativeMessagingFromContent\", \"storage\"]"))
+
+    // Gecko keeps an installed built-in extension until its version changes.
+    @Test fun theVersionIsRaisedForTheBottomBarReport() = assertTrue(manifest.contains("\"version\": \"1.5\""))
 
     // Lumi refuses file: pages (UrlGuard), so the extension does not ask for them.
     @Test fun onlyTopFramesOfWebPagesAreMatched() {

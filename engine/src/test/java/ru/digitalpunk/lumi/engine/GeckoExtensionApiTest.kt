@@ -2,6 +2,7 @@ package ru.digitalpunk.lumi.engine
 
 import org.json.JSONObject
 import org.mozilla.geckoview.GeckoResult
+import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.WebExtension
 import org.mozilla.geckoview.WebExtensionController
 import kotlin.test.Test
@@ -30,5 +31,24 @@ class GeckoExtensionApiTest {
         WebExtension.Port::class.java.getMethod("postMessage", JSONObject::class.java)
         WebExtension.Port::class.java.getMethod("setDelegate", WebExtension.PortDelegate::class.java)
         WebExtension.PortDelegate::class.java.getMethod("onDisconnect", WebExtension.Port::class.java)
+    }
+
+    // The content script's bottom-bar report arrives per session (docs: 012-page-end-spacer-extension).
+    @Test fun aSessionTakesAMessageDelegateForOurExtension() {
+        val controller = GeckoSession::class.java.getMethod("getWebExtensionController").returnType
+        assertEquals(WebExtension.SessionController::class.java, controller)
+        controller.getMethod("setMessageDelegate", WebExtension::class.java, WebExtension.MessageDelegate::class.java, String::class.java)
+        val onMessage = WebExtension.MessageDelegate::class.java
+            .getMethod("onMessage", String::class.java, Any::class.java, WebExtension.MessageSender::class.java)
+        assertEquals(GeckoResult::class.java, onMessage.returnType)
+    }
+
+    @Test fun aSenderNamesItsFrameItsEnvironmentAndItsExtension() {
+        val sender = WebExtension.MessageSender::class.java
+        assertEquals(Boolean::class.javaPrimitiveType, sender.getMethod("isTopLevel").returnType)
+        assertEquals(Int::class.javaPrimitiveType, sender.getField("environmentType").type)
+        assertEquals(WebExtension::class.java, sender.getField("webExtension").type)
+        assertEquals(2, sender.getField("ENV_TYPE_CONTENT_SCRIPT").getInt(null))
+        assertEquals(String::class.java, WebExtension::class.java.getField("id").type)
     }
 }

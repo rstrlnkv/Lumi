@@ -37,6 +37,9 @@ fun controlsAlpha(progress: Float) = (1f - 2f * progress).coerceIn(0f, 1f)
 
 fun stripAlpha(progress: Float) = (2f * progress - 1f).coerceIn(0f, 1f)
 
+/** An expanded or sliding band is opaque and takes the touches; a fully collapsed one lets them through to the page. */
+fun bandTakesTouches(collapsed: Boolean) = !collapsed
+
 enum class FieldTap { Expand, Set }
 
 /** A request to start editing while the bar is not fully expanded only expands it; leaving edit mode always passes. */

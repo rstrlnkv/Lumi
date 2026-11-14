@@ -4,6 +4,14 @@ All notable changes to Lumi are written here. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+### Changed
+- The app icon has a smaller disk and a larger flash; the themed icon shows the flash alone.
+- Lumi's native libraries are no longer unpacked when the app is installed.
+
+### Fixed
+- On a site with its own bar stuck to the bottom of the screen, the Compact bar now has a solid background,
+  so that bar no longer shows through between Lumi's buttons.
+
 ## [0.1.0-dev.1] - 2026-11-14
 
 ### Added

@@ -185,4 +185,124 @@ class PageEndContentScriptTest {
                 """{"patch":{"base":2030},"event":"scroll","prop":"--lumi-page-end-top"}""",
             ),
         )
+
+    // The bottom-bar report (docs: 012-page-end-spacer-extension): one boolean, sent only when it changes or is forced.
+    // The default nav: fixed, full width (360), 56 px high, its bottom at the viewport bottom (800), white.
+    private fun nav(overrides: String = "") =
+        """{"position":"fixed","width":360,"height":56,"bottom":800,"bg":"$white","bgImage":"none",""" +
+            """"visibility":"visible","opacity":"1"$overrides}"""
+
+    /** The reports each step sent; every step prints them. */
+    private fun sent(vararg steps: String) = run(*steps.map { it.dropLast(1) + ""","prop":"sent"}""" }.toTypedArray())
+
+    private fun onLoad(navJson: String?, init: String = "") =
+        sent("""{"init":{"nav":$navJson$init},"event":"load"}""")
+
+    @Test fun aFixedFullWidthNavAtTheBottomIsReported() = assertEquals(listOf("true"), onLoad(nav()))
+
+    @Test fun aPageWithoutOneReportsFalseOnLoad() = assertEquals(listOf("false"), onLoad(null))
+
+    @Test fun aNavThatPaintsNothingIsNotReportedUnlessAChildPaints() {
+        val clear = "rgba(0, 0, 0, 0)"
+        assertEquals(listOf("false"), onLoad(nav(""","bg":"$clear"""")))
+        assertEquals(listOf("true"), onLoad(nav(""","bg":"$clear","childBg":"$white"""")))
+        assertEquals(listOf("false"), onLoad(nav(""","bg":"$clear","childBg":"$clear"""")))
+        assertEquals(listOf("true"), onLoad(nav(""","bg":"$clear","bgImage":"linear-gradient(red, blue)"""")))
+    }
+
+    @Test fun onlyFixedOrStickyCounts() {
+        assertEquals(listOf("false"), onLoad(nav(""","position":"static"""")))
+        assertEquals(listOf("false"), onLoad(nav(""","position":"absolute"""")))
+        assertEquals(listOf("true"), onLoad(nav(""","position":"sticky"""")))
+    }
+
+    @Test fun aStickyBoxNotAtTheBottomEdgeIsNotStuck() =
+        assertEquals(listOf("false"), onLoad(nav(""","position":"sticky","bottom":780,"height":200""")))
+
+    @Test fun theNavSpansAtLeastFourFifthsOfTheWidth() {
+        assertEquals(listOf("true"), onLoad(nav(""","width":288""")))
+        assertEquals(listOf("false"), onLoad(nav(""","width":284""")))
+        assertEquals(listOf("false"), onLoad(nav(""","width":56""")), "a floating button")
+    }
+
+    @Test fun theNavEndsWithinFourPxOfTheViewportBottom() {
+        assertEquals(listOf("true"), onLoad(nav(""","bottom":796""")))
+        assertEquals(listOf("false"), onLoad(nav(""","bottom":795""")))
+        assertEquals(listOf("true"), onLoad(nav(""","bottom":801""")))
+        assertEquals(listOf("false"), onLoad(nav(""","bottom":802""")))
+    }
+
+    @Test fun aThinLineOrAFullScreenLayerIsNotANav() {
+        assertEquals(listOf("false"), onLoad(nav(""","height":15""")))
+        assertEquals(listOf("true"), onLoad(nav(""","height":16""")))
+        assertEquals(listOf("true"), onLoad(nav(""","height":280""")))
+        assertEquals(listOf("false"), onLoad(nav(""","height":281""")))
+        assertEquals(listOf("false"), onLoad(nav(""","height":800""")))
+    }
+
+    @Test fun aHiddenOrFadedNavIsNotReported() {
+        assertEquals(listOf("false"), onLoad(nav(""","visibility":"hidden"""")))
+        assertEquals(listOf("false"), onLoad(nav(""","opacity":"0"""")))
+        assertEquals(listOf("false"), onLoad(nav(""","opacity":"0.4"""")))
+    }
+
+    @Test fun ourOwnPageEndBlockIsNotANav() =
+        assertEquals(listOf("false"), sent(page(""""nav":null""").dropLast(1) + ""","event":"load"}"""))
+
+    @Test fun aChangeIsSentOnceAndARecheckWithoutAChangeSendsNothing() =
+        assertEquals(
+            listOf("true", "false", ""),
+            sent(
+                """{"init":{"nav":${nav()}},"event":"load"}""",
+                """{"patch":{"nav":null,"now":1000},"event":"scroll"}""",
+                """{"patch":{"now":2000},"event":"scroll"}""",
+            ),
+        )
+
+    @Test fun pageshowAndBecomingVisibleResendTheValue() =
+        assertEquals(
+            listOf("true", "true", "", "true"),
+            sent(
+                """{"init":{"nav":${nav()}},"event":"load"}""",
+                """{"event":"pageshow"}""",
+                """{"patch":{"hidden":true},"event":"visibilitychange"}""",
+                """{"patch":{"hidden":false},"event":"visibilitychange"}""",
+            ),
+        )
+
+    @Test fun scrollChecksAreThrottledWithATrailingCheck() =
+        assertEquals(
+            listOf("true", "false", "", "true"),
+            sent(
+                """{"init":{"nav":${nav()}},"event":"load"}""",
+                """{"patch":{"nav":null,"now":1000},"event":"scroll"}""",
+                """{"patch":{"nav":${nav()},"now":1100},"event":"scroll"}""",
+                """{"advance":150}""",
+            ),
+        )
+
+    @Test fun aNavMountedAfterLoadIsFoundByTheTimedRecheck() =
+        assertEquals(
+            listOf("false", "true"),
+            sent("""{"init":{"nav":null},"event":"load"}""", """{"patch":{"nav":${nav()}},"advance":1000}"""),
+        )
+
+    @Test fun anSpaRouteChangeRechecks() =
+        assertEquals(
+            listOf("true", "false"),
+            sent("""{"init":{"nav":${nav()}},"event":"load"}""", """{"patch":{"nav":null,"now":1000},"event":"hashchange"}"""),
+        )
+
+    // The load's own frame check is already the next check; once the app listens, the next scroll sends it again too.
+    @Test fun aRejectedReportIsSentAgainOnTheNextCheck() =
+        assertEquals(
+            listOf("true,true", "true"),
+            sent("""{"init":{"nav":${nav()},"rejectSend":true},"event":"load"}""", """{"patch":{"rejectSend":false,"now":1000},"event":"scroll"}"""),
+        )
+
+    @Test fun anIframeReportsNothing() = assertEquals(listOf(""), onLoad(nav(), ""","top":false"""))
+
+    @Test fun aPageWithoutABodyReportsFalseWithoutThrowing() =
+        assertEquals(listOf("false"), onLoad(null, ""","hasBody":false"""))
 }
+

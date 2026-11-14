@@ -29,4 +29,13 @@ class BarGeometryTest {
     }
 
     @Test fun stripTopIsTheBarTopWhenExpanded() = assertEquals(700f, BarGeometry.stripTop(1000f, 300f, 0f))
+
+    // The Compact band fills the bar box: expanded, its top is where Gecko ends `bottom:0`; collapsed, only the strip's zone is left.
+    @Test fun theBandTopIsTheViewportBottomWhenExpandedAndTheStripZoneWhenCollapsed() {
+        val screen = 1000f
+        val expanded = 300f
+        val collapsed = 140f
+        assertEquals(screen - expanded, BarGeometry.stripTop(screen, expanded, hidden = 0f))
+        assertEquals(screen - collapsed, BarGeometry.stripTop(screen, expanded, hidden = BarGeometry.maxHidden(expanded, collapsed)))
+    }
 }

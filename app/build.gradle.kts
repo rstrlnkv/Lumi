@@ -58,16 +58,16 @@ android {
             signingConfig = if (canSign) signingConfigs.getByName("release") else null
         }
     }
-
-    // Native libraries stored compressed: a much smaller APK, extracted once at install.
-    packaging { jniLibs { useLegacyPackaging = true } }
 }
 
-// One clear line when the keys are missing; the unsigned APK is still built.
-tasks.matching { it.name == "assembleRelease" }.configureEach {
+// One clear line when the keys are missing; the unsigned APK is still built. A task with no outputs runs every time,
+// so the line also shows when packaging is up to date, and on every release path (assemble, install, bundle).
+val warnUnsignedRelease by tasks.registering {
     val unsigned = !canSign
-    doFirst { if (unsigned) logger.warn("WARNING: LUMI_RELEASE_* signing properties are missing; building an UNSIGNED release APK.") }
+    onlyIf { unsigned }
+    doLast { logger.warn("WARNING: LUMI_RELEASE_* signing properties are missing; building an UNSIGNED release APK.") }
 }
+tasks.matching { it.name == "packageRelease" || it.name == "packageReleaseBundle" }.configureEach { dependsOn(warnUnsignedRelease) }
 
 // The root CHANGELOG.md ships as assets/CHANGELOG.md, the source of the About screen's "What's new".
 abstract class CopyChangelog : DefaultTask() {
@@ -94,11 +94,15 @@ aboutLibraries {
     collect.configPath = file("config")
 }
 
-// Some unit tests read the manifest and resources from the source tree, so they are inputs of the unit tests.
+// Some unit tests read the manifest, resources and Kotlin sources from the source tree, so they are inputs of the unit tests.
 tasks.withType<Test>().configureEach {
     inputs.file("src/main/AndroidManifest.xml").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir("src/main/res").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir("src/main/java").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.file(rootProject.file("CHANGELOG.md")).withPathSensitivity(PathSensitivity.RELATIVE)
+    // ReleaseBuildPinsTest reads both build scripts.
+    inputs.file("build.gradle.kts").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.file("build.gradle.kts")).withPathSensitivity(PathSensitivity.RELATIVE)
     // LicenseCompletenessTest reads the debug license export: generate it first and rerun the tests when it changes.
     inputs.files(tasks.named("prepareLibraryDefinitionsDebug")).withPathSensitivity(PathSensitivity.RELATIVE)
 }
